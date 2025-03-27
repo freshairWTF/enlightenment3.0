@@ -22,6 +22,7 @@ def individual_analysis():
     )
     analyzer.run()
 
+11git pull --rebase origin main
 
 # ---------------------------------------------------
 def normal_analysis():
