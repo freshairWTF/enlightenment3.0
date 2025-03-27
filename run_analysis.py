@@ -22,8 +22,6 @@ def individual_analysis():
     )
     analyzer.run()
 
-11git pull --rebase origin main
-
 # ---------------------------------------------------
 def normal_analysis():
     """分析（宏观、中观、微观）"""
