@@ -45,46 +45,54 @@ class ReturnMetrics:
             cycle: str,
             max_label: str,
             min_label: str,
-            mv_weights: bool = False,
+            mode: str,
             reverse: bool = False,
-            trade_cost: float = 0.0
+            trade_cost: float = 0.0,
     ) -> pd.DataFrame:
         """
-        计算分组收益率：1）等权收益率；2）市值加权收益率；
+        计算分组收益率
         :param grouped_data: 分组数据
         :param cycle: 周期
         :param max_label: 最大值标签
         :param min_label: 最小值标签
-        :param mv_weights: 市值加权
+        :param mode: 计算模式
         :param reverse: 对冲方向
         :param trade_cost: 交易费用
+        :return 分组收益率
         """
         # 手续费率
         trade_cost /= ANNUALIZED_DAYS.get(cycle)
 
         result = {}
         for date, df in grouped_data.items():
-            grouped_df = df.groupby('group', observed=False)
-            # 计算市值加权收益率
-            if mv_weights:
-                pct_chg_df = grouped_df.apply(
+            grouped_df = df.groupby("group", observed=False)
+
+            if mode == "equal":
+                returns = grouped_df.apply(
+                    lambda y: y["pctChg"].mean()
+                )
+            elif mode == "mv_weight":
+                returns = grouped_df.apply(
                     lambda y: (
-                            y['pctChg'] * (y['市值'] / y['市值'].sum())
+                            y["pctChg"] * (y["市值"] / y["市值"].sum())
                     ).sum()
                 )
-            # 计算等权收益率
-            else:
-                pct_chg_df = grouped_df.apply(
-                    lambda y: y['pctChg'].mean()
+            elif mode == "position_weight":
+                returns = grouped_df.apply(
+                    lambda y: (
+                            y["pctChg"] * y["position_weight"]
+                    ).sum()
                 )
+            else:
+                raise ValueError(f"不支持该收益率计算模式: {mode}")
 
             # 减去交易费用
-            result[date] = pct_chg_df - trade_cost
+            result[date] = returns - trade_cost
 
         result = pd.DataFrame.from_dict(result, orient="index").sort_index(axis=1).fillna(0)
 
         # 对冲收益率
-        result['hedge'] = (
+        result["hedge"] = (
             result[min_label] - result[max_label] if reverse
             else result[max_label] - result[min_label]
         )
@@ -109,7 +117,7 @@ class ReturnMetrics:
         def _process_series(series) -> pd.Series:
             series = series.dropna()
             if series.empty:
-                return pd.Series([np.nan], index=['const'], dtype=np.float64)
+                return pd.Series([np.nan], index=["const"], dtype=np.float64)
             # 滞后期数计算（Bartlett核a=2/9）
             lag = max(1, int(4 * (len(series) / 100) ** (2 / 9)))
 
@@ -117,10 +125,10 @@ class ReturnMetrics:
                 series,
                 sm.add_constant(np.ones(len(series)))
             ).fit(
-                cov_type='HAC',
+                cov_type="HAC",
                 cov_kwds={
-                    'maxlags': lag,
-                    'kernel': 'bartlett'
+                    "maxlags": lag,
+                    "kernel": "bartlett"
                 }
             )
             return pd.Series(
@@ -129,7 +137,7 @@ class ReturnMetrics:
                 dtype=np.float64
             )
 
-        return returns.apply(_process_series).loc['const']
+        return returns.apply(_process_series).loc["const"]
 
     # --------------------------
     # 收益率
@@ -252,7 +260,7 @@ class ReturnMetrics:
         elif isinstance(returns, pd.Series):
             return _process_series(returns)
         else:
-            raise TypeError('仅支持 pandas DataFrame/Series 类型输入')
+            raise TypeError("仅支持 pandas DataFrame/Series 类型输入")
 
     @classmethod
     def cagr(
@@ -268,7 +276,7 @@ class ReturnMetrics:
         annualized_num = ANNUALIZED_DAYS.get(cycle)
 
         def _process_series(series):
-            with np.errstate(divide='ignore', invalid='ignore'):
+            with np.errstate(divide="ignore", invalid="ignore"):
                 print(series)
                 print((series[-1] / series[0]))
                 print(1 / (len(series) / annualized_num))
@@ -280,7 +288,7 @@ class ReturnMetrics:
         elif isinstance(cum_returns, pd.Series):
             return _process_series(cum_returns)
         else:
-            raise TypeError('仅支持 pandas DataFrame/Series 类型输入')
+            raise TypeError("仅支持 pandas DataFrame/Series 类型输入")
 
     @classmethod
     def maximum_drawdown(
@@ -642,7 +650,7 @@ class TestMetrics:
         r_squared = {}
 
         for date, df in processed_data.items():
-            x = sm.add_constant(df[factors_name], has_constant='add')
+            x = sm.add_constant(df[factors_name], has_constant="add")
             y = df[dependent_variable]
             model = sm.OLS(y, x).fit()
             r_squared[date] = model.rsquared
@@ -677,7 +685,7 @@ class TestMetrics:
         # 线性拟合
         # ----------------------------
         for date, df in processed_data.items():
-            x = sm.add_constant(df[factors_name], has_constant='add')
+            x = sm.add_constant(df[factors_name], has_constant="add")
             y = df[dependent_variable]
             model = sm.OLS(y, x).fit()
 
@@ -747,16 +755,16 @@ class MonitorMetrics:
         """
         df = df[[factor_name, target_col]].copy()
 
-        df['group'] = pd.qcut(
+        df["group"] = pd.qcut(
             df[factor_name],
             q=3,
-            labels=['low', 'medium', 'high']
+            labels=["low", "medium", "high"]
         )
 
         if clean:
             df[target_col] = DataProcessor.percentile(df[target_col])
 
-        return df.groupby('group', observed=False)[target_col].agg(agg_func)
+        return df.groupby("group", observed=False)[target_col].agg(agg_func)
 
     @classmethod
     def calc_corr(
@@ -938,8 +946,8 @@ class MonitorMetrics:
             orient="index"
         )
         return (
-            returns['high'].rolling(window=window, min_periods=2)
-            .corr(returns['low'])
+            returns["high"].rolling(window=window, min_periods=2)
+            .corr(returns["low"])
         )
 
     # @classmethod
@@ -974,7 +982,7 @@ class MonitorMetrics:
     #
     #     # 数据合并
     #     return_ = return_ * 100
-    #     return_['market'] = market_return
+    #     return_["market"] = market_return
     #     return_ = return_.astype(float)
     #
     #     # 计算对冲贝塔比率

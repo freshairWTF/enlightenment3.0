@@ -7,7 +7,7 @@ from evaluation import Evaluation
 from utils.drawer import Drawer
 from utils.data_loader import DataLoader
 from utils.quant_processor import QuantProcessor
-from constant.type_ import CLASS_LEVEL, CYCLE, validate_literal_params
+from constant.type_ import CLASS_LEVEL, CYCLE, CALC_RETURN_MODE, validate_literal_params
 
 
 ####################################################
@@ -213,7 +213,7 @@ class BaseService:
             grouped_data: dict[str, pd.DataFrame],
             cycle: CYCLE,
             group_label: list[str],
-            mv_weights: bool = False,
+            mode: CALC_RETURN_MODE = "equal",
             reverse: bool = False,
             trade_cost: float = 0.0,
             prefix: str = ""
@@ -223,7 +223,7 @@ class BaseService:
         :param grouped_data: 分组数据
         :param cycle: 周期
         :param group_label: 分组标签
-        :param mv_weights: 市值加权
+        :param mode: 收益率计算模式
         :param reverse: 多空反转
         :param trade_cost: 手续费率
         :param prefix: 前缀
@@ -236,7 +236,13 @@ class BaseService:
         # 指标计算
         # --------------------------
         grouped_return = cls.evaluate.returns.calc_group_returns(
-            grouped_data, cycle, max_label, min_label, mv_weights, reverse, trade_cost
+            grouped_data,
+            cycle,
+            max_label,
+            min_label,
+            mode,
+            reverse,
+            trade_cost
         )
         cum_return = cls.evaluate.returns.cum_return(grouped_return)
         wtl_ratio = cls.evaluate.returns.win_to_loss_ratio(grouped_return)

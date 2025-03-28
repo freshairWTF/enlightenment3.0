@@ -146,6 +146,25 @@ class PositionWeight:
         return weight
 
     @classmethod
+    def _get_group_equal_weight(
+            cls,
+            factors_data: dict[str, pd.DataFrame],
+    ) -> dict[str, pd.Series]:
+        """
+        等权权重（分组）
+        :param factors_data: 因子数据
+        """
+        weight = {
+            date: pd.Series(
+                len(df["group"].unique()) / df.shape[0],
+                index=df.index
+            ).rename("position_weight")
+            for date, df in factors_data.items()
+        }
+
+        return weight
+
+    @classmethod
     def _get_hedge_weight(
             cls,
             factors_data: dict[str, pd.DataFrame],
@@ -183,11 +202,11 @@ class PositionWeight:
             distribution: tuple[float, float]
     ) -> dict[str, pd.Series]:
         """
-        纯多头仓位权重
+        对冲仓位权重（分组）
         :param factors_data: 因子数据
         :param factor_name: 排序因子名
         :param distribution 权重分布集中度
-        :return: 纯多头仓位权重
+        :return: 对冲仓位权重
         """
         # -1 标准化特征排名向量
         ranking_vector = cls.__get_group_standardized_feature_ranking_vector(
@@ -254,7 +273,7 @@ class PositionWeight:
             distribution: tuple[float, float]
     ) -> dict[str, pd.Series]:
         """
-        纯多头仓位权重
+        纯多头仓位权重（分组）
         :param factors_data: 因子数据
         :param factor_name: 排序因子名
         :param distribution 权重分布集中度
@@ -313,6 +332,7 @@ class PositionWeight:
         """
         handlers = {
             "equal": lambda: cls._get_equal_weight(factors_data),
+            "group_equal": lambda: cls._get_group_equal_weight(factors_data),
             "long_only": lambda: cls._get_long_only_weight(factors_data, factor_name, distribution),
             "group_long_only": lambda: cls._get_group_long_only_weight(factors_data, factor_name, distribution),
             "hedge": lambda: cls._get_hedge_weight(factors_data, factor_name, distribution),

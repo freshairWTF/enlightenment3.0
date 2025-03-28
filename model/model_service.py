@@ -256,32 +256,48 @@ class ModelAnalyzer(BaseService):
                 reverse=reverse, prefix="0.0"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label, True,
-                reverse=reverse, prefix="0.0_mw"
+                grouped_data, self.cycle, self.group_label,
+                mode="mv_weight", reverse=reverse, prefix="0.0_mw"
+            ),
+            **self.calc_return_metrics(
+                grouped_data, self.cycle, self.group_label,
+                mode="position_weight", reverse=reverse, prefix="0.0_pw"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.group_label,
                 reverse=reverse, trade_cost=0.01, prefix="0.01"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label, True,
-                reverse=reverse, trade_cost=0.01, prefix="0.01_mw"
+                grouped_data, self.cycle, self.group_label,
+                mode="mv_weight", reverse=reverse, trade_cost=0.01, prefix="0.01_mw"
+            ),
+            **self.calc_return_metrics(
+                grouped_data, self.cycle, self.group_label,
+                mode="position_weight", reverse=reverse, trade_cost=0.01, prefix="0.01_pw"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.group_label,
                 reverse=reverse, trade_cost=0.03, prefix="0.03"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label, True,
-                reverse=reverse, trade_cost=0.03, prefix="0.03_mw"
+                grouped_data, self.cycle, self.group_label,
+                mode="mv_weight", reverse=reverse, trade_cost=0.03, prefix="0.03_mw"
+            ),
+            **self.calc_return_metrics(
+                grouped_data, self.cycle, self.group_label,
+                mode="position_weight", reverse=reverse, trade_cost=0.03, prefix="0.03_pw"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.group_label,
                 reverse=reverse, trade_cost=0.05, prefix="0.05"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label, True,
-                reverse=reverse, trade_cost=0.05, prefix="0.05_mw"
+                grouped_data, self.cycle, self.group_label,
+                mode="mv_weight", reverse=reverse, trade_cost=0.05, prefix="0.05_mw"
+            ),
+            **self.calc_return_metrics(
+                grouped_data, self.cycle, self.group_label,
+                mode="position_weight", reverse=reverse, trade_cost=0.05, prefix="0.05_pw"
             ),
         }
 

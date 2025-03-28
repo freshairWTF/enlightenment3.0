@@ -3,35 +3,46 @@ from functools import wraps
 from inspect import signature
 
 
+# 财务周期
 FINANCIAL_CYCLE = Literal["year", "half", "quarter"]
+# 财务报表标签
 FINANCIAL_SHEET = Literal['BS', 'PS', 'CF']
 
-
+# k线周期
 KLINE_CYCLE = Literal["year", "half", "quarter", "month", "week", "day", "original_day"]
+# k线复权标签
 KLINE_SHEET = Literal["backward_adjusted", "split_adjusted", "unadjusted"]
 
-
+# 一般周期
 CYCLE = Literal["year", "half", "quarter", "month", "week", "day"]
+# 分析维度
 DIMENSION = Literal["mac", "meso", "micro"]
+# 宏观/中观合成权重
 WEIGHTS = Literal["等权", "市值", "营业收入", "净利润"]
 
-
+# 行业分类表sheet
 INDUSTRY_SHEET = Literal["A", "Total_A", "AHU"]
+# 行业分类表返回数据类型
 INDUSTRY_RETURN_TYPE = Literal["dataframe", "dict", "list"]
-
-
+# 行业分类表分类列名
 CLASS_LEVEL = Literal["一级行业", "二级行业", "三级行业", "美林时钟", "库存周期", "自定义", "自定义一"]
+
+# 分组模式
 GROUP_MODE = Literal["frequency", "distant"]
+# 过滤模式
 FILTER_MODE = Literal[
                 '_white_filter', '_entire_filter', '_overall_filter',
                 '_mega_cap_filter', '_large_cap_filter', '_small_cap_filter'
             ]
 
-
+# 因子权重
 FACTOR_WEIGHT = Literal["equal", "ic_weight", "ir_weight", "ir_decay_weight"]
-POSITION_WEIGHT = Literal["equal", "long_only", "group_long_only", "hedge", "group_hedge"]
+# 仓位权重
+POSITION_WEIGHT = Literal["equal", "group_equal","long_only", "group_long_only", "hedge", "group_hedge"]
+# 收益率计算模式
+CALC_RETURN_MODE = Literal["equal", "mv_weight", "position_weight"]
 
-
+# 错误处理方式
 ERROR: Literal["raise", "warn", "ignore"] = "raise"
 
 

@@ -204,6 +204,24 @@ class ModelVisualization:
                     data_source="0.0_mw_cum_returns",
                     column="",
                     date=False
+                ),
+                "_basic_table-8": BasicChartSpecs(
+                    title="基础信息",
+                    data_source="0.0_pw_basic_stats",
+                    column="",
+                    date=False
+                ),
+                "_basic_table-9": BasicChartSpecs(
+                    title="收益指标",
+                    data_source="0.0_pw_returns_stats",
+                    column="",
+                    date=False
+                ),
+                "_basic_line-5": BasicChartSpecs(
+                    title="收益累计",
+                    data_source="0.0_pw_cum_returns",
+                    column="",
+                    date=False
                 )
             },
             "1%TS_模型分析": {
@@ -240,6 +258,24 @@ class ModelVisualization:
                 "_basic_line-3": BasicChartSpecs(
                     title="收益累计",
                     data_source="0.01_mw_cum_returns",
+                    column="",
+                    date=False
+                ),
+                "_basic_table-8": BasicChartSpecs(
+                    title="基础信息",
+                    data_source="0.01_pw_basic_stats",
+                    column="",
+                    date=False
+                ),
+                "_basic_table-9": BasicChartSpecs(
+                    title="收益指标",
+                    data_source="0.01_pw_returns_stats",
+                    column="",
+                    date=False
+                ),
+                "_basic_line-5": BasicChartSpecs(
+                    title="收益累计",
+                    data_source="0.01_pw_cum_returns",
                     column="",
                     date=False
                 )
@@ -280,6 +316,24 @@ class ModelVisualization:
                     data_source="0.03_mw_cum_returns",
                     column="",
                     date=False
+                ),
+                "_basic_table-8": BasicChartSpecs(
+                    title="基础信息",
+                    data_source="0.03_pw_basic_stats",
+                    column="",
+                    date=False
+                ),
+                "_basic_table-9": BasicChartSpecs(
+                    title="收益指标",
+                    data_source="0.03_pw_returns_stats",
+                    column="",
+                    date=False
+                ),
+                "_basic_line-5": BasicChartSpecs(
+                    title="收益累计",
+                    data_source="0.03_pw_cum_returns",
+                    column="",
+                    date=False
                 )
             },
             "5%TS_模型分析": {
@@ -316,6 +370,24 @@ class ModelVisualization:
                 "_basic_line-3": BasicChartSpecs(
                     title="收益累计",
                     data_source="0.05_mw_cum_returns",
+                    column="",
+                    date=False
+                ),
+                "_basic_table-8": BasicChartSpecs(
+                    title="基础信息",
+                    data_source="0.05_pw_basic_stats",
+                    column="",
+                    date=False
+                ),
+                "_basic_table-9": BasicChartSpecs(
+                    title="收益指标",
+                    data_source="0.05_pw_returns_stats",
+                    column="",
+                    date=False
+                ),
+                "_basic_line-5": BasicChartSpecs(
+                    title="收益累计",
+                    data_source="0.05_pw_cum_returns",
                     column="",
                     date=False
                 )

@@ -21,7 +21,7 @@ def multi_factors_model():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "202503M"
-    storage_dir = "ir衰减测试/ir加权-滚动6-夏普修改-测试"
+    storage_dir = "ir衰减测试/测试-纯头多-3"
 
     # 因子参数设置
     factors_setting = list(OVERALL_FACTOR.values())
@@ -40,8 +40,8 @@ if __name__ == "__main__":
         group_mode="frequency",
         factor_weight_method="ir_weight",
         factor_weight_window=6,
-        position_weight_method="equal",
-        position_distribution=(1, 1)
+        position_weight_method="group_long_only",
+        position_distribution=(3, 1)
     )
 
     # 回测
