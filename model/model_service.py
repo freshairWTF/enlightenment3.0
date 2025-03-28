@@ -392,7 +392,8 @@ class ModelAnalyzer(BaseService):
             group_mode=self.model_setting.group_mode,
             factor_weight_method=self.model_setting.factor_weight_method,
             factor_weight_window=self.model_setting.factor_weight_window,
-            position_weight_method=self.model_setting.position_weight_method
+            position_weight_method=self.model_setting.position_weight_method,
+            position_distribution=self.model_setting.position_distribution
         )
         grouped_data = model.run()
 

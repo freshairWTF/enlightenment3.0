@@ -1,10 +1,7 @@
-
-
-from quant.model_service import ModelAnalyzer
-from quant_setting import ModelSetting
-from model.multi_factors_model import MultiFactors
-
 from constant.factor_library import *
+from constant.quant_setting import ModelSetting
+from model.model_service import ModelAnalyzer
+from model.multi_factors_model import MultiFactors
 
 
 # --------------------------------------------
@@ -43,7 +40,8 @@ if __name__ == "__main__":
         group_mode="frequency",
         factor_weight_method="ir_weight",
         factor_weight_window=6,
-        position_weight_method="group_long_only"
+        position_weight_method="group_long_only",
+        position_distribution=(1, 1)
     )
 
     # 回测

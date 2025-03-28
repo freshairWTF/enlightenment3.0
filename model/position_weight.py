@@ -17,7 +17,7 @@ class PositionWeight:
             factors_data: dict[str, pd.DataFrame],
             factor_name: str,
             feature_range: tuple[int, int]
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.Series]:
         """
         获取标准化特征排名向量
         :param factors_data: 因子数据
@@ -25,13 +25,13 @@ class PositionWeight:
         :param feature_range: 映射空间：-1 (0, 1)纯多头；-2 (-1, 1)多空对冲
         :return 标准化特征排名向量
         """
-        return pd.concat([
-            DataProcessor.normalization(
+        return {
+            date: DataProcessor.normalization(
                 df[factor_name].rank(),
                 feature_range=feature_range
-            ).rename(date)
+            )
             for date, df in factors_data.items()
-        ], axis=1).T
+        }
 
     @staticmethod
     def __get_group_standardized_feature_ranking_vector(
@@ -39,7 +39,7 @@ class PositionWeight:
             factor_name: str,
             group_column: str,
             feature_range: tuple[int, int]
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.Series]:
         """
         获取标准化特征排名向量（分组）
         :param factors_data: 因子数据
@@ -48,28 +48,25 @@ class PositionWeight:
         :param feature_range: 映射空间：-1 (0, 1)纯多头；-2 (-1, 1)多空对冲
         :return 标准化特征排名向量
         """
-        standardized_series = []
+        result = {}
         for date, df in factors_data.items():
             # 分组
             grouped = df.groupby(group_column, group_keys=False)
             # 组内排序
             ranked = grouped[factor_name].rank()
             # 组内标准化到目标范围
-            normalized = ranked.groupby(df[group_column]).transform(
+            result[date] = ranked.groupby(df[group_column]).transform(
                 lambda x: DataProcessor.normalization(x, feature_range)
-            ).rename(date)
+            )
 
-            standardized_series.append(normalized)
-
-        # 合并所有日期数据
-        return pd.concat(standardized_series, axis=1).T
+        return result
 
     @staticmethod
     def __get_power_sorting_weights(
-            ranking_vector: pd.DataFrame,
+            ranking_vector: dict[str, pd.Series],
             p: float,
             q: float
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.Series]:
         """
         幂排序权重（按日期处理每个横截面）
         :param ranking_vector: 行索引为日期，列名为股票代码，值为标准化排名分数
@@ -109,14 +106,16 @@ class PositionWeight:
             return pd.Series(weights, index=stock_codes)
 
         # 按日期逐行计算权重
-        weights_df = ranking_vector.apply(_calculate_weights, axis=1)
+        weights_dict = {
+            date: _calculate_weights(vector)
+            for date, vector in ranking_vector.items()
+        }
 
-        return weights_df
+        return weights_dict
 
     @staticmethod
     def __get_group_power_sorting_weights(
-            ranking_vector: pd.DataFrame,
-            factors_data: dict[str, pd.DataFrame],
+            ranking_vector: dict[str, pd.DataFrame],
             group_column: str,
             p: float,
             q: float
@@ -124,7 +123,6 @@ class PositionWeight:
         """
         幂排序权重（按日期、分组处理每个横截面）
         :param ranking_vector: 行索引为日期，列名为股票代码，值为标准化排名分数
-        :param factors_data: 因子数据
         :param group_column: 分组列名
         :param p: 正得分幂参数（控制多头权重集中度）
                 p > 1	        强化头部集中度	            押注少数高得分标的
@@ -134,25 +132,6 @@ class PositionWeight:
         :param q: 负得分幂参数（控制空头权重集中度）
         :return: 幂排序权重
         """
-        # 将 ranking_vector 转换为长格式（日期和股票代码为多级索引）
-        long_format = ranking_vector.stack().rename("score").reset_index()
-        long_format.columns = ["date", "stock", "score"]
-
-        # 从 factors_data 提取分组信息并合并
-        group_data = pd.concat(
-            {date: df[group_column] for date, df in factors_data.items()},
-            axis=0
-        ).reset_index()
-        group_data.columns = ["date", "stock", group_column]
-
-        # 合并得分和分组信息
-        merged = pd.merge(
-            long_format,
-            group_data,
-            on=["date", "stock"],
-            how="left"
-        )
-
         # 定义分组计算函数
         def _group_weights(df_group: pd.DataFrame) -> pd.DataFrame:
             """处理单个分组的权重计算"""
@@ -169,10 +148,21 @@ class PositionWeight:
                 else:
                     weight = (s ** p) / sum_pos if sum_pos != 0 else 0.0
                 weights.append(weight)
+            print(df_group)
+            print(weights)
+
+            print(df_group["weight"])
             df_group["weight"] = weights
+            print(dd)
 
             return df_group[["stock", "weight", "date"]]
 
+        weights_dict = {
+            date: df.groupby("group", group_keys=False).apply(_group_weights)
+            for date, df in ranking_vector.items()
+        }
+        print(weights_dict)
+        print(dd)
         # 按日期和分组计算权重
         grouped = merged.groupby(["date", group_column], group_keys=False)
         weights_long = grouped.apply(_group_weights)
@@ -214,7 +204,7 @@ class PositionWeight:
             factors_data: dict[str, pd.DataFrame],
             factor_name: str,
             distribution: tuple[float, float]
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.Series]:
         """
         对冲仓位权重
         :param factors_data: 因子数据
@@ -260,10 +250,18 @@ class PositionWeight:
             feature_range=(-1, 1)
         )
 
-        # -2 计算幂排序权重
+        # -2 合并 分组信息
+        ranking_vector = {
+            date: pd.concat([
+                vector.rename("score"),
+                factors_data[date]["group"]
+            ], axis=1)
+            for date, vector in ranking_vector.items()
+        }
+
+        # -3 计算幂排序权重
         weight = cls.__get_group_power_sorting_weights(
             ranking_vector,
-            factors_data,
             "group",
             distribution[0],
             distribution[1]
@@ -277,7 +275,7 @@ class PositionWeight:
             factors_data: dict[str, pd.DataFrame],
             factor_name: str,
             distribution: tuple[float, float]
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.Series]:
         """
         纯多头仓位权重
         :param factors_data: 因子数据
@@ -323,10 +321,18 @@ class PositionWeight:
             feature_range=(0, 1)
         )
 
-        # -2 计算幂排序权重
+        # -2 合并 分组信息
+        ranking_vector = {
+            date: pd.concat([
+                vector.rename("score"),
+                factors_data[date]["group"]
+            ], axis=1)
+            for date, vector in ranking_vector.items()
+        }
+
+        # -3 计算幂排序权重
         weight = cls.__get_group_power_sorting_weights(
             ranking_vector,
-            factors_data,
             "group",
             distribution[0],
             distribution[1]
@@ -366,4 +372,4 @@ class PositionWeight:
             "group_hedge": lambda: cls._get_group_hedge_weight(factors_data, factor_name, distribution)
         }
 
-        return handlers[method]()
+        return handlers[method]().T.to_dict("series")

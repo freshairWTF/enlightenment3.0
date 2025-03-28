@@ -33,6 +33,7 @@ class ModelSetting:
     filter_mode: FILTER_MODE                            # 过滤模式
 
     position_weight_method: str                         # 仓位权重方法
+    position_distribution: tuple[float, float]          # 仓位集中度
 
     factors_setting: list[FactorSetting]                # 因子设置
     class_level: CLASS_LEVEL = "一级行业"                 # 中性化行业

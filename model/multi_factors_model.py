@@ -22,6 +22,7 @@ class MultiFactors(MultiFactorsModel):
             factor_weight_method: FACTOR_WEIGHT = "equal",
             factor_weight_window: int = 12,
             position_weight_method: POSITION_WEIGHT = "equal",
+            position_distribution: tuple[float, float] = (1, 1),
             individual_position_limit: float = 0.1,
             index_data: dict[str, pd.DataFrame] | None = None,
     ):
@@ -33,6 +34,7 @@ class MultiFactors(MultiFactorsModel):
         :param factor_weight_method: 因子权重方法
         :param factor_weight_window: 因子权重窗口数
         :param position_weight_method: 仓位权重方法
+        :param position_distribution: 仓位集中度
         :param individual_position_limit: 单一持仓上限
         :param index_data: 指数数据
         """
@@ -45,6 +47,8 @@ class MultiFactors(MultiFactorsModel):
         self.factor_weight_method = factor_weight_method
         self.factor_weight_window = factor_weight_window
         self.position_weight_method = position_weight_method
+        self.position_distribution = position_distribution
+
         self.individual_position_limit = individual_position_limit,
 
     def run(self):
@@ -69,7 +73,7 @@ class MultiFactors(MultiFactorsModel):
             factors_name=self.factors_name,
             weights=weights
         )
-
+        # print(z_score)
         # -3 数据合并
         for date, df in self.raw_data.copy().items():
             try:
@@ -98,7 +102,8 @@ class MultiFactors(MultiFactorsModel):
         position = self.position_weight.get_weights(
             grouped_data,
             factor_name="predicted",
-            method=self.position_weight_method
+            method=self.position_weight_method,
+            distribution=self.position_distribution
         )
 
         print(position)

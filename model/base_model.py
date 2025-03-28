@@ -137,3 +137,18 @@ class MultiFactorsModel(ABC):
     # --------------------------
     # 辅助方法
     # --------------------------
+    # @classmethod
+    # def join_data(
+    #         cls,
+    #         raw_data: dict[str, pd.DataFrame],
+    #         joined_data:
+    # ) -> dict[str, pd.DataFrame]:
+    #     result = {}
+    #     for date, df in raw_data.copy().items():
+    #         try:
+    #             result[date] = df.join(z_score[date], how="left")
+    #         except KeyError:
+    #             self.raw_data.pop(date)
+    #             continue
+    #
+    #     return raw_data
