@@ -17,8 +17,8 @@ def individual_analysis():
         start_date="2015-12-31",
         end_date="2025-03-27",
         financial_end_date="2024-12-31",
-        storage_dir_name="天岳先进24Y",
-        target_info="688234"
+        storage_dir_name="民和股份24Y",
+        target_info="002234"
     )
     analyzer.run()
 

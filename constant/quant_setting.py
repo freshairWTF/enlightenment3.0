@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from constant.type_ import CLASS_LEVEL, GROUP_MODE, FACTOR_WEIGHT, FILTER_MODE
+from constant.type_ import CLASS_LEVEL, GROUP_MODE, FACTOR_WEIGHT, FILTER_MODE, POSITION_WEIGHT
 
 
 #####################################################
@@ -32,7 +32,7 @@ class ModelSetting:
     industry_info: dict[str, str]                       # 行业信息
     filter_mode: FILTER_MODE                            # 过滤模式
 
-    position_weight_method: str                         # 仓位权重方法
+    position_weight_method: POSITION_WEIGHT             # 仓位权重方法
     position_distribution: tuple[float, float]          # 仓位集中度
 
     factors_setting: list[FactorSetting]                # 因子设置

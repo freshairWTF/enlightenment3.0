@@ -63,9 +63,10 @@ class PositionWeight:
 
     @staticmethod
     def __get_power_sorting_weights(
-            ranking_vector: dict[str, pd.Series],
+            ranking_vector: dict[str, pd.Series | pd.DataFrame],
             p: float,
-            q: float
+            q: float,
+            group: bool = False
     ) -> dict[str, pd.Series]:
         """
         幂排序权重（按日期处理每个横截面）
@@ -105,98 +106,44 @@ class PositionWeight:
 
             return pd.Series(weights, index=stock_codes)
 
-        # 按日期逐行计算权重
-        weights_dict = {
-            date: _calculate_weights(vector)
-            for date, vector in ranking_vector.items()
-        }
+        if group:
+            # 按日期、分组计算权重
+            return {
+                date: df.groupby(
+                    "group",
+                    group_keys=False
+                )["score"].apply(
+                    _calculate_weights
+                ).rename("position_weight")
+                for date, df in ranking_vector.items()
+            }
+        else:
+            # 按日期逐行计算权重
+            return {
+                date: _calculate_weights(
+                    vector
+                ).rename("position_weight")
+                for date, vector in ranking_vector.items()
+            }
 
-        return weights_dict
-
-    @staticmethod
-    def __get_group_power_sorting_weights(
-            ranking_vector: dict[str, pd.DataFrame],
-            group_column: str,
-            p: float,
-            q: float
-    ) -> pd.DataFrame:
-        """
-        幂排序权重（按日期、分组处理每个横截面）
-        :param ranking_vector: 行索引为日期，列名为股票代码，值为标准化排名分数
-        :param group_column: 分组列名
-        :param p: 正得分幂参数（控制多头权重集中度）
-                p > 1	        强化头部集中度	            押注少数高得分标的
-                p = 1	        线性权重（原样保留得分比例）	平衡策略
-                0 < p < 1	    分散权重	                降低头部集中度，避免过度暴露
-                p = 0	        等权重（需特殊处理）
-        :param q: 负得分幂参数（控制空头权重集中度）
-        :return: 幂排序权重
-        """
-        # 定义分组计算函数
-        def _group_weights(df_group: pd.DataFrame) -> pd.DataFrame:
-            """处理单个分组的权重计算"""
-            scores = df_group["score"].values
-            sum_pos = np.sum(scores[scores > 0] ** p) if np.any(scores > 0) else 0.0
-            sum_neg = np.sum(np.abs(scores[scores < 0]) ** q) if np.any(scores < 0) else 0.0
-
-            weights = []
-            for s in scores:
-                if s < 0:
-                    weight = - (abs(s) ** q) / sum_neg if sum_neg != 0 else 0.0
-                elif s == 0:
-                    weight = 0.0
-                else:
-                    weight = (s ** p) / sum_pos if sum_pos != 0 else 0.0
-                weights.append(weight)
-            print(df_group)
-            print(weights)
-
-            print(df_group["weight"])
-            df_group["weight"] = weights
-            print(dd)
-
-            return df_group[["stock", "weight", "date"]]
-
-        weights_dict = {
-            date: df.groupby("group", group_keys=False).apply(_group_weights)
-            for date, df in ranking_vector.items()
-        }
-        print(weights_dict)
-        print(dd)
-        # 按日期和分组计算权重
-        grouped = merged.groupby(["date", group_column], group_keys=False)
-        weights_long = grouped.apply(_group_weights)
-
-        # 转换回宽格式（日期为行，股票代码为列）
-        weights_wide = weights_long.pivot(
-            index="date",
-            columns="stock",
-            values="weight"
-        ).reindex(columns=ranking_vector.columns, index=ranking_vector.index)
-
-        return weights_wide.fillna(0.0)
-
-    # --------------------------
-    # 权重方法
-    # --------------------------
     @classmethod
     def _get_equal_weight(
             cls,
             factors_data: dict[str, pd.DataFrame],
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.Series]:
         """
         等权权重
         :param factors_data: 因子数据
         """
-        weights = pd.concat([
-            pd.Series(
+        weight = {
+            date: pd.Series(
                 1 / df.shape[0],
-                index=df.index,
-                name=date
-            ) for date, df in factors_data.items()
-        ], axis=1).T
+                index=df.index
+            ).rename("position_weight")
+            for date, df in factors_data.items()
+        }
 
-        return weights
+        return weight
 
     @classmethod
     def _get_hedge_weight(
@@ -234,7 +181,7 @@ class PositionWeight:
             factors_data: dict[str, pd.DataFrame],
             factor_name: str,
             distribution: tuple[float, float]
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.Series]:
         """
         纯多头仓位权重
         :param factors_data: 因子数据
@@ -260,11 +207,11 @@ class PositionWeight:
         }
 
         # -3 计算幂排序权重
-        weight = cls.__get_group_power_sorting_weights(
+        weight = cls.__get_power_sorting_weights(
             ranking_vector,
-            "group",
             distribution[0],
-            distribution[1]
+            distribution[1],
+            group=True
         )
 
         return weight
@@ -305,7 +252,7 @@ class PositionWeight:
             factors_data: dict[str, pd.DataFrame],
             factor_name: str,
             distribution: tuple[float, float]
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.Series]:
         """
         纯多头仓位权重
         :param factors_data: 因子数据
@@ -331,11 +278,11 @@ class PositionWeight:
         }
 
         # -3 计算幂排序权重
-        weight = cls.__get_group_power_sorting_weights(
+        weight = cls.__get_power_sorting_weights(
             ranking_vector,
-            "group",
             distribution[0],
-            distribution[1]
+            distribution[1],
+            group=True
         )
 
         return weight
@@ -351,7 +298,7 @@ class PositionWeight:
             factor_name: str,
             method: POSITION_WEIGHT,
             distribution: tuple[float, float] = (1, 1)
-    ) -> pd.DataFrame:
+    ) -> dict[str, pd.Series]:
         """
         获取仓位权重
         :param factors_data: 因子数据
@@ -372,4 +319,4 @@ class PositionWeight:
             "group_hedge": lambda: cls._get_group_hedge_weight(factors_data, factor_name, distribution)
         }
 
-        return handlers[method]().T.to_dict("series")
+        return handlers[method]()

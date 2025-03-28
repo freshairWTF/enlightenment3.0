@@ -60,7 +60,7 @@ class MultiFactors(MultiFactorsModel):
             4）Z-Score回归；
         """
         # -1 因子权重
-        weights = self.factor_weight.get_weights(
+        factor_weights = self.factor_weight.get_weights(
             factors_data=self.raw_data,
             factors_name=self.factors_name,
             method=self.factor_weight_method,
@@ -71,24 +71,17 @@ class MultiFactors(MultiFactorsModel):
         z_score = self.calc_z_scores(
             data=self.raw_data,
             factors_name=self.factors_name,
-            weights=weights
+            weights=factor_weights
         )
-        # print(z_score)
-        # -3 数据合并
-        for date, df in self.raw_data.copy().items():
-            try:
-                self.raw_data[date] = df.join(z_score[date], how="left")
-            except KeyError:
-                self.raw_data.pop(date)
-                continue
+        z_score_data = self.join_data(self.raw_data, z_score)
 
-        # -4 预期收益率
+        # -3 预期收益率
         predict_return = self.calc_predict_return(
-            data=self.raw_data,
+            data=z_score_data,
             window=self.factor_weight_window
         )
 
-        # -5 分组
+        # -4 分组
         grouped_data = QuantProcessor.divide_into_group(
             predict_return,
             factor_col="",
@@ -98,15 +91,13 @@ class MultiFactors(MultiFactorsModel):
             group_label=self.group_label,
         )
 
-        # -6 仓位权重
-        position = self.position_weight.get_weights(
+        # -5 仓位权重
+        position_weight = self.position_weight.get_weights(
             grouped_data,
             factor_name="predicted",
             method=self.position_weight_method,
             distribution=self.position_distribution
         )
+        position_weight_data = self.join_data(grouped_data, position_weight)
 
-        print(position)
-        print(dd)
-
-        return grouped_data
+        return position_weight_data
