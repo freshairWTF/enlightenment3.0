@@ -1396,3 +1396,5 @@ class FinancialMetrics(Metrics):
 
         # 向前填充
         self.metrics["实际税率"] = self.metrics["实际税率"].ffill()
+        # 用0填充
+        self.metrics["实际税率"] = self.metrics["实际税率"].fillna(0)

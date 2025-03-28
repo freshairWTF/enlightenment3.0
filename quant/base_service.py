@@ -125,7 +125,7 @@ class BaseService:
             if required_col.issubset(raw_df.columns)
             # 删除任意因子缺失值所在的行
             if not (
-                cleaned_df := raw_df[list(required_col)].dropna(subset=valid_factors, how="any")
+                cleaned_df := raw_df[valid_factors].dropna(subset=valid_factors, how="any")
             ).empty
         }
 

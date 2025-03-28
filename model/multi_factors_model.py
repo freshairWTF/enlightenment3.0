@@ -1,7 +1,7 @@
 import pandas as pd
 
 from base_model import MultiFactorsModel
-from constant.type_ import GROUP_MODE, FACTOR_WEIGHT, validate_literal_params
+from constant.type_ import GROUP_MODE, FACTOR_WEIGHT, POSITION_WEIGHT, validate_literal_params
 from utils.quant_processor import QuantProcessor
 
 
@@ -21,7 +21,7 @@ class MultiFactors(MultiFactorsModel):
             group_mode: GROUP_MODE = "frequency",
             factor_weight_method: FACTOR_WEIGHT = "equal",
             factor_weight_window: int = 12,
-            position_weight_method: str = "equal",
+            position_weight_method: POSITION_WEIGHT = "equal",
             individual_position_limit: float = 0.1,
             index_data: dict[str, pd.DataFrame] | None = None,
     ):

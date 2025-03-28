@@ -138,11 +138,14 @@ class ModelAnalyzer(BaseService):
             self
     ) -> list[str]:
         """获取全部所需的因子"""
-        return list(set(
+        valid_factor = list(set(
             self.factors_name
             + self.support_factors_name
             + self.denominators_name
         ))
+        # 排序（支持复现）
+        valid_factor.sort()
+        return valid_factor
 
     def _get_target_codes(
             self
@@ -153,6 +156,7 @@ class ModelAnalyzer(BaseService):
             industry_info=self.model_setting.industry_info,
             return_type="list"
         )
+        target_codes.sort()
         if target_codes:
             return target_codes
         else:
@@ -176,14 +180,16 @@ class ModelAnalyzer(BaseService):
         :param factors_setting: 因子配置
         :return: 处理后的数据
         """
-        raw_data = self.add_industry(
-            self.valid_data_filter(raw_data, valid_factors),
+        valid_factor_data = self.valid_data_filter(raw_data, valid_factors)
+
+        add_industry_data = self.add_industry(
+            valid_factor_data,
             self.industry_mapping,
             self.model_setting.class_level
         )
 
         shifted_data = self.processor.shift_factors(
-            raw_data, self.model_setting.lag_period
+            add_industry_data, self.model_setting.lag_period
         )
 
         filtered_data = self.filter(
@@ -205,18 +211,22 @@ class ModelAnalyzer(BaseService):
 
     def _get_valid_codes(
             self,
-            data: dict[str, pd.DataFrame]
+            raw_data: dict[str, pd.DataFrame]
     ) -> dict[str, pd.DataFrame]:
         """过滤所需代码，且行数需大于等于分组数"""
-        return {
-            date: filtered_df
-            for date, df in data.items()
-            if not (
-                filtered_df := df.loc[
-                    list(set(self.target_codes) & set(df.index))
-                ]
-            ).empty and filtered_df.shape[0] >= self.model_setting.group_nums
-        }
+        result = {}
+        for date, df in raw_data.items():
+            index_set = set(df.index)
+            valid_codes = [code for code in self.target_codes if code in index_set]
+            if not valid_codes:
+                continue
+
+            # 提取数据并检查行数
+            filtered_df = df.loc[valid_codes]
+            if filtered_df.shape[0] >= self.model_setting.group_nums:
+                result[date] = filtered_df
+
+        return result
 
     # --------------------------
     # 计算指标

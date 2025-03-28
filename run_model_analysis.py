@@ -43,7 +43,7 @@ if __name__ == "__main__":
         group_mode="frequency",
         factor_weight_method="ir_weight",
         factor_weight_window=6,
-        position_weight_method="equal"
+        position_weight_method="group_long_only"
     )
 
     # 回测

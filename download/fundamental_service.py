@@ -244,10 +244,8 @@ class Crawler:
 
         try:
             for data_type in ["bs", "ps", "cf"]:
-                df = crawler.get_financial_data(data_type, self._modify_company_type(code))
+                df = crawler.get_financial_data(data_type, self._modify_company_type(code)).T
                 if not df.empty:
-                    # 转置
-                    df = df.T
                     # 索引命名
                     df.index.name = "date"
                     # 重置索引
