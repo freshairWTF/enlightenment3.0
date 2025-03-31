@@ -26,7 +26,11 @@ if __name__ == "__main__":
     # 因子参数设置
     factors_setting = list(OVERALL_FACTOR.values())
     # factors_setting = list(BATTERY_CHEMICAL_FACTOR.values())
-
+    """
+    多因子怎么处理
+    量价因子
+    特殊因子
+    """
     # 模型参数设置
     model_setting = ModelSetting(
         # industry_info={"正极": "自定义", "负极": "自定义", "电解液": "自定义", "隔膜": "自定义"},

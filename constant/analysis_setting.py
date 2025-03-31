@@ -720,7 +720,7 @@ class Normal:
 
     class Statistics:
         def __init__(self):
-            self.stats = ["同比", "环比", "复合增长率", "归一化"]
+            self.stats = ["同比", "环比", "复合增长率", "归一化", "滚动归一化"]
 
     class Visualization:
         def __init__(self):
@@ -1182,60 +1182,100 @@ class Normal:
                     ),
                 },
                 "估值": {
-                    "_upper_lower_dichotomy-1": QuadrantsChartSpecs(
+                    "_basic_bar-1": BasicChartSpecs(
                         title="市值",
-                        ul_column="市值",
+                        data_source="valuation",
+                        column="市值"
+                    ),
+                    "_upper_lower_dichotomy-1": QuadrantsChartSpecs(
+                        title="市值分位数",
+                        ul_column="市值_normalized",
                         ul_data_source="valuation",
-                        ll_column="市值_normalized",
+                        ll_column="市值_rolling_normalized",
                         ll_data_source="valuation"
+                    ),
+                    "_basic_bar-2": BasicChartSpecs(
+                        title="核心利润市盈率",
+                        data_source="valuation",
+                        column="核心利润市盈率"
                     ),
                     "_upper_lower_dichotomy-2": QuadrantsChartSpecs(
                         title="核心利润市盈率",
-                        ul_column="核心利润市盈率",
+                        ul_column="核心利润市盈率_normalized",
                         ul_data_source="valuation",
-                        ll_column="核心利润市盈率_normalized",
+                        ll_column="核心利润市盈率_rolling_normalized",
                         ll_data_source="valuation"
+                    ),
+                    "_basic_bar-3": BasicChartSpecs(
+                        title="市净率",
+                        data_source="valuation",
+                        column="市净率"
                     ),
                     "_upper_lower_dichotomy-3": QuadrantsChartSpecs(
                         title="市净率",
-                        ul_column="市净率",
+                        ul_column="市净率_normalized",
                         ul_data_source="valuation",
-                        ll_column="市净率_normalized",
+                        ll_column="市净率_rolling_normalized",
                         ll_data_source="valuation"
+                    ),
+                    "_basic_bar-4": BasicChartSpecs(
+                        title="市销率",
+                        data_source="valuation",
+                        column="市销率"
                     ),
                     "_upper_lower_dichotomy-4": QuadrantsChartSpecs(
                         title="市销率",
-                        ul_column="市销率",
+                        ul_column="市销率_normalized",
                         ul_data_source="valuation",
-                        ll_column="市销率_normalized",
+                        ll_column="市销率_rolling_normalized",
                         ll_data_source="valuation"
+                    ),
+                    "_basic_bar-5": BasicChartSpecs(
+                        title="周期市盈率",
+                        data_source="valuation",
+                        column="周期市盈率"
                     ),
                     "_upper_lower_dichotomy-5": QuadrantsChartSpecs(
                         title="周期市盈率",
-                        ul_column="周期市盈率",
+                        ul_column="周期市盈率_normalized",
                         ul_data_source="valuation",
-                        ll_column="周期市盈率_normalized",
+                        ll_column="周期市盈率_rolling_normalized",
                         ll_data_source="valuation"
+                    ),
+                    "_basic_bar-6": BasicChartSpecs(
+                        title="市盈增长率",
+                        data_source="valuation",
+                        column="市盈增长率"
                     ),
                     "_upper_lower_dichotomy-6": QuadrantsChartSpecs(
                         title="市盈增长率",
-                        ul_column="市盈增长率",
+                        ul_column="市盈增长率_normalized",
                         ul_data_source="valuation",
-                        ll_column="市盈增长率_normalized",
+                        ll_column="市盈增长率_rolling_normalized",
                         ll_data_source="valuation"
+                    ),
+                    "_basic_bar-7": BasicChartSpecs(
+                        title="股息率",
+                        data_source="valuation",
+                        column="股息率"
                     ),
                     "_upper_lower_dichotomy-7": QuadrantsChartSpecs(
                         title="股息率",
-                        ul_column="股息率",
+                        ul_column="股息率_normalized",
                         ul_data_source="valuation",
-                        ll_column="股息率_normalized",
+                        ll_column="股息率_rolling_normalized",
                         ll_data_source="valuation"
+                    ),
+                    "_basic_bar-8": BasicChartSpecs(
+                        title="核心利润实际收益率",
+                        data_source="valuation",
+                        column="核心利润实际收益率"
                     ),
                     "_upper_lower_dichotomy-8": QuadrantsChartSpecs(
                         title="核心利润实际收益率",
-                        ul_column="核心利润实际收益率",
+                        ul_column="核心利润实际收益率_normalized",
                         ul_data_source="valuation",
-                        ll_column="核心利润实际收益率_normalized",
+                        ll_column="核心利润实际收益率_rolling_normalized",
                         ll_data_source="valuation"
                     ),
                 }

@@ -92,8 +92,8 @@ class StatisticsMetrics(Metrics):
     ) -> None:
         """环比计算"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
+            "financial": 1,
+            "rolling_financial": 1,
         }
         suffix = "_qoq"
 
@@ -114,12 +114,12 @@ class StatisticsMetrics(Metrics):
     ) -> None:
         """复合增速计算"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
+            "financial": None,
+            "rolling_financial": None,
         }
         suffix = "_cagr"
 
-        for key, window in applicable.items():
+        for key, _ in applicable.items():
             data = self.data_container.get(key)
             if data:
                 self.data_container[key].update(
@@ -136,9 +136,9 @@ class StatisticsMetrics(Metrics):
     ) -> None:
         """均值计算"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
-            "valuation": self.window
+            "financial": self.financial_window * 3,
+            "rolling_financial": self.financial_window * 3,
+            "valuation": self.window * 3
         }
         suffix = "_mean"
 
@@ -150,7 +150,7 @@ class StatisticsMetrics(Metrics):
                         f"{k}{suffix}": self._calc_rolling(
                             data=df[df.columns[df.columns != "公司简称"]],
                             window=window,
-                            min_periods=window,
+                            min_periods=1,
                             method="mean"
                         ) for k, df in data.items() if "_"not in k
                     }
@@ -161,9 +161,9 @@ class StatisticsMetrics(Metrics):
     ) -> None:
         """中位数计算"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
-            "valuation": self.window
+            "financial": self.financial_window * 3,
+            "rolling_financial": self.financial_window * 3,
+            "valuation": self.window * 3,
         }
         suffix = "_median"
 
@@ -175,7 +175,7 @@ class StatisticsMetrics(Metrics):
                         f"{k}{suffix}": self._calc_rolling(
                             data=df[df.columns[df.columns != "公司简称"]],
                             window=window,
-                            min_periods=window,
+                            min_periods=1,
                             method="median"
                         ) for k, df in data.items() if "_"not in k
                     }
@@ -186,9 +186,9 @@ class StatisticsMetrics(Metrics):
     ) -> None:
         """归一化计算"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
-            "valuation": self.window
+            "financial": self.financial_window * 3,
+            "rolling_financial": self.financial_window * 3,
+            "valuation": self.window * 3,
         }
         suffix = "_normalized"
 
@@ -208,12 +208,12 @@ class StatisticsMetrics(Metrics):
     ) -> None:
         """滚动归一化计算"""
         applicable = {
-            "financial": int(self.financial_window * 1.5),
-            "rolling_financial": int(self.financial_window * 1.5),
-            "valuation": int(self.window * 1.5),
-            "kline": int(self.window * 3)
+            "financial": self.financial_window * 3,
+            "rolling_financial": self.financial_window * 3,
+            "valuation": self.window * 3,
+            "kline": self.window * 3
         }
-        suffix = "_normalized"
+        suffix = "_rolling_normalized"
 
         for key, window in applicable.items():
             data = self.data_container.get(key)
@@ -223,7 +223,7 @@ class StatisticsMetrics(Metrics):
                         f"{k}{suffix}": self.processor.normalization(
                             data=df[df.columns[df.columns != "公司简称"]],
                             window=window,
-                            min_periods=window
+                            min_periods=1
                         ) * 100 for k, df in data.items() if "_"not in k
                     }
                 )
@@ -236,9 +236,9 @@ class StatisticsMetrics(Metrics):
     ) -> None:
         """占比计算"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
-            "valuation": self.window,
+            "financial": None,
+            "rolling_financial": None,
+            "valuation": None,
         }
         suffix = "_proportion"
 
@@ -290,7 +290,6 @@ class IndividualStatisticsMetrics(Metrics):
                     }
                 ......
               }
-
         :param cycle: 周期
         :param financial_cycle: 周期 -1 非量化 财务是financial_cycle 估值是cycle
         :param methods: 需要实现的方法
@@ -435,12 +434,12 @@ class IndividualStatisticsMetrics(Metrics):
     ) -> None:
         """复合增速计算（存储于同字典中，键名 key_cagr）"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
+            "financial": None,
+            "rolling_financial": None,
         }
         suffix = "_cagr"
 
-        for key, window in applicable.items():
+        for key, _ in applicable.items():
             data = self.data_container.get(key, pd.DataFrame())
             if not data.empty:
                 # 正则表达式过滤条件
@@ -468,9 +467,9 @@ class IndividualStatisticsMetrics(Metrics):
     ) -> None:
         """均值计算（存储于同字典中，键名 key_mean）"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
-            "valuation": self.window
+            "financial": self.financial_window * 3,
+            "rolling_financial": self.financial_window * 3,
+            "valuation": self.window * 3
         }
         suffix = "_mean"
 
@@ -484,7 +483,7 @@ class IndividualStatisticsMetrics(Metrics):
                 mean_data = self._calc_rolling(
                     data=filter_data,
                     window=window,
-                    min_periods=window,
+                    min_periods=1,
                     method="mean"
                 ).round(2)
 
@@ -504,9 +503,9 @@ class IndividualStatisticsMetrics(Metrics):
     ) -> None:
         """中位数计算（存储于同字典中，键名 key_median）"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
-            "valuation": self.window
+            "financial": self.financial_window * 3,
+            "rolling_financial": self.financial_window * 3,
+            "valuation": self.window * 3
         }
         suffix = "_median"
 
@@ -520,7 +519,7 @@ class IndividualStatisticsMetrics(Metrics):
                 median_data = self._calc_rolling(
                     data=filter_data,
                     window=window,
-                    min_periods=window,
+                    min_periods=1,
                     method="median"
                 ).round(2)
 
@@ -540,9 +539,9 @@ class IndividualStatisticsMetrics(Metrics):
     ) -> None:
         """归一化计算（存储于同字典中，键名 key_normalized）"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
-            "valuation": self.window
+            "financial": None,
+            "rolling_financial": None,
+            "valuation": None
         }
         suffix = "_normalized"
 
@@ -571,9 +570,9 @@ class IndividualStatisticsMetrics(Metrics):
     ) -> None:
         """占比计算（存储于同字典中，键名 key_proportion）"""
         applicable = {
-            "financial": self.financial_window,
-            "rolling_financial": self.financial_window,
-            "valuation": self.window
+            "financial": None,
+            "rolling_financial": None,
+            "valuation": None
         }
         suffix = "_proportion"
 

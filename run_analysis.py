@@ -2,6 +2,12 @@ from analysis.analysis_service import Analyzer
 from constant.analysis_setting import Individual, Normal, Quant, Factor, InventoryCycle
 
 
+"""
+        "三元正极": "自定义一", "磷酸铁锂正极": "自定义一", "前驱体": "自定义一",
+                             "负极": "自定义", "电解液": "自定义", "隔膜": "自定义"
+"""
+
+
 # ---------------------------------------------------
 def individual_analysis():
     """个股分析"""
@@ -13,11 +19,11 @@ def individual_analysis():
         params=Individual(),
 
         cycle="month",
-        financial_cycle="year",
-        start_date="2015-12-31",
+        financial_cycle="quarter",
+        start_date="2021-03-31",
         end_date="2025-03-27",
         financial_end_date="2024-12-31",
-        storage_dir_name="民和股份24Y",
+        storage_dir_name="民和股份24Q",
         target_info="002234"
     )
     analyzer.run()
@@ -29,18 +35,18 @@ def normal_analysis():
         index_code="000300",
         params=Normal(),
 
-        dimension="micro",
+        dimension="meso",
+        class_level="三级行业",
+        weight_name="市值",
+
         cycle="month",
         financial_cycle="quarter",
         start_date="2021-09-30",
         end_date="2025-03-23",
         financial_end_date="2024-09-30",
-        storage_dir_name="二轮选拔24Q3",
-        # "三元正极": "自定义一", "磷酸铁锂正极": "自定义一", "前驱体": "自定义一",
-        #                      "负极": "自定义", "电解液": "自定义", "隔膜": "自定义"
-        target_info=["300919", "300073", "603659", "300037", "002812"],
-        class_level="自定义一",
-        weight_name="市值",
+
+        storage_dir_name="氮肥",
+        target_info={"氮肥": "三级行业"},
         draw_filter=True,
     )
     analyzer.run()
@@ -55,16 +61,19 @@ def quant_analysis():
         params=Quant(),
 
         # 运存不足，无法满足 day 的运存消耗
-        dimension="micro",
+        dimension="meso",
+        class_level="三级行业",
+        weight_name="市值",
+
         cycle="month",
         financial_cycle="quarter",
-        start_date="2000-09-30",
-        end_date="2025-03-24",
+        start_date="2021-09-30",
         financial_end_date="2024-09-30",
-        weight_name="市值",
-        storage_dir_name="202503M",
+        end_date="2025-03-24",
+
+        storage_dir_name="202503M三级行业",
         target_info={"全部": "三级行业"},
-        class_level="三级行业",
+
         index_code="000300",
         processes_nums=10,
     )
@@ -120,8 +129,8 @@ def inventory_cycle_analysis():
 
 
 if __name__ == "__main__":
-    individual_analysis()
-    # normal_analysis()
+    # individual_analysis()
+    normal_analysis()
     # quant_analysis()
     # factor_analysis()
     # inventory_cycle_analysis()

@@ -138,12 +138,16 @@ class Drawer(object):
     ) -> pd.DataFrame:
         """聚合基础图表数据"""
         if config.column:
-            data = self.data_container[config.data_source][config.column].dropna(how='all')
+            df = self.data_container[config.data_source][config.column].dropna(how='all')
         else:
-            data = self.data_container[config.data_source].dropna(how='all')
+            df = self.data_container[config.data_source].dropna(how='all')
+
+        if df.empty:
+            return pd.DataFrame()
+
         if config.date:
-            return data.reindex(data.index.date)
-        return data
+            return df.reindex(df.index.date)
+        return df
 
     def __agg_quadrants_data(
             self,

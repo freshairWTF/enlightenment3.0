@@ -13,7 +13,7 @@ from range_filter import RangeFilter
 from constant.path_config import DataPATH
 from constant.quant import ModelVisualization
 from constant.type_ import CYCLE, validate_literal_params
-from model.factor_pick import FactorCollinearityProcessor
+from model.dimensionality_reduction import FactorCollinearityProcessor
 from data_storage import DataStorage
 
 
@@ -379,6 +379,23 @@ class ModelAnalyzer(BaseService):
             for factor_name in self.factors_name
         ]
 
+        # ---------------------------------------
+        # 因子降维
+        # ---------------------------------------
+        from model.dimensionality_reduction import FactorPCA
+        pca = FactorPCA(n_components=0.95)
+        # 执行降维
+        reduced_data = pca.fit_transform(processed_data["2025-02-28"][processed_factors_name])
+
+        print("\n降维结果:")
+        print(reduced_data.head())
+
+        print("\n主成分因子载荷:")
+        print(pca.get_components())
+
+        print("\n方差解释:")
+        print(pca.get_variance())
+        print(dd)
         # ---------------------------------------
         # 因子去多重共线性（vif + 对称正交）
         # ---------------------------------------

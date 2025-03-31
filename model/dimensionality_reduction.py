@@ -6,6 +6,100 @@ import scipy.cluster.hierarchy as sch
 
 
 ###################################################
+class DimensionalityReduction:
+
+    def __init__(self):
+        pass
+
+
+###################################################
+import numpy as np
+from sklearn.decomposition import PCA
+
+
+class FactorPCA:
+    """
+    用PCA对因子矩阵进行降维的封装类
+
+    参数:
+    n_components - 主成分数量 (int/float/'auto')
+    auto_threshold - 自动选择主成分时的累积方差阈值 (默认0.95)
+    """
+
+    def __init__(self, n_components='auto', auto_threshold=0.95):
+        self.n_components = n_components
+        self.auto_threshold = auto_threshold
+        self.pca = None
+        self.factor_names = None
+        self.asset_index = None
+
+    def _auto_components(self, variance_ratio):
+        """自动选择满足方差阈值的主成分数量"""
+        cum_var = np.cumsum(variance_ratio)
+        return np.argmax(cum_var >= self.auto_threshold) + 1
+
+    def fit(self, df):
+        """
+        拟合PCA模型
+        输入:
+        df - DataFrame, index为资产名称, columns为因子名称
+        """
+        # 保存数据标签
+        self.factor_names = df.columns.tolist()
+        self.asset_index = df.index
+
+        # 自动确定主成分数量
+        if self.n_components == 'auto':
+            temp_pca = PCA()
+            temp_pca.fit(df)
+            self.n_components = self._auto_components(temp_pca.explained_variance_ratio_)
+
+        # 正式拟合
+        self.pca = PCA(n_components=self.n_components)
+        self.pca.fit(df)
+        return self
+
+    def transform(self, df):
+        """应用PCA转换"""
+        if self.pca is None:
+            raise ValueError("Model not fitted yet. Call fit() first.")
+
+        # 校验因子维度
+        if list(df.columns) != self.factor_names:
+            raise ValueError("因子名称与训练数据不一致")
+
+        # PCA转换
+        pca_result = self.pca.transform(df)
+
+        # 转换为带标签的DataFrame
+        return pd.DataFrame(
+            pca_result,
+            index=df.index,
+            columns=[f'PC{i + 1}' for i in range(pca_result.shape[1])]
+        )
+
+    def fit_transform(self, df):
+        """联合拟合和转换"""
+        self.fit(df)
+        return self.transform(df)
+
+    def get_components(self):
+        """获取主成分因子载荷"""
+        return pd.DataFrame(
+            self.pca.components_.T,
+            index=self.factor_names,
+            columns=[f'PC{i + 1}' for i in range(self.pca.n_components_)]
+        )
+
+    def get_variance(self):
+        """获取方差解释信息"""
+        return pd.DataFrame({
+            '方差贡献率': self.pca.explained_variance_ratio_,
+            '累积贡献率': np.cumsum(self.pca.explained_variance_ratio_)
+        }, index=[f'PC{i + 1}' for i in range(self.pca.n_components_)])
+
+
+###################################################
 class FactorCollinearityProcessor:
     """
     处理多日期因子数据共线性问题（先VIF后聚类降维）
