@@ -22,8 +22,8 @@ def update_support():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="202503M",
-        storage_dir="202503M"
+        source_dir="202504M量价",
+        storage_dir="202504M量价"
     )
     convert.run()
 

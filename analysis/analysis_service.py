@@ -176,7 +176,8 @@ class Analyzer:
             class_level: CLASS_LEVEL = "一级行业",
             draw_filter: bool = False,
             quant: bool = False,
-            processes_nums: int = 1
+            processes_nums: int = 1,
+            debug: bool = False
     ):
         """
         :param dimension: 维度
@@ -196,6 +197,7 @@ class Analyzer:
         :param index_code: 指数代码
         :param code_range: 代码范围
         :param processes_nums: 多进程数
+        :param debug: 修复bug模式
         """
         self.dimension = dimension
         self.PARAMS = params
@@ -215,6 +217,7 @@ class Analyzer:
         self.quant = quant
         self.processes_nums = processes_nums
         self.CLEANED_METRICS = CLEANED_METRICS
+        self.debug = debug
 
         # --------------------------
         # 初始化配置参数
@@ -426,6 +429,19 @@ class Analyzer:
         # 合并处理结果到数据容器
         self._unpack_results(results)
 
+    def _load_data_debug(
+            self
+    ) -> None:
+        """加载数据"""
+        results = []
+        for code in self.load_data_codes[: 20]:
+            results.append(
+                self._process_single_company_debug(code)
+            )
+
+        # 合并处理结果到数据容器
+        self._unpack_results(results)
+
     def _unpack_results(
             self,
             results: list[dict[str, str | pd.DataFrame]]
@@ -446,6 +462,79 @@ class Analyzer:
             self.data_container["valuation"][code] = result["valuation"]
             self.data_container["kline"][code] = result["kline"]
             self.data_container["weight"][code] = result["weight"]
+
+    def _process_single_company_debug(
+            self,
+            code: str
+    ) -> dict[str, str | pd.DataFrame]:
+        """处理单个企业数据"""
+        result = {"code": code}
+        # --------------------------
+        # 加载数据
+        # --------------------------
+        kline = self._load_kline_data(code)
+        bonus = self._load_bonus(code)
+
+        # --------------------------
+        # 指标计算
+        # --------------------------
+        kline = self._calculate_kline(kline, self.index_kline)
+
+        financial = self._get_financial_data(
+            code,
+            self.financial_cycle,
+            bonus
+        )
+        rolling_financial = self._get_financial_data(
+            code,
+            self.financial_cycle,
+            bonus,
+            True
+        )
+        rolling_financial_to_value = (
+            rolling_financial.copy(deep=True) if self.financial_cycle == "quarter"
+            else self._get_financial_data(
+                code,
+                "quarter",
+                bonus,
+                True
+            )
+        )
+
+        # 财务（时间索引转变为披露时间、填充数据）
+        if self.mode == "quant":
+            rolling_financial.index = self._convert_to_disclose_date(rolling_financial.index)
+            rolling_financial_to_value.index = self._convert_to_disclose_date(rolling_financial_to_value.index)
+            rolling_financial = self._fill_financial_data(rolling_financial)
+        # 任意模式，均需填充
+        rolling_financial_to_value = self._fill_financial_data(rolling_financial_to_value)
+
+        # 加载总股本
+        shares = self._load_shares(code, financial_date=rolling_financial_to_value.index)
+        # 估值
+        value = self._calculate_valuation(rolling_financial_to_value, kline, bonus, shares)
+
+        # 权重
+        if self.dimension == "micro" or self.weight_name == "等权":
+            weight = pd.DataFrame()
+        else:
+            weight = (
+                value["市值"] if self.weight_name == "市值"
+                else rolling_financial_to_value[self.weight_name]
+            ).to_frame(self.weight_name)
+
+        # --------------------------
+        # 指标存储 （量化无财务数据，仅有滚动财务数据），此外，仅量化完成财务数据填充
+        # --------------------------
+        result.update({
+            "rolling_financial": rolling_financial,
+            "financial": financial if self.mode != "quant" else pd.DataFrame(),
+            "valuation": value,
+            "kline": kline,
+            "weight": weight
+        })
+
+        return result
 
     def _process_single_company(
             self,
@@ -498,11 +587,15 @@ class Analyzer:
             shares = self._load_shares(code, financial_date=rolling_financial_to_value.index)
             # 估值
             value = self._calculate_valuation(rolling_financial_to_value, kline, bonus, shares)
+
             # 权重
-            weight = (
-                value["市值"] if self.weight_name in ["等权", "市值"]
-                else rolling_financial_to_value[self.weight_name]
-            ).to_frame(self.weight_name)
+            if self.dimension == "micro" or self.weight_name == "等权":
+                weight = pd.DataFrame()
+            else:
+                weight = (
+                    value["市值"] if self.weight_name == "市值"
+                    else rolling_financial_to_value[self.weight_name]
+                ).to_frame(self.weight_name)
 
             # --------------------------
             # 指标存储 （量化无财务数据，仅有滚动财务数据），此外，仅量化完成财务数据填充
@@ -975,18 +1068,29 @@ class Analyzer:
     ) -> None:
         """分析流程"""
         self.logger.info(f"分析流程开始")
+
         # -1 加载数据
         self._load_index_data()
-        self._load_data()
+
+        if self.debug:
+            self._load_data_debug()
+        else:
+            self._load_data()
+
         # -2 整合数据
         self.data_container = self._summarize_data()
+
         # -3 面板统计
         self.data_container = self._perform_statistics()
+
         # -4 列名转换
         self._reset_columns()
+
         # -5 存储
         self._store_results()
+
         # -6 可视化
         if self.draw_filter:
             self._draw_charts()
+
         self.logger.info(f"分析流程结束")

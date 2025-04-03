@@ -19,17 +19,20 @@ from data_loader import DataLoader
 from constant.download import SHEET_NAME_MAP
 from constant.path_config import DataPATH
 from constant.index_code import INDEX_CODE
+from constant.type_ import KLINE_SHEET, validate_literal_params
 
 
 #############################################################
 class Downloader:
     """k线数据下载"""
+
+    @validate_literal_params
     def __init__(
             self,
             dir_path: Path,
             download_object: Literal["index", "stock"] = "index",
             category: str = "day",
-            adjust_flag: Literal["1", "2", "3"] = "1",
+            adjust_flag: KLINE_SHEET = "backward_adjusted",
             start_date: str = "2001-01-01",
             end_date: str = "2025-01-18",
             code: str | None = None,
@@ -183,11 +186,12 @@ class Downloader:
 class Cleaner:
     """数据清洗（支持股票/指数数据多进程清洗）"""
 
+    @validate_literal_params
     def __init__(
             self,
             clean_object: Literal["index", "stock"] = "index",
             num_processes: int = 10,
-            adjust_mode: Literal["1", "2", "3"] = "1",
+            adjust_mode: KLINE_SHEET = "backward_adjusted",
             code: str | None = None,
             filter_mode: Literal["all", "from_code", None] = None,
             industry_info: dict | None = None,
