@@ -248,7 +248,7 @@ class KlineMonitor:
     ) -> None:
         """处理数据聚合"""
         self.kline = self.__aggregate_into_panel_data(self.kline)
-        self.kline = self._get_valid_data(self.kline, "slope")
+        self.kline = self._get_valid_data(self.kline, "斜率")
         self.kline = self._add_industry(self.kline)
         self.kline = self._reset_index(self.kline)
 

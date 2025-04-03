@@ -95,7 +95,7 @@ class KLineMetrics(Metrics):
             market_var
         )
 
-        self.metrics[f"market_beta_{window}"] = beta.rename(f"market_beta_{window}")
+        self.metrics[f"市场贝塔_{window}"] = beta.rename(f"market_beta_{window}")
 
     def _abnormal_turn(
             self,
@@ -112,7 +112,7 @@ class KLineMetrics(Metrics):
             percentage=True
         )
 
-        self.metrics[f"abnormal_turn_{window}"] = abnormal
+        self.metrics[f"异常换手率_{window}"] = abnormal
 
     def _accumulated_yield(self, window):
         """
@@ -121,7 +121,7 @@ class KLineMetrics(Metrics):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
 
-        self.metrics[f"accumulated_yield_{window}"] = (
+        self.metrics[f"累加收益率_{window}"] = (
             self._calc_rolling(
                 self.metrics["pctChg"],
                 rolling_window,
@@ -138,7 +138,7 @@ class KLineMetrics(Metrics):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
 
-        self.metrics[f"ma_close_{window}"] = (
+        self.metrics[f"收盘价均线_{window}"] = (
             self._calc_rolling(
                 self.metrics["close"],
                 rolling_window,
@@ -154,7 +154,7 @@ class KLineMetrics(Metrics):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
 
-        self.metrics[f"ma_volume_{window}"] = (
+        self.metrics[f"成交量均线_{window}"] = (
             self._calc_rolling(
                 self.metrics["volume"],
                 rolling_window,
@@ -170,7 +170,7 @@ class KLineMetrics(Metrics):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
 
-        self.metrics[f"ma_turn_{window}"] = (
+        self.metrics[f"换手率均线_{window}"] = (
             self._calc_rolling(
                 self.metrics["turn"],
                 rolling_window,
@@ -187,7 +187,7 @@ class KLineMetrics(Metrics):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
 
-        self.metrics[f"ma_atr_{window}"] = (
+        self.metrics[f"真实波幅均线_{window}"] = (
             self._calc_rolling(
                 self.metrics["真实波幅"],
                 rolling_window,
@@ -203,7 +203,7 @@ class KLineMetrics(Metrics):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
 
-        self.metrics[f"std_yield_{window}"] = (
+        self.metrics[f"收益率标准差_{window}"] = (
             self.metrics["pctChg"]
             .rolling(window=rolling_window)
             .std()
@@ -217,7 +217,7 @@ class KLineMetrics(Metrics):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
 
-        self.metrics[f"std_turn_{window}"] = (
+        self.metrics[f"换手率标准差_{window}"] = (
                 self.metrics["turn"]
                 .rolling(window=rolling_window)
                 .std()
@@ -265,4 +265,4 @@ class KLineMetrics(Metrics):
         slope, _, _, _, _ = linregress(x, y)
 
         # 转换为角度
-        self.metrics[f"slope_{window}"] = np.degrees(np.arctan(slope))
+        self.metrics[f"斜率_{window}"] = np.degrees(np.arctan(slope))

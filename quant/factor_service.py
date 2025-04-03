@@ -212,14 +212,16 @@ class FactorAnalyzer(BaseService):
         :param processed_factor_col: 预处理因子名
         :return: 处理后的数据
         """
-        raw_data = self.add_industry(
-            self.valid_data_filter(raw_data, valid_factors),
+        valid_data = self.valid_data_filter(raw_data, valid_factors)
+
+        add_industry_data = self.add_industry(
+            valid_data,
             self.industry_mapping,
             self.class_level
         )
 
         shifted_data = self.processor.shift_factors(
-            raw_data, self.lag_period
+            add_industry_data, self.lag_period
         )
 
         filtered_data = self.filter(
@@ -523,7 +525,7 @@ class FactorAnalyzer(BaseService):
                 ),
                 **self.calc_return_metrics(
                     grouped_data, self.cycle, self.group_label,
-                    mv_weights=True, reverse=reverse, prefix="mw"
+                    mode="mv_weight", reverse=reverse, prefix="mw"
                 ),
             }
 

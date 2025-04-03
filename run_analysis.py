@@ -48,6 +48,7 @@ def normal_analysis():
         storage_dir_name="品牌化妆品24Q3",
         target_info={"品牌化妆品": "三级行业"},
         draw_filter=True,
+        debug=False
     )
     analyzer.run()
 
@@ -76,6 +77,7 @@ def quant_analysis():
 
         index_code="000300",
         processes_nums=10,
+        debug=False
     )
     analyzer.run()
 
