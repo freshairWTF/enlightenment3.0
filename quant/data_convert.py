@@ -77,5 +77,5 @@ class DataConvert:
         self.storage.write_dict_to_parquet(
             transformed,
             index=True,
-            merge_original_data=False
+            merge_original_data=True
         )

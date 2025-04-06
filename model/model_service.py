@@ -382,20 +382,21 @@ class ModelAnalyzer(BaseService):
         # ---------------------------------------
         # 因子降维
         # ---------------------------------------
-        from model.dimensionality_reduction import FactorPCA
-        pca = FactorPCA(n_components=0.95)
-        # 执行降维
-        reduced_data = pca.fit_transform(processed_data["2025-02-28"][processed_factors_name])
-
-        print("\n降维结果:")
-        print(reduced_data.head())
-
-        print("\n主成分因子载荷:")
-        print(pca.get_components())
-
-        print("\n方差解释:")
-        print(pca.get_variance())
-        print(dd)
+        # from model.dimensionality_reduction import FactorPCA
+        # pca = FactorPCA(n_components=0.95)
+        # # 执行降维
+        # reduced_data = pca.fit_transform(processed_data["2025-02-28"][processed_factors_name])
+        #
+        # print("\n降维结果:")
+        # print(reduced_data.head())
+        #
+        # print("\n主成分因子载荷:")
+        # print(pca.get_components())
+        #
+        # print("\n方差解释:")
+        # print(pca.get_variance())
+        # print(dd)
+        print(processed_data.keys())
         # ---------------------------------------
         # 因子去多重共线性（vif + 对称正交）
         # ---------------------------------------
@@ -429,7 +430,7 @@ class ModelAnalyzer(BaseService):
             position_distribution=self.model_setting.position_distribution
         )
         grouped_data = model.run()
-
+        print(grouped_data.keys())
         # ---------------------------------------
         # 模型评估
         # ---------------------------------------

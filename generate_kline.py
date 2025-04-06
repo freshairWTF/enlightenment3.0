@@ -9,10 +9,10 @@ def download_kline():
         dir_path=DataPATH.KLINE_DATA,
         download_object="stock",            # 可选：stock/index
         category="day",                     # 指数仅支持 day
-        adjust_flag="backward_adjusted",    # 复权模式
-        start_date="2025-03-02",            # 起始时间
-        end_date="2025-04-02",              # 结束时间
-        code="sh.603124",                   # 代码：需要sh/sz前缀
+        adjust_flag="1",                    # 复权模式
+        start_date="2025-02-03",            # 起始时间
+        end_date="2025-04-03",              # 结束时间
+        code="sh.600984",                   # 代码：需要sh/sz前缀
         filter_mode="all",                  # 可选：None/all/from_code
         industry_info=None,                 # 指定行业
         pause_time=0.3
@@ -23,8 +23,8 @@ def download_kline():
 def clean_kline():
     """k线清洗"""
     cleaner = Cleaner(
-        clean_object="stock",                # 可选：stock/index
-        num_processes=10,                     # 多进程核数
+        clean_object="index",                # 可选：stock/index
+        num_processes=10,                    # 多进程核数
         adjust_mode="backward_adjusted",     # 复权模式
         code="603124",                       # 代码：无需sh/sz前缀
         filter_mode="all",                   # 可选：None/all/from_code

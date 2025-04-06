@@ -1,8 +1,10 @@
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
+import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 import scipy.cluster.hierarchy as sch
+from sklearn.decomposition import PCA
 
 
 ###################################################
@@ -13,10 +15,6 @@ class DimensionalityReduction:
 
 
 ###################################################
-import numpy as np
-from sklearn.decomposition import PCA
-
-
 class FactorPCA:
     """
     用PCA对因子矩阵进行降维的封装类
@@ -98,6 +96,173 @@ class FactorPCA:
             '累积贡献率': np.cumsum(self.pca.explained_variance_ratio_)
         }, index=[f'PC{i + 1}' for i in range(self.pca.n_components_)])
 
+
+
+from typing import Optional, Union, Tuple
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.exceptions import NotFittedError
+
+
+class FactorPCA:
+    """基于因子矩阵的PCA降维处理器
+
+    参数：
+    n_components : Union[int, float, None], default=None
+        保留主成分数量。整数为绝对数量，0-1为方差阈值，None保留全部
+    standardize : bool, default=False
+        是否执行标准化（已预处理数据可关闭）
+    random_state : Optional[int], default=None
+        随机种子
+    """
+
+    def __init__(
+            self,
+            n_components: float = 0.95,
+            random_state: int = 42
+    ):
+        """
+        :param n_components: 保留主成分方差阈值
+        :param random_state: 随机种子
+        """
+        self.n_components = n_components
+        self.random_state = random_state
+        self._fitted = False
+
+    def fit_transform(self, factor_df: pd.DataFrame) -> pd.DataFrame:
+        """执行PCA降维并返回主成分矩阵
+
+        参数：
+        factor_df : pd.DataFrame
+            输入因子矩阵，index为资产，columns为因子
+
+        返回：
+        pd.DataFrame
+            降维后的主成分矩阵，保留原始索引
+        """
+        # 数据校验
+        if not isinstance(factor_df, pd.DataFrame):
+            raise TypeError("输入必须为pd.DataFrame类型")
+
+        # PCA降维
+        self.pca = PCA(
+            n_components=self.n_components,
+            random_state=self.random_state
+        )
+        pc_matrix = self.pca.fit_transform(factor_df)
+
+        # 构建结果DataFrame（修复列名生成逻辑）
+        n_components = pc_matrix.shape[1]
+        self.pc_df = pd.DataFrame(
+            pc_matrix,
+            index=factor_df.index,
+            columns=[f"PC{i + 1}" for i in range(n_components)]
+        )
+
+        # 存储中间结果（修复转置逻辑）
+        self._factor_loadings = pd.DataFrame(
+            self.pca.components_.T,
+            index=factor_df.columns,
+            columns=self.pc_df.columns
+        )
+        self._fitted = True
+
+        return self.pc_df
+
+    def plot_scree(self, threshold: float = 0.95) -> plt.Figure:
+        """生成方差解释碎石图
+
+        参数：
+        threshold : float, default=0.95
+            累计方差阈值标记线
+
+        返回：
+        plt.Figure
+            生成的Matplotlib图像对象
+        """
+        if not self._fitted:
+            raise NotFittedError("需先执行fit_transform方法")
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        explained_variance = self.pca.explained_variance_ratio_
+        cum_var = np.cumsum(explained_variance)
+
+        # 绘制条形图和累计线（修复索引偏移）
+        x_ticks = np.arange(len(explained_variance)) + 1
+        ax.bar(x_ticks, explained_variance, alpha=0.6, label='Individual')
+        ax.step(x_ticks, cum_var, where='mid', color='red', label='Cumulative')
+
+        # 标记阈值线
+        ax.axhline(threshold, color='grey', linestyle='--')
+        ax.text(0.5, threshold + 0.02, f'{threshold:.0%} Threshold',
+                va='bottom', color='grey')
+
+        ax.set_title('Explained Variance by Principal Components')
+        ax.set_xlabel('Principal Component Index')
+        ax.set_ylabel('Explained Variance Ratio')
+        ax.legend(loc='best')
+        ax.set_xticks(x_ticks)
+        ax.set_ylim(0, 1.1)
+
+        return fig
+
+    def plot_components(self, pc_num: Tuple[int, int] = (0, 1)) -> plt.Figure:
+        """绘制主成分分布散点图（修复坐标选择逻辑）
+
+        参数：
+        pc_num : Tuple[int, int], default=(0, 1)
+            选择展示的主成分索引（从0开始）
+
+        返回：
+        plt.Figure
+            生成的散点图对象
+        """
+        if not self._fitted:
+            raise NotFittedError("需先执行fit_transform方法")
+
+        fig, ax = plt.subplots(figsize=(10, 8))
+        x_col = self.pc_df.columns[pc_num[0]]
+        y_col = self.pc_df.columns[pc_num[1]]
+
+        # 绘制散点图（修复坐标选择）
+        ax.scatter(
+            self.pc_df[x_col],
+            self.pc_df[y_col],
+            alpha=0.6
+        )
+
+        # 标注异常点（修复坐标取值）
+        for idx, row in self.pc_df.iterrows():
+            ax.text(
+                row[x_col], row[y_col], str(idx),
+                fontsize=8, alpha=0.6,
+                ha='center', va='center'
+            )
+
+        ax.set_title(f'PCA Component {pc_num[0] + 1} vs {pc_num[1] + 1}')
+        ax.set_xlabel(x_col)
+        ax.set_ylabel(y_col)
+        ax.grid(True)
+
+        return fig
+
+    @property
+    def factor_loadings(self) -> pd.DataFrame:
+        """获取因子载荷矩阵"""
+        if not self._fitted:
+            raise NotFittedError("需先执行fit_transform方法")
+        return self._factor_loadings
+
+    @property
+    def cumulative_variance(self) -> pd.Series:
+        """获取累计方差贡献率"""
+        return pd.Series(
+            np.cumsum(self.pca.explained_variance_ratio_),
+            index=self.pc_df.columns
+        )
 
 ###################################################
 class FactorCollinearityProcessor:

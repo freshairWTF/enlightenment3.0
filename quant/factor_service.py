@@ -164,11 +164,11 @@ class FactorAnalyzer(BaseService):
             filter_mode: str 
     ) -> Path:
         """获取存储地址"""
-        storage_factor_name = f"restructure_{factor_name}" if self.restructure else factor_name
         return (
                 self.storage_dir
-                / storage_factor_name
-                / f"股票池{filter_mode}-滞后{self.lag_period}{self.cycle[0]}"
+                / factor_name
+                / f"股票池{filter_mode}-滞后{self.lag_period}{self.cycle[0]}-"
+                  f"mve{self.mv_neutral}-ine{self.industry_neutral}-res{self.restructure}"
         )
 
     def _get_valid_factor(

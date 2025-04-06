@@ -46,37 +46,6 @@ OVERALL_FACTOR = {
     ),
 }
 
-# 电池化学品
-BATTERY_CHEMICAL_FACTOR = {
-    # 估值
-    "市值_normalized": FactorSetting(
-        factor_name="市值_normalized",
-        market_value_neutral=False,
-        reverse=True,
-        small_filter=True,
-    ),
-    # "实际收益率": FactorSetting(
-    #     factor_name="实际收益率",
-    #     overall_filter=True,
-    # ),
-    # # 资产
-    "净负债": FactorSetting(
-        factor_name="净负债",
-        entire_filter=True
-    ),
-    # # 利润
-    "核心利润": FactorSetting(
-        factor_name="核心利润",
-        entire_filter=True,
-        overall_filter=True,
-    ),
-    # "支付的各项税费": FactorSetting(
-    #     factor_name="支付的各项税费",
-    #     entire_filter=True,
-    #     overall_filter=True
-    # ),
-}
-
 
 FACTOR_LIBRARY = {
     # 估值
@@ -363,4 +332,19 @@ FACTOR_LIBRARY = {
 
     # 比率
 
+    # 量价因子
+    "累加收益率": FactorSetting(
+        factor_name="累加收益率_0.25",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+        small_filter=True
+    ),
+    "累加收益率": FactorSetting(
+        factor_name="累加收益率_0.25",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+        small_filter=True
+    ),
 }

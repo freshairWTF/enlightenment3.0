@@ -335,7 +335,12 @@ class Analyzer:
         # 财务数据填充日期
         self.financial_fill_date = (
             None if self.cycle in ["quarter", "half", "year"]
-            else self.loader.get_trading_calendar(self.cycle, self.aligned_to_month_end)
+            else self.loader.get_trading_calendar(
+                self.cycle,
+                self.start_date,
+                self.end_date,
+                self.aligned_to_month_end
+            )
         )
 
         # 是否检查k线长度
@@ -506,6 +511,7 @@ class Analyzer:
             rolling_financial.index = self._convert_to_disclose_date(rolling_financial.index)
             rolling_financial_to_value.index = self._convert_to_disclose_date(rolling_financial_to_value.index)
             rolling_financial = self._fill_financial_data(rolling_financial)
+
         # 任意模式，均需填充
         rolling_financial_to_value = self._fill_financial_data(rolling_financial_to_value)
 

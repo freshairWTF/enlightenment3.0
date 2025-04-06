@@ -21,14 +21,13 @@ def multi_factors_model():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "202503M"
-    storage_dir = "ir衰减测试/测试-纯头多-3"
+    storage_dir = "日期测试/日期测试"
 
     # 因子参数设置
     factors_setting = list(OVERALL_FACTOR.values())
     # factors_setting = list(BATTERY_CHEMICAL_FACTOR.values())
     """
     多因子怎么处理
-    量价因子
     特殊因子
     """
     # 模型参数设置

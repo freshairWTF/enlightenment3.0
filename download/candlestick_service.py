@@ -25,14 +25,12 @@ from constant.type_ import KLINE_SHEET, validate_literal_params
 #############################################################
 class Downloader:
     """k线数据下载"""
-
-    @validate_literal_params
     def __init__(
             self,
             dir_path: Path,
             download_object: Literal["index", "stock"] = "index",
             category: str = "day",
-            adjust_flag: KLINE_SHEET = "backward_adjusted",
+            adjust_flag: Literal["1", "2", "3"] = "1",
             start_date: str = "2001-01-01",
             end_date: str = "2025-01-18",
             code: str | None = None,
@@ -213,7 +211,7 @@ class Cleaner:
         # 日志
         self.logger = self.setup_logger()
         # 复权模式
-        self.adjusted_mode = SHEET_NAME_MAP[adjust_mode] if clean_object == "stock" else None
+        self.adjust_mode = adjust_mode if clean_object == "stock" else None
         # 存储文件夹
         self.dir_path = self._get_storage_path()
         # 数据源
@@ -257,7 +255,7 @@ class Cleaner:
                 return [self.code]
             # 根目录内已有的全部文件
             else:
-                original_day_path = self.dir_path / "original_day" / self.adjusted_mode
+                original_day_path = self.dir_path / "original_day" / str(self.adjust_mode)
                 if not original_day_path.exists():
                     raise FileNotFoundError(f"原始数据目录不存在: {original_day_path}")
                 code_list = [f.stem for f in original_day_path.iterdir() if f.is_file()]
@@ -352,9 +350,9 @@ class Cleaner:
         # 创建部分函数固定参数
         task_func = partial(
             Cleaner._clean_task,
-            self.cleaner,               # 绑定到第1个参数: cleaner
-            dir_path=self.dir_path,           # 关键字绑定第3个参数
-            adjusted_mode=self.adjusted_mode        # 关键字绑定第4个参数
+            self.cleaner,                     # 绑定到第1个参数: cleaner
+            dir_path=self.dir_path,                 # 关键字绑定第3个参数
+            adjusted_mode=self.adjust_mode          # 关键字绑定第4个参数
         )
 
         # 多进程执行

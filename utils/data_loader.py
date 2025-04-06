@@ -506,17 +506,25 @@ class DataLoader:
     def get_trading_calendar(
             cls,
             sheet_name: CYCLE,
+            start_date: str | None = None,
+            end_date: str | None = None,
             aligned_to_month_end: bool = False
     ) -> pd.DatetimeIndex:
         """
         获取交易日历
         :param sheet_name: 工作表名
+        :param start_date: 起始日期
+        :param end_date: 结束日期
         :param aligned_to_month_end: 为对齐财务日期，日期调整至月末（仅适用于月度及其以上数据）
         :return: 交易日历
         """
         path = DataPATH.TRADING_CALENDAR.with_suffix(".xlsx")
 
         date_index = cls._read_sheet(path, sheet_name).index
+
+        # 时间过滤
+        date_index = date_index[date_index >= pd.to_datetime(start_date)] if start_date is not None else date_index
+        date_index = date_index[date_index <= pd.to_datetime(end_date)] if end_date is not None else date_index
 
         # 日期调整至月末
         if aligned_to_month_end and sheet_name not in ALIGNED_TO_MONTH_END:

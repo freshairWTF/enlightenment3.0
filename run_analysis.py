@@ -62,17 +62,17 @@ def quant_analysis():
         params=Quant(),
 
         # 运存不足，无法满足 day 的运存消耗
-        dimension="meso",
+        dimension="micro",
         class_level="三级行业",
         weight_name="市值",
 
         cycle="month",
         financial_cycle="quarter",
-        start_date="2021-09-30",
+        start_date="2000-03-31",
         financial_end_date="2024-09-30",
-        end_date="2025-03-24",
+        end_date="2025-03-31",
 
-        storage_dir_name="202503M三级行业",
+        storage_dir_name="202503M财务估值",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -93,15 +93,15 @@ def factor_analysis():
         # 运存不足，无法满足 day 的运存消耗
         dimension="micro",
         class_level="三级行业",
-        weight_name="等权",
+        weight_name="市值",
 
         cycle="month",
         financial_cycle="quarter",
-        start_date="2000-09-30",
+        start_date="2000-03-31",
         financial_end_date="2024-09-30",
-        end_date="2025-04-02",
+        end_date="2025-03-31",
 
-        storage_dir_name="202504M量价",
+        storage_dir_name="202503M量价",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
