@@ -16,7 +16,7 @@ class RangeFilter:
         -7 超级小盘
     """
 
-    PARAMETERS = ['所有者权益', 'isST', 'pctChg', 'volume', 'close', '市值']
+    PARAMETERS = ['所有者权益', 'isST', 'volume', 'close', '市值']
 
     @validate_literal_params
     def __init__(
@@ -253,8 +253,7 @@ class RangeFilter:
                 required_index = i - self.window
                 filters.append(lambda x, ri=required_index: self.__sub_new(x, ri))
 
-            filtered_df = self._apply_filters(df, filters).dropna()
-
+            filtered_df = self._apply_filters(df, filters)
             if not filtered_df.empty:
                 result[date] = filtered_df
 

@@ -4,8 +4,8 @@ from constant.quant_setting import FactorSetting
 # 整体股票因子
 OVERALL_FACTOR = {
     # 时序估值
-    "市销率倒数_normalized": FactorSetting(
-        factor_name="市销率倒数_normalized",
+    "市销率倒数_rolling_normalized": FactorSetting(
+        factor_name="市销率倒数_rolling_normalized",
         entire_filter=True,
         overall_filter=True,
         small_filter=True
@@ -56,8 +56,8 @@ FACTOR_LIBRARY = {
         entire_filter=True,
         small_filter=True
     ),
-    "对数市值_normalized": FactorSetting(
-        factor_name="对数市值_normalized",
+    "对数市值_rolling_normalized": FactorSetting(
+        factor_name="对数市值_rolling_normalized",
         market_value_neutral=False,
         reverse=True,
         small_filter=True
@@ -69,8 +69,8 @@ FACTOR_LIBRARY = {
         entire_filter=True,
         small_filter=True,
     ),
-    "市值_normalized": FactorSetting(
-        factor_name="市值_normalized",
+    "市值_rolling_normalized": FactorSetting(
+        factor_name="市值_rolling_normalized",
         market_value_neutral=False,
         reverse=True,
         small_filter=True,
@@ -83,8 +83,8 @@ FACTOR_LIBRARY = {
         factor_name="市销率倒数",
         entire_filter=True
     ),
-    "市销率倒数_normalized": FactorSetting(
-        factor_name="市销率倒数_normalized",
+    "市销率倒数_rolling_normalized": FactorSetting(
+        factor_name="市销率倒数_rolling_normalized",
         entire_filter=True,
         overall_filter=True,
         small_filter=True
@@ -333,18 +333,18 @@ FACTOR_LIBRARY = {
     # 比率
 
     # 量价因子
-    "累加收益率": FactorSetting(
-        factor_name="累加收益率_0.25",
-        reverse=True,
-        entire_filter=True,
-        overall_filter=True,
-        small_filter=True
-    ),
-    "累加收益率": FactorSetting(
-        factor_name="累加收益率_0.25",
-        reverse=True,
-        entire_filter=True,
-        overall_filter=True,
-        small_filter=True
-    ),
+    # "累加收益率": FactorSetting(
+    #     factor_name="累加收益率_0.25",
+    #     reverse=True,
+    #     entire_filter=True,
+    #     overall_filter=True,
+    #     small_filter=True
+    # ),
+    # "累加收益率": FactorSetting(
+    #     factor_name="累加收益率_0.25",
+    #     reverse=True,
+    #     entire_filter=True,
+    #     overall_filter=True,
+    #     small_filter=True
+    # ),
 }

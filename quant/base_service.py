@@ -118,16 +118,29 @@ class BaseService:
         :return: 过滤后的数据
         """
         required_col = set(valid_factors)
-        return {
-            date: cleaned_df
-            for date, raw_df in raw_data.items()
-            # 应有所需的全部数据
-            if required_col.issubset(raw_df.columns)
-            # 删除任意因子缺失值所在的行
-            if not (
-                cleaned_df := raw_df[valid_factors].dropna(subset=valid_factors, how="any")
-            ).empty
-        }
+
+        result = {}
+        for date, raw_df in raw_data.items():
+            missing_col = required_col - set(raw_df.columns)
+            if missing_col:
+                print(f"{date} | 缺少以下列: {', '.join(missing_col)}")
+            else:
+                valid_data = raw_df[valid_factors].dropna(how="any")
+                if not valid_data.empty:
+                    result[date] = valid_data
+
+        return result
+
+        # return {
+        #     date: cleaned_df
+        #     for date, raw_df in raw_data.items()
+        #     # 应有所需的全部数据
+        #     if required_col.issubset(raw_df.columns)
+        #     # 删除任意因子缺失值所在的行
+        #     if not (
+        #         cleaned_df := raw_df[valid_factors].dropna(subset=valid_factors, how="any")
+        #     ).empty
+        # }
 
     # --------------------------
     # 指标计算

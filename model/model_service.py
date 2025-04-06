@@ -5,8 +5,9 @@
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-import pandas as pd
 import yaml
+import numpy as np
+import pandas as pd
 
 from base_service import BaseService
 from range_filter import RangeFilter
@@ -55,6 +56,8 @@ class ModelAnalyzer(BaseService):
         self.cycle = cycle
         self.benchmark_code = benchmark_code
         self.filter_mode = self.model_setting.filter_mode
+
+        self.predict_date = "2100-01-01"
 
         # --------------------------
         # 初始化配置参数
@@ -188,8 +191,10 @@ class ModelAnalyzer(BaseService):
             self.model_setting.class_level
         )
 
+        latest_data = self._create_latest_data(add_industry_data)
+
         shifted_data = self.processor.shift_factors(
-            add_industry_data, self.model_setting.lag_period
+            latest_data, self.model_setting.lag_period
         )
 
         filtered_data = self.filter(
@@ -227,6 +232,21 @@ class ModelAnalyzer(BaseService):
                 result[date] = filtered_df
 
         return result
+
+    def _create_latest_data(
+            self,
+            before_shifted_data: dict[str, pd.DataFrame]
+    ) -> dict[str, pd.DataFrame]:
+        """
+        创建最新日期的数据
+        :param before_shifted_data: 平移前的数据
+        """
+        df = list(before_shifted_data.values())[-1].copy(deep=True)
+        df["pctChg"] = np.nan
+
+        before_shifted_data[self.predict_date] = df
+
+        return before_shifted_data
 
     # --------------------------
     # 计算指标
@@ -396,7 +416,7 @@ class ModelAnalyzer(BaseService):
         # print("\n方差解释:")
         # print(pca.get_variance())
         # print(dd)
-        print(processed_data.keys())
+
         # ---------------------------------------
         # 因子去多重共线性（vif + 对称正交）
         # ---------------------------------------

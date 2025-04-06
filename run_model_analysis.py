@@ -34,9 +34,9 @@ if __name__ == "__main__":
     model_setting = ModelSetting(
         # industry_info={"正极": "自定义", "负极": "自定义", "电解液": "自定义", "隔膜": "自定义"},
         industry_info={"全部": "三级行业"},
-        filter_mode="_overall_filter",
+        filter_mode="_entire_filter",
         factors_setting=factors_setting,
-        class_level="二级行业",
+        class_level="三级行业",
         orthogonal=True,
         lag_period=1,
         group_nums=10,

@@ -97,10 +97,13 @@ class FactorWeight:
         # -1 计算 rank ic
         rank_ic = cls._calc_rank_ics(factors_data, factors_name)
 
-        # -2 计算滚动值
-        rolling_ic = rank_ic.rolling(window, min_periods=1).mean().abs()
+        # -2 平移 rank ic
+        rank_ic_shifted = rank_ic.shift(1)
 
-        # -3 计算权重
+        # -3 计算滚动值
+        rolling_ic = rank_ic_shifted.rolling(window, min_periods=1).mean().abs()
+
+        # -4 计算权重
         weights = rolling_ic.div(rolling_ic.sum(axis=1), axis="index")
 
         return weights
@@ -122,10 +125,13 @@ class FactorWeight:
         # -1 计算 rank ic
         rank_ic = cls._calc_rank_ics(factors_data, factors_name)
 
-        # -2 计算滚动 ir
-        rolling_ir = rank_ic.rolling(window, min_periods=1).apply(cls._calc_ir)
+        # -2 平移 rank ic
+        rank_ic_shifted = rank_ic.shift(1)
 
-        # -3 计算权重
+        # -3 计算滚动 ir
+        rolling_ir = rank_ic_shifted.rolling(window, min_periods=1).apply(cls._calc_ir)
+
+        # -4 计算权重
         weights = rolling_ir.div(rolling_ir.sum(axis=1), axis="index")
 
         return weights
@@ -147,12 +153,15 @@ class FactorWeight:
         # -1 计算 rank ic
         rank_ic = cls._calc_rank_ics(factors_data, factors_name)
 
-        # -2 计算自适应衰减ir
-        ic_ewm_mean = rank_ic.ewm(halflife=window, min_periods=1).mean()
-        ic_ewm_std = rank_ic.ewm(halflife=window, min_periods=1).std()
+        # -2 平移 rank ic
+        rank_ic_shifted = rank_ic.shift(1)
+
+        # -3 计算自适应衰减ir
+        ic_ewm_mean = rank_ic_shifted.ewm(halflife=window, min_periods=1).mean()
+        ic_ewm_std = rank_ic_shifted.ewm(halflife=window, min_periods=1).std()
         rolling_ir = (ic_ewm_mean / ic_ewm_std).abs().replace(np.inf, 0).fillna(0)
 
-        # -3 计算权重
+        # -4 计算权重
         weights = rolling_ir.div(rolling_ir.sum(axis=1), axis="index")
 
         return weights

@@ -256,7 +256,7 @@ class QuantProcessor:
             factors_col: list[str] | None = None,
     ) -> dict[str, pd.DataFrame]:
         """
-        将每个DataFrame中的因子向后移指定期数，用于 T+N期因子 与 T期涨跌幅 的拟合回归
+        将每个DataFrame中的因子向后移指定期数，用于 T-N期因子 与 T期涨跌幅 的拟合回归
         :param raw_data: 原始数据
         :param lag_periods: 滞后期数
         :param factors_col: 因子名

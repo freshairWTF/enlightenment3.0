@@ -151,6 +151,7 @@ class DataStorage:
             file_name: str,
             index: bool = True,
             merge_original_data: bool = True,
+            merge_axis: Literal[0, 1] = 0,
             subset: list[str] | None = None,
             keep: Literal["first", "last", False] = "last",
             sort_by: list[str] | None = None,
@@ -161,6 +162,7 @@ class DataStorage:
         :param df: 要保存的 DataFrame
         :param file_name: 目标文件名（不含后缀）
         :param merge_original_data: 若是追加模式（1），是否合并原数据
+        :param merge_axis: 合并方向
         :param subset: 去重列表：1）检查指定列；2）检查所有列 -- 不检查索引
         :param keep: 是否存储索引
         :param sort_by: 排序列表
@@ -180,12 +182,18 @@ class DataStorage:
         if path.exists() and merge_original_data:
             existing_df = pd.read_parquet(path)
             if not existing_df.empty:
-                merged_df = pd.concat([existing_df, df])
+                merged_df = pd.concat([existing_df, df], axis=merge_axis)
+
         # 去重
-        merged_df = (
-            merged_df.drop_duplicates(subset=subset, keep=keep) if subset
-            else merged_df.drop_duplicates(keep=keep)
-        )
+        if merge_axis == 0:
+            merged_df = (
+                merged_df.drop_duplicates(subset=subset, keep=keep) if subset
+                else merged_df.drop_duplicates(keep=keep)
+            )
+        if merge_axis == 1:
+            # 保留最后出现的列（覆盖旧列）
+            merged_df = merged_df.loc[:, ~merged_df.columns.duplicated(keep=keep)]
+
         # 排序
         merged_df = merged_df.sort_values(by=sort_by) if sort_by else merged_df.sort_index()
 
@@ -240,6 +248,7 @@ class DataStorage:
             data: dict[str, pd.DataFrame],
             index: bool = True,
             merge_original_data: bool = True,
+            merge_axis: Literal[0, 1] = 0,
             subset: list[str] | None = None,
             keep: Literal["first", "last", False] = "last",
             sort_by: list[str] | None = None,
@@ -249,6 +258,7 @@ class DataStorage:
         写入字典 到 Excel
         :param data: 需要存储的数据
         :param merge_original_data: 若是追加模式（1），是否合并原数据
+        :param merge_axis: 合并方向
         :param subset: 去重列表：1）检查指定列；2）检查所有列 -- 不检查索引
         :param keep: 是否存储索引
         :param sort_by: 排序列表
@@ -259,5 +269,5 @@ class DataStorage:
             if isinstance(df, pd.Series):
                 df = pd.DataFrame({key: df})
             self.write_df_to_parquet(
-                df, key, index, merge_original_data, subset, keep, sort_by, compression
+                df, key, index, merge_original_data, merge_axis, subset, keep, sort_by, compression
             )
