@@ -313,11 +313,11 @@ class Individual:
                     "_quadrants-3": QuadrantsChartSpecs(
                         title="盈利能力",
                         ul_data_source="rolling_financial",
-                        ul_column="核心利润率",
+                        ul_column=["毛利率", "毛销差"],
                         ll_data_source="rolling_financial",
-                        ll_column=["销售利润率", "营业净利率"],
+                        ll_column="核心利润率",
                         ur_data_source="rolling_financial",
-                        ur_column=["毛利率", "毛销差"],
+                        ur_column=["销售利润率", "营业净利率"],
                         lr_data_source="rolling_financial",
                         lr_column=["营业税金负担率"]
                     ),
@@ -419,7 +419,17 @@ class Individual:
                         lr_data_source="rolling_financial",
                         lr_column=["营业净利率", "净经营资产周转率", "净经营资产权益乘数", "利润留存率"],
                     ),
-
+                    "_quadrants-12": QuadrantsChartSpecs(
+                        title="现金流",
+                        ul_data_source="rolling_financial",
+                        ul_column="企业自由现金流",
+                        ll_data_source="rolling_financial",
+                        ll_column="股权自由现金流",
+                        ur_data_source="rolling_financial",
+                        ur_column="无杠杆自由现金流",
+                        lr_data_source="rolling_financial",
+                        lr_column="杠杆自由现金流",
+                    )
                 },
                 "财务": {
                     "_quadrants-1": QuadrantsChartSpecs(
@@ -447,11 +457,11 @@ class Individual:
                     "_quadrants-3": QuadrantsChartSpecs(
                         title="盈利能力",
                         ul_data_source="financial",
-                        ul_column="核心利润率",
+                        ul_column=["毛利率", "毛销差"],
                         ll_data_source="financial",
-                        ll_column=["销售利润率", "营业净利率"],
+                        ll_column="核心利润率",
                         ur_data_source="financial",
-                        ur_column=["毛利率", "毛销差"],
+                        ur_column=["销售利润率", "营业净利率"],
                         lr_data_source="financial",
                         lr_column=["营业税金负担率"]
                     ),
@@ -552,7 +562,17 @@ class Individual:
                         lr_data_source="financial",
                         lr_column=["营业净利率", "净经营资产周转率", "净经营资产权益乘数", "利润留存率"],
                     ),
-
+                    "_quadrants-12": QuadrantsChartSpecs(
+                        title="现金流",
+                        ul_data_source="financial",
+                        ul_column="企业自由现金流",
+                        ll_data_source="financial",
+                        ll_column="股权自由现金流",
+                        ur_data_source="financial",
+                        ur_column="无杠杆自由现金流",
+                        lr_data_source="financial",
+                        lr_column="杠杆自由现金流",
+                    )
                 },
                 "估值": {
                     "_upper_lower_dichotomy-1": QuadrantsChartSpecs(
@@ -679,7 +699,8 @@ class Normal:
                 ],
                 "现金流量": [
                     "经营现金流量", "债务现金流量", "股权现金流量", "核心利润获现率",
-                    "收现比", "净现比"
+                    "收现比", "净现比", "企业自由现金流", "股权自由现金流",
+                    "无杠杆自由现金流", "杠杆自由现金流",
                 ],
                 "资本结构": [
                     "金融性负债占比", "经营性负债占比", "股东入资占比", "利润留存占比",
@@ -726,7 +747,7 @@ class Normal:
         def __init__(self):
             # page名
             self.pages_name = [
-                "权益净利率", "偿债能力", "盈利能力", "营运能力", "成长能力", "其他指标", "估值"
+                "权益净利率", "偿债能力", "盈利能力", "营运能力", "成长能力", "现金流", "其他指标", "估值"
             ]
             # 图表配置
             self.pages_config = {
@@ -1181,6 +1202,28 @@ class Normal:
                         ll_data_source="rolling_financial"
                     ),
                 },
+                "现金流": {
+                    "_basic_bar-1": BasicChartSpecs(
+                        title="企业自由现金流",
+                        data_source="rolling_financial",
+                        column="企业自由现金流"
+                    ),
+                    "_basic_bar-2": BasicChartSpecs(
+                        title="股权自由现金流",
+                        data_source="rolling_financial",
+                        column="股权自由现金流"
+                    ),
+                    "_basic_bar-3": BasicChartSpecs(
+                        title="无杠杆自由现金流",
+                        data_source="rolling_financial",
+                        column="无杠杆自由现金流"
+                    ),
+                    "_basic_bar-4": BasicChartSpecs(
+                        title="杠杆自由现金流",
+                        data_source="rolling_financial",
+                        column="杠杆自由现金流"
+                    ),
+                },
                 "估值": {
                     "_basic_bar-1": BasicChartSpecs(
                         title="市值",
@@ -1313,8 +1356,8 @@ class Quant:
             # 基础报表
             self.basic_reports = {
                 "资产负债表": [
-                    # "非流动资产合计", "少数股东权益", "应收票据", "应收账款", "实收资本",
-                    # "库存股", "存货", "所有者权益", "负债和所有者权益"
+                    "非流动资产合计", "少数股东权益", "应收票据", "应收账款", "实收资本",
+                    "库存股", "存货", "所有者权益", "负债和所有者权益"
                 ],
                 "利润表": [
                     "利润总额", "资产减值损失", "信用减值损失", "归属于母公司所有者的净利润",

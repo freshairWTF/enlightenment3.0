@@ -44,6 +44,14 @@ OVERALL_FACTOR = {
         factor_name="购建固定资产、无形资产和其他长期资产支付的现金",
         entire_filter=True
     ),
+    # 量价
+    "累加收益率_0.25": FactorSetting(
+        factor_name="累加收益率_0.25",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+        small_filter=True
+    ),
 }
 
 
@@ -333,18 +341,81 @@ FACTOR_LIBRARY = {
     # 比率
 
     # 量价因子
-    # "累加收益率": FactorSetting(
-    #     factor_name="累加收益率_0.25",
-    #     reverse=True,
-    #     entire_filter=True,
-    #     overall_filter=True,
-    #     small_filter=True
-    # ),
-    # "累加收益率": FactorSetting(
-    #     factor_name="累加收益率_0.25",
-    #     reverse=True,
-    #     entire_filter=True,
-    #     overall_filter=True,
-    #     small_filter=True
-    # ),
+    "累加收益率_0.09": FactorSetting(
+        factor_name="累加收益率_0.09",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+        small_filter=True
+    ),
+    "累加收益率_0.17": FactorSetting(
+        factor_name="累加收益率_0.17",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+        small_filter=True
+    ),
+    "累加收益率_0.25": FactorSetting(
+        factor_name="累加收益率_0.25",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+        small_filter=True
+    ),
+
+    "换手率均线_0.25": FactorSetting(
+        factor_name="换手率均线_0.25",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+    ),
+    "换手率均线_0.5": FactorSetting(
+        factor_name="换手率均线_0.5",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+    ),
+    "换手率均线_1": FactorSetting(
+        factor_name="换手率均线_1",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+    ),
+    "换手率均线_1.5": FactorSetting(
+        factor_name="换手率均线_1.5",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+    ),
+
+    "换手率标准差_0.25": FactorSetting(
+        factor_name="换手率标准差_0.25",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+    ),
+    "换手率标准差_0.5": FactorSetting(
+        factor_name="换手率标准差_0.5",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+    ),
+    "换手率标准差_1": FactorSetting(
+        factor_name="换手率标准差_1",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+    ),
+    "换手率标准差_1.5": FactorSetting(
+        factor_name="换手率标准差_1.5",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+    ),
+    "换手率标准差_2": FactorSetting(
+        factor_name="换手率标准差_2",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+    ),
 }

@@ -291,7 +291,7 @@ class ValuationMetrics(Metrics):
         # ======================
         merger_df = pd.concat(
             [
-                self.kline_data["market_beta_1"],
+                self.kline_data["市场贝塔_1"],
                 self.financial_data[["企业自由现金流", "负债合计", "税后利息率", "营业收入"]],
                 self.metrics["市值"]
             ],

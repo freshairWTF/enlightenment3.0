@@ -156,6 +156,7 @@ class BaseService:
             {
                 date: df.shape[0] / listed_nums[date[: 7]][0] * 100
                 for date, df in data.items()
+                if date[: 7] in listed_nums.index
             },
             orient="index",
             columns=["覆盖度"]

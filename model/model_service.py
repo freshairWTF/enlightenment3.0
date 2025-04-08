@@ -450,7 +450,7 @@ class ModelAnalyzer(BaseService):
             position_distribution=self.model_setting.position_distribution
         )
         grouped_data = model.run()
-        print(grouped_data.keys())
+
         # ---------------------------------------
         # 模型评估
         # ---------------------------------------
