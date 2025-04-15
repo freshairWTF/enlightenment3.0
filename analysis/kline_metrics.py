@@ -262,7 +262,7 @@ class KLineMetrics(Metrics):
         y = price_series[valid_mask].values
 
         # 使用scipy进行线性回归
-        slope, _, _, _, _ = linregress(x, y)
+        result = linregress(x, y)
 
         # 转换为角度
-        self.metrics[f"斜率_{window}"] = np.degrees(np.arctan(slope))
+        self.metrics[f"斜率_{window}"] = np.degrees(np.arctan(result.slope))

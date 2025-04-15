@@ -2,12 +2,6 @@ from analysis.analysis_service import Analyzer
 from constant.analysis_setting import Individual, Normal, Quant, Factor, InventoryCycle
 
 
-"""
-        "三元正极": "自定义一", "磷酸铁锂正极": "自定义一", "前驱体": "自定义一",
-                             "负极": "自定义", "电解液": "自定义", "隔膜": "自定义"
-"""
-
-
 # ---------------------------------------------------
 def individual_analysis():
     """个股分析"""
@@ -20,11 +14,11 @@ def individual_analysis():
 
         cycle="month",
         financial_cycle="year",
-        start_date="2015-12-31",
+        start_date="2015-03-30",
         financial_end_date="2024-12-31",
-        end_date="2025-04-02",
-        storage_dir_name="帝科股份24Y",
-        target_info="300842",
+        end_date="2025-04-12",
+        storage_dir_name="圣农发展24Y",
+        target_info="002299",
         debug=False
     )
     analyzer.run()
@@ -43,12 +37,12 @@ def normal_analysis():
 
         cycle="month",
         financial_cycle="quarter",
-        start_date="2021-09-30",
-        end_date="2025-04-03",
+        start_date="2015-03-31",
         financial_end_date="2024-09-30",
+        end_date="2025-04-11",
 
-        storage_dir_name="光伏设备精选24Q3",
-        target_info=["688408", "605117", "300827", "300274", "300842"],
+        storage_dir_name="肉鸡养殖250402W",
+        target_info={"肉鸡养殖": "三级行业"},
         draw_filter=True,
         debug=False
     )
@@ -64,17 +58,17 @@ def quant_analysis():
         params=Quant(),
 
         # 运存不足，无法满足 day 的运存消耗
-        dimension="micro",
+        dimension="meso",
         class_level="三级行业",
         weight_name="市值",
 
         cycle="month",
         financial_cycle="quarter",
-        start_date="2000-03-31",
+        start_date="2022-03-31",
         financial_end_date="2024-09-30",
-        end_date="2025-03-31",
+        end_date="2025-04-11",
 
-        storage_dir_name="202503M财务估值",
+        storage_dir_name="20250402M估值历史分位数",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -97,13 +91,13 @@ def factor_analysis():
         class_level="三级行业",
         weight_name="市值",
 
-        cycle="month",
+        cycle="week",
         financial_cycle="quarter",
         start_date="2000-03-31",
         financial_end_date="2024-09-30",
-        end_date="2025-03-31",
+        end_date="2025-04-03",
 
-        storage_dir_name="202503M量价",
+        storage_dir_name="20250401W量价",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -125,20 +119,22 @@ def inventory_cycle_analysis():
         draw_filter=True,
         params=InventoryCycle(),
 
+        weight_name="市值",
+        class_level="一级行业",
+
         start_date="2021-03-31",
         end_date="2024-09-30",
         financial_end_date="2024-09-30",
-        weight_name="市值",
-        storage_dir_name="稳定性测试",
-        target_info=["688711", "688697", "688700"],
-        class_level="一级行业",
+
+        storage_dir_name="库存周期24Q4",
+        target_info={"全部": "三级行业"},
     )
     analyzer.run()
 
 
 if __name__ == "__main__":
-    # individual_analysis()
-    normal_analysis()
+    individual_analysis()
+    # normal_analysis()
     # quant_analysis()
     # factor_analysis()
     # inventory_cycle_analysis()

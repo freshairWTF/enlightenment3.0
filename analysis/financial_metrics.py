@@ -789,10 +789,8 @@ class FinancialMetrics(Metrics):
     @depends_on("经营净利率", "净经营资产周转率")
     def _net_profit_margin_on_net_operating_assets(self) -> None:
         """
-        净经营资产净利率 = 经营净利润 / 净经营资产
-        self.df["净经营资产净利率"] = self.df["经营净利润"] / self.df["净经营资产"]
-
-        净经营资产净利率 = 经营净利率 * 净经营资产周转率
+        -1 净经营资产净利率 = 经营净利润 / 净经营资产
+        -2 净经营资产净利率 = 经营净利率 * 净经营资产周转率
         """
         self.metrics["净经营资产净利率"] = self.metrics["经营净利率"] * self.metrics["净经营资产周转率"]
 

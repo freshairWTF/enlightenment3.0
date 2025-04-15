@@ -318,7 +318,7 @@ class ValuationMetrics(Metrics):
             if total_capital <= 0:
                 return np.nan
 
-            beta = current_year_data["market_beta_1"]
+            beta = current_year_data["市场贝塔_1"]
             cost_equity = risk_free_rate + beta * market_risk_premium
             cost_debt = current_year_data["税后利息率"]
             wacc = (equity_value / total_capital) * cost_equity \

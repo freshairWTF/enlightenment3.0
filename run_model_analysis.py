@@ -26,7 +26,6 @@ if __name__ == "__main__":
     # 因子参数设置
     factors_setting = list(FACTOR_LIBRARY.values())
     """
-    多因子怎么处理
     特殊因子
     """
     # 模型参数设置

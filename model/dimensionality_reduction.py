@@ -264,6 +264,7 @@ class FactorPCA:
             index=self.pc_df.columns
         )
 
+
 ###################################################
 class FactorCollinearityProcessor:
     """

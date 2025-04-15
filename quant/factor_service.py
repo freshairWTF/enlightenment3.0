@@ -15,6 +15,7 @@ import pandas as pd
 
 from base_service import BaseService
 from range_filter import RangeFilter
+from markov_chain import MarkovChainAnalyzer
 from constant.quant import (
                             FactorVisualization, RESTRUCTURE_FACTOR,
                             NEGATIVE_SINGLE_COLUMN
@@ -52,6 +53,7 @@ class FactorAnalyzer(BaseService):
     def __init__(
             self,
             source_dir: str | Path,
+            index_path: str | Path,
             factors_name: list[str],
             cycle: CYCLE,
             class_level: CLASS_LEVEL = "一级行业",
@@ -67,6 +69,7 @@ class FactorAnalyzer(BaseService):
     ):
         """
         :param source_dir: 原始数据目录名称
+        :param index_path: 指数k线文件路径
         :param factors_name: 因子名
         :param cycle: 周期
         :param class_level: 行业级数
@@ -82,6 +85,7 @@ class FactorAnalyzer(BaseService):
         """
         # 分析参数
         self.source_dir = source_dir
+        self.index_path = index_path
         self.factors_name = factors_name
         self.cycle = cycle
         self.class_level = class_level
@@ -124,6 +128,7 @@ class FactorAnalyzer(BaseService):
         self.industry_mapping = self.load_industry_mapping()
         self.listed_nums = self.load_listed_nums()
         self.raw_data = self.load_factor_data(self.source_dir)
+        self.index_data = self.load_index_kline(self.index_path)
 
         # --------------------------
         # 其他参数
@@ -296,38 +301,40 @@ class FactorAnalyzer(BaseService):
                 "最优组t值":
                     result["returns_stats"].loc["t_value", best_label],
                 "多空组t值": result["returns_stats"].loc["t_value"].iloc[-1],
-                "半衰期": result["ic_stats"]["half_life"].values[0]
+                "半衰期": result["ic_stats"]["half_life"].values[0],
+                "牛市IC": result["markov_chain"].loc["Bull", "mean"],
+                "牛市IR": result["markov_chain"].loc["Bull", "ic_ir"],
+                "牛市t值": result["markov_chain"].loc["Bull", "t_stat"],
+                "熊市IC": result["markov_chain"].loc["Bear", "mean"],
+                "熊市IR": result["markov_chain"].loc["Bear", "ic_ir"],
+                "熊市t值": result["markov_chain"].loc["Bear", "t_stat"],
+                "震荡市IC": result["markov_chain"].loc["Neutral", "mean"],
+                "震荡市IR": result["markov_chain"].loc["Neutral", "ic_ir"],
+                "震荡市t值": result["markov_chain"].loc["Neutral", "t_stat"],
             }
         )
-        metrics["judgment"] = (
-            False if (
-                (abs(metrics["ic_mean"]) < 0.03)
-                or (abs(metrics["ic_ir"]) < 0.5)
-                or (metrics["ic_significance"] < 0.6)
-                or (abs(metrics["秩相关系数"]) < 0.7)
-                or (metrics["最优组t值"] < 2)
-                or (metrics["多空组t值"] < 2)
-            ) else True
-        )
-        
-        return pd.DataFrame(metrics).T
 
-    @classmethod
-    def _judgment_factor(
-            cls,
-            metrics: pd.Series
-    ) -> bool:
-        """判定因子是否纳入因子池"""
-        return False if (
-                (abs(metrics["ic_mean"]) < 0.03)
-                or (abs(metrics["ic_ir"]) < 0.5)
-                or (metrics["ic_significance"] < 0.6)
-                or (abs(metrics["秩相关系数"]) < 0.7)
-                or (metrics["JT_p值"] > 0.05)
-                or (metrics["最优组t值"] < 2)
-                or (metrics["多空组t值"] < 2)
-                or (metrics["半衰期"] < 6)
-        ) else True
+        # 因子判定: -1 阿尔法因子 -2 动态因子
+        if (
+                abs(metrics["ic_mean"]) > 0.03
+                and abs(metrics["ic_ir"]) > 0.5
+                and metrics["ic_significance"] >= 0.6
+                and abs(metrics["秩相关系数"]) >= 0.7
+                and metrics["最优组t值"] >= 2
+                and metrics["多空组t值"] >= 2
+                and metrics["JT_p值"] <= 0.05
+        ):
+            metrics["judgment"] = "alpha"
+        elif (
+                abs(metrics["牛市IC"]) > 0.03 and abs(metrics["牛市IR"]) > 0.05 and abs(metrics["牛市t值"]) >= 2
+                or abs(metrics["熊市IC"]) > 0.03 and abs(metrics["熊市IR"]) > 0.05 and abs(metrics["熊市t值"]) >= 2
+                or abs(metrics["震荡市IC"]) > 0.03 and abs(metrics["震荡市IR"]) > 0.05 and abs(metrics["震荡市t值"]) >= 2
+        ):
+            metrics["judgment"] = "dynamic"
+        else:
+            metrics["judgment"] = "invalid"
+
+        return pd.DataFrame(metrics).T
 
     # --------------------------
     # 可视化方法
@@ -420,7 +427,11 @@ class FactorAnalyzer(BaseService):
         table_storage = DataStorage(self.storage_dir)
         if lock is None:
             table_storage.write_df_to_excel(
-                metrics, "因子分类表", mode="a", index=False,
+                metrics,
+                "因子分类表",
+                sheet_name=metrics["judgment"][0],
+                mode="a",
+                index=False,
                 subset=[
                     "因子名", "回测时长", "研究范围", "周期", "标准化",
                     "市值中性化", "行业中性化", "因子重构", "分组"
@@ -430,7 +441,11 @@ class FactorAnalyzer(BaseService):
         else:
             with lock:
                 table_storage.write_df_to_excel(
-                    metrics, "因子分类表", mode="a", index=False,
+                    metrics,
+                    "因子分类表",
+                    sheet_name=metrics["judgment"][0],
+                    mode="a",
+                    index=False,
                     subset=[
                         "因子名", "回测时长", "研究范围", "周期", "标准化",
                         "市值中性化", "行业中性化", "因子重构", "分组"
@@ -502,12 +517,15 @@ class FactorAnalyzer(BaseService):
                 raise ValueError("分组数据为空值")
 
             # ---------------------------------------
-            # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 综合评价指标
+            # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
             # ---------------------------------------
+            # ic类统计
             ic_stats = self.calc_ic_metrics(
                     grouped_data, processed_factor_col, self.cycle
                 )
+            # ic均值
             ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
+            # 是否为反转因子
             reverse = True if ic_mean < 0 else False
 
             result = {
@@ -529,6 +547,17 @@ class FactorAnalyzer(BaseService):
                 ),
             }
 
+            # 马尔科夫链，识别不同市场下的因子表现
+            markov_chain = MarkovChainAnalyzer(
+                factor_return=result["ic"]["ic"],
+                index_return=self.index_data["pctChg"]
+            )
+            markov_chain.run_analysis()
+            result.update(
+                {"markov_chain": markov_chain.performance}
+            )
+
+            # 因子综合评价
             measure_metrics = self._get_measure_indicator(
                 factor_name, filter_mode, group_mode,
                 self.group_label[0] if ic_mean < 0 else self.group_label[-1],

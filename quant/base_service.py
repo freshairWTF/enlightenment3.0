@@ -72,8 +72,8 @@ class BaseService:
             cls,
             path: Path | str
     ) -> pd.DataFrame:
-        """加载行业数据"""
-        return cls.loader.load_parquet(path)
+        """加载指数k线数据"""
+        return cls.loader.load_parquet(path).set_index("date")
 
     # --------------------------
     # 数据处理
@@ -130,17 +130,6 @@ class BaseService:
                     result[date] = valid_data
 
         return result
-
-        # return {
-        #     date: cleaned_df
-        #     for date, raw_df in raw_data.items()
-        #     # 应有所需的全部数据
-        #     if required_col.issubset(raw_df.columns)
-        #     # 删除任意因子缺失值所在的行
-        #     if not (
-        #         cleaned_df := raw_df[valid_factors].dropna(subset=valid_factors, how="any")
-        #     ).empty
-        # }
 
     # --------------------------
     # 指标计算
