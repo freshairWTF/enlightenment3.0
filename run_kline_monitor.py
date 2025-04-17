@@ -1,4 +1,4 @@
-from analysis.kline_monitor import KlineMonitor
+from kline_monitor_service import KlineMonitor
 from constant.monitor_setting import Kline
 
 
@@ -9,11 +9,13 @@ def kline_monitor():
         index_code="000300",
         params=Kline(),
 
-        start_date="2024-08-30",
-        end_date="2025-04-14",
-        storage_dir_name="2025-04-14",
-        target_info=["002234"],
+        start_date="2024-05-26",
+        end_date="2025-04-17",
+        storage_dir_name="2025-04-17",
+        target_info={"全部": "三级行业"},
         cycle="day",
+
+        kline_adjust="split_adjusted",
         processes_nums=10
     )
     monitor.run()

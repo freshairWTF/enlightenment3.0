@@ -19,17 +19,17 @@ class MarkovChainAnalyzer:
     def __init__(
             self,
             factor_return: pd.Series,
-            index_return: pd.Series,
-            n_regimes: int = 3
+            index_return: pd.DataFrame,
     ):
         """
         :param factor_return: 因子收益率
         :param index_return: 指数收益率
-        :param n_regimes: int 市场状态数量 (默认为3: 牛市/熊市/震荡市)
         """
         self.factor_return = factor_return
         self.index_return = index_return
-        self.n_regimes = n_regimes
+
+        # 市场状态数量 (默认为3: 牛市/熊市/震荡市)
+        self.n_regimes = 3
 
         self.data = self.__preprocess_data()
         self.model = None
@@ -40,18 +40,19 @@ class MarkovChainAnalyzer:
             self
     ) -> pd.DataFrame:
         """数据预处理：处理缺失值、标准化"""
+        # 日期转换：仅取年月
+        self.factor_return.index = pd.to_datetime(self.factor_return.index).strftime("%Y-%m")
+        self.index_return.index = pd.to_datetime(self.index_return.index).strftime("%Y-%m")
+
         # 数据合并
         merger_df = pd.concat(
             [
                 self.factor_return.rename("factor_return"),
-                self.index_return.rename("market_return")
+                self.index_return
             ],
             axis=1,
             join="inner"
         )
-
-        # 计算超额收益率
-        merger_df["excess_return"] = merger_df["factor_return"] - merger_df["market_return"]
 
         # 去除缺失值
         merger_df.dropna(inplace=True)
@@ -66,7 +67,7 @@ class MarkovChainAnalyzer:
         """
         self.model = MarkovRegression(
             endog=self.data['factor_return'],
-            exog=self.data[['market_return']],
+            exog=self.data[['pctChg', "累加收益率_0.25", "收益率标准差_0.25", "斜率_0.25"]],
             k_regimes=self.n_regimes,
             trend='c',
             switching_variance=True                     # 是否允许不同状态的方差不同
@@ -90,10 +91,13 @@ class MarkovChainAnalyzer:
         # 分配标签：牛市 > 震荡市 > 熊市
         label_map = {
             sorted_states[0]: 'Bull',
-            sorted_states[1]: 'Neutral' if self.n_regimes == 3 else 'Bear',
+            sorted_states[1]: 'Neutral',
             sorted_states[2]: 'Bear'
         }
         self.data['state_label'] = self.data['state'].map(label_map)
+        pd.set_option("display.max_rows", None)
+        print(self.data['state_label'])
+        print(dd)
 
         return self
 
@@ -124,7 +128,9 @@ class MarkovChainAnalyzer:
             })
 
         self.performance = pd.DataFrame(results).set_index('state')
-
+        print(self.state_prob)
+        print(self.performance)
+        print(dd)
         return self
 
     def plot_results(
@@ -169,4 +175,5 @@ class MarkovChainAnalyzer:
             self.__fit_model()
             .__assign_states()
             .__analyze_performance()
+            .plot_results()
         )

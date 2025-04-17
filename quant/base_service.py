@@ -8,6 +8,8 @@ from utils.drawer import Drawer
 from utils.data_loader import DataLoader
 from utils.quant_processor import QuantProcessor
 from constant.type_ import CLASS_LEVEL, CYCLE, CALC_RETURN_MODE, validate_literal_params
+from analysis.kline_metrics import KLineMetrics
+from constant.path_config import DataPATH
 
 
 ####################################################
@@ -74,6 +76,24 @@ class BaseService:
     ) -> pd.DataFrame:
         """加载指数k线数据"""
         return cls.loader.load_parquet(path).set_index("date")
+
+    @classmethod
+    @validate_literal_params
+    def _calculate_kline(
+            cls,
+            kline: pd.DataFrame,
+            cycle: CYCLE,
+            methods: dict[str, list[float]]
+    ) -> pd.DataFrame:
+        """计算量价指标"""
+        calculator = KLineMetrics(
+            kline_data=kline,
+            cycle=cycle,
+            methods=methods,
+            function_map=cls.loader.load_yaml_file(DataPATH.KLINE_METRICS, "FUNCTION_OF_KLINE")
+        )
+        calculator.calculate()
+        return calculator.metrics.round(4)
 
     # --------------------------
     # 数据处理

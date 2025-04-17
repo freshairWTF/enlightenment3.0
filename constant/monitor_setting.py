@@ -2,7 +2,7 @@
 监控常量
 """
 
-from draw_specs import BasicChartSpecs, QuadrantsChartSpecs
+from draw_specs import *
 
 
 #####################################################
@@ -240,13 +240,54 @@ class Kline:
         def __init__(self):
             self.kline = {
                 "斜率": [
-                    0.024, 0.08, 0.16
+                    0.024, 0.08, 0.24
                 ]
             }
 
     class Visualization:
         def __init__(self):
             # page名
-            self.pages_name = []
+            self.pages_name = [
+                "全局统计"
+            ]
             # 图表配置
-            self.pages_config: dict[str, BasicChartSpecs | QuadrantsChartSpecs] = {}
+            self.pages_config = {
+                "全局统计": {
+                    "_basic_line-1": BasicChartSpecs(
+                        title="短期斜率-正斜率比率",
+                        data_source="斜率_0.024",
+                        column=["positive_ratio"],
+                        date=True
+                    ),
+                    "_basic_line-2": BasicChartSpecs(
+                        title="短期斜率-均值",
+                        data_source="斜率_0.024",
+                        column=["mean"],
+                        date=True
+                    ),
+                    "_basic_line-3": BasicChartSpecs(
+                        title="中期斜率-正斜率比率",
+                        data_source="斜率_0.08",
+                        column=["positive_ratio"],
+                        date=True
+                    ),
+                    "_basic_line-4": BasicChartSpecs(
+                        title="中期斜率-均值",
+                        data_source="斜率_0.08",
+                        column=["mean"],
+                        date=True
+                    ),
+                    "_basic_line-5": BasicChartSpecs(
+                        title="长期斜率-正斜率比率",
+                        data_source="斜率_0.24",
+                        column=["positive_ratio"],
+                        date=True
+                    ),
+                    "_basic_line-6": BasicChartSpecs(
+                        title="长期斜率-均值",
+                        data_source="斜率_0.24",
+                        column=["mean"],
+                        date=True
+                    ),
+                },
+            }

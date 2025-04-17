@@ -387,6 +387,8 @@ class DataLoader:
             start_date: str | None = None,
             end_date: str | None = None,
             aligned_to_month_end: bool = False,
+            start_date_inspection: bool = False,
+            end_date_inspection: bool = False
     ) -> pd.DataFrame:
         """
         获取标准化行情数据
@@ -396,6 +398,8 @@ class DataLoader:
         :param start_date: 起始日期
         :param end_date: 结束日期
         :param aligned_to_month_end: 为对齐财务日期，日期调整至月末（仅适用于月度及其以上数据）
+        :param start_date_inspection: 起始日期完备性检查
+        :param end_date_inspection: 结束日期完备性检查
         :return: 处理后的行情数据
         """
         # 读取文件
@@ -405,6 +409,12 @@ class DataLoader:
         # 时间过滤
         df = df[df.index >= pd.to_datetime(start_date)] if start_date is not None else df
         df = df[df.index <= pd.to_datetime(end_date)] if end_date is not None else df
+
+        # 日期完备性检查
+        if start_date_inspection and start_date not in df.index:
+            return pd.DataFrame()
+        if end_date_inspection and end_date not in df.index:
+            return pd.DataFrame()
 
         # 日期调整至月末
         if aligned_to_month_end and cycle not in ALIGNED_TO_MONTH_END:

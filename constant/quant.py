@@ -40,82 +40,110 @@ RESTRUCTURE_FACTOR = {
 
 
 #####################################################
-class FactorVisualization:
+class Factor:
+
     def __init__(self):
-        self.pages_name = [
-            "因子分析"
-        ]
-        # 图表配置
-        self.pages_config = {
-            "因子分析": {
-                "_basic_bar-1": BasicChartSpecs(
-                    title="因子覆盖度",
-                    data_source="coverage",
-                    column="",
-                    date=False
-                ),
-                "_basic_table-1": BasicChartSpecs(
-                    title="因子描述统计",
-                    data_source="desc_stats",
-                    column="",
-                    date=False
-                ),
-                "_basic_table-2": BasicChartSpecs(
-                    title="IC统计",
-                    data_source="ic_stats",
-                    column="",
-                    date=False
-                ),
-                "_basic_line-1": BasicChartSpecs(
-                    title="IC累加",
-                    data_source="ic_cumsum",
-                    column="",
-                    date=False
-                ),
-                "_basic_bar-2": BasicChartSpecs(
-                    title="IC衰退",
-                    data_source="ic_decay",
-                    column="",
-                    date=False
-                ),
-                "_basic_table-5": BasicChartSpecs(
-                    title="基础信息",
-                    data_source="basic_stats",
-                    column="",
-                    date=False
-                ),
-                "_basic_table-3": BasicChartSpecs(
-                    title="收益指标",
-                    data_source="returns_stats",
-                    column="",
-                    date=False
-                ),
-                "_basic_line-2": BasicChartSpecs(
-                    title="收益累计",
-                    data_source="cum_returns",
-                    column="",
-                    date=False
-                ),
-                "_basic_table-4": BasicChartSpecs(
-                    title="基础信息",
-                    data_source="mw_basic_stats",
-                    column="",
-                    date=False
-                ),
-                "_basic_table-6": BasicChartSpecs(
-                    title="收益指标",
-                    data_source="mw_returns_stats",
-                    column="",
-                    date=False
-                ),
-                "_basic_line-3": BasicChartSpecs(
-                    title="收益累计",
-                    data_source="mw_cum_returns",
-                    column="",
-                    date=False
-                )
+        # 指数量价模块
+        self.kline = self.Kline()
+        # 可视化模块
+        self.visualization = self.Visualization()
+
+    class Kline:
+        def __init__(self):
+            self.kline = {
+                "累加收益率": [
+                    0.25
+                ],
+                "收益率标准差": [
+                    0.25
+                ],
+                "斜率": [
+                    0.25
+                ],
             }
-        }
+
+    class Visualization:
+        def __init__(self):
+            self.pages_name = [
+                "因子分析"
+            ]
+            # 图表配置
+            self.pages_config = {
+                "因子分析": {
+                    "_basic_bar-1": BasicChartSpecs(
+                        title="因子覆盖度",
+                        data_source="coverage",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_table-1": BasicChartSpecs(
+                        title="因子描述统计",
+                        data_source="desc_stats",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_table-2": BasicChartSpecs(
+                        title="IC统计",
+                        data_source="ic_stats",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_line-1": BasicChartSpecs(
+                        title="IC累加",
+                        data_source="ic_cumsum",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_bar-2": BasicChartSpecs(
+                        title="IC衰退",
+                        data_source="ic_decay",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_table-7": BasicChartSpecs(
+                        title="分市场IC",
+                        data_source="markov_chain",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_table-5": BasicChartSpecs(
+                        title="基础信息",
+                        data_source="basic_stats",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_table-3": BasicChartSpecs(
+                        title="收益指标",
+                        data_source="returns_stats",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_line-2": BasicChartSpecs(
+                        title="收益累计",
+                        data_source="cum_returns",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_table-4": BasicChartSpecs(
+                        title="基础信息",
+                        data_source="mw_basic_stats",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_table-6": BasicChartSpecs(
+                        title="收益指标",
+                        data_source="mw_returns_stats",
+                        column="",
+                        date=False
+                    ),
+                    "_basic_line-3": BasicChartSpecs(
+                        title="收益累计",
+                        data_source="mw_cum_returns",
+                        column="",
+                        date=False
+                    )
+                }
+            }
 
 
 #####################################################

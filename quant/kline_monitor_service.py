@@ -2,22 +2,22 @@
 k线监控业务层
 """
 
-import pandas as pd
-from loguru import logger
 from pathos.multiprocessing import ProcessPool as Pool
 
+import warnings
+import pandas as pd
+
+from base_service import BaseService
 from constant.path_config import DataPATH
 from constant.type_ import CYCLE, INDUSTRY_SHEET, KLINE_SHEET, validate_literal_params
 from data_storage import DataStorage
 from data_loader import DataLoader
-from kline_metrics import KLineMetrics
 
-import warnings
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 
 ###############################################################
-class KlineMonitor:
+class KlineMonitor(BaseService):
 
     @validate_literal_params
     def __init__(
@@ -67,13 +67,12 @@ class KlineMonitor:
 
         # 数据存储容器
         self.kline = {}
-        self.index_kline: pd.DataFrame | None = None
+        self.global_slope = {}
 
         # 初始化其他配置
         self._initialize_config()
-
         # 日志
-        self.logger = self._setup_logger()
+        self.logger = self.setup_logger(self.result_data_path)
 
     # --------------------------
     # 初始化方法
@@ -94,18 +93,12 @@ class KlineMonitor:
         # 目标代码
         self.target_codes = self._get_target_codes()
         # 目标行业字典
-        self.industry_codes: pd.DataFrame = self._get_industry_codes()
+        self.industry_mapping: pd.DataFrame = self.load_industry_mapping()
         # 方法映射
         self.FUNCTION_MAP = self._load_function()
         # 行业统计个数
-        self.slope_critical = 45
-
-    def _setup_logger(
-            self
-    ) -> logger:
-        """配置日志记录器"""
-        logger.add(f"{self.result_data_path}/日志.log", rotation="10 MB", level="INFO")
-        return logger
+        self.slope_quantile = 0.9
+        self.slope_critical = {"斜率_0.024": 0.01, "斜率_0.08": 0.001, "斜率_0.16": 0.0005}
 
     def _get_target_codes(
             self
@@ -124,19 +117,6 @@ class KlineMonitor:
         else:
             raise TypeError(f"量价监控不支持该数据类型 {type(self.target_info)}")
 
-    def _get_industry_codes(
-            self
-    ) -> pd.DataFrame:
-        """获取目标行业字典"""
-        return (
-            self.loader.get_industry_codes(
-                sheet_name=self.code_range,
-                industry_info={"全部": "三级行业"},
-                return_type='dataframe'
-            )
-            .assign(**{"股票代码": lambda df: df["股票代码"].str.split(".").str[0]})
-        )
-
     def _load_function(
             self
     ) -> dict:
@@ -154,8 +134,6 @@ class KlineMonitor:
             self
     ) -> None:
         """加载数据"""
-        self.index_kline = self._load_index_data()
-
         # 使用多进程池并行处理
         with Pool(self.processes_nums) as pool:
             results = pool.map(self._process_single_company, self.target_codes)
@@ -188,7 +166,9 @@ class KlineMonitor:
             return {
                 "code": code,
                 "kline": self._calculate_kline(
-                    self._load_kline_data(code)
+                    self._load_kline_data(code),
+                    cycle=self.cycle,
+                    methods=self.PARAMS.kline.kline
                 )
             }
         except Exception as e:
@@ -200,17 +180,6 @@ class KlineMonitor:
     # --------------------------
     # 数据方法
     # --------------------------
-    def _load_index_data(
-            self
-    ) -> pd.DataFrame:
-        """加载指数数据"""
-        return self.loader.get_index_kline(
-            code=self.index_code,
-            cycle=self.cycle,
-            start_date=self.start_date,
-            end_date=self.end_date
-        )
-
     def _load_kline_data(
             self,
             code: str
@@ -221,36 +190,36 @@ class KlineMonitor:
             cycle=self.cycle,
             adjusted_mode=self.kline_adjust,
             start_date=self.start_date,
-            end_date=self.end_date
+            end_date=self.end_date,
+            end_date_inspection=True
         )
-
-    def _calculate_kline(
-            self,
-            kline: pd.DataFrame,
-            index_kline: pd.DataFrame | None = None
-    ) -> pd.DataFrame:
-        """计算量价指标"""
-        calculator = KLineMetrics(
-            kline_data=kline,
-            index_data=index_kline,
-            cycle=self.cycle,
-            methods=self.PARAMS.kline.kline,
-            function_map=self.FUNCTION_MAP["KLINE"]
-        )
-        calculator.calculate()
-        return calculator.metrics.round(4)
 
     # --------------------------
     # 聚合、筛选方法
     # --------------------------
-    def _aggregate_into_panel_data(
+    def _get_global_slope(
             self
-    ) -> None:
-        """处理数据聚合"""
-        self.kline = self.__aggregate_into_panel_data(self.kline)
-        self.kline = self._get_valid_data(self.kline, "斜率")
-        self.kline = self._add_industry(self.kline)
-        self.kline = self._reset_index(self.kline)
+    ) -> dict[str, pd.DataFrame]:
+        """获取全局斜率"""
+        return {
+            k: v
+            for k,v in self.__aggregate_into_panel_data(self.kline).items()
+            if "斜率" in k
+        }
+
+    def _get_latest_slope(
+            self,
+            global_slope: dict[str, pd.DataFrame]
+    ) -> dict[str, pd.DataFrame]:
+        """获取最新的个股斜率"""
+        return {
+            k: self._reset_index(
+                self._add_industry(
+                    v.iloc[-1, :].rename("slope").to_frame()
+                )
+            )
+            for k, v in global_slope.items()
+        }
 
     @classmethod
     def __aggregate_into_panel_data(
@@ -285,51 +254,36 @@ class KlineMonitor:
 
         return panel_data
 
-    @classmethod
-    def _get_valid_data(
-            cls,
-            data: dict[str, pd.DataFrame],
-            segment: str
-    ) -> dict[str, pd.DataFrame]:
-        """筛选有用数据"""
-        return {
-            metric: df.iloc[0, :].to_frame(name="slope")
-            for metric, df in data.items()
-            if segment in metric
-        }
-
     def _reset_index(
             self,
-            data: dict[str, pd.DataFrame],
-    ) -> dict[str, pd.DataFrame]:
+            df: pd.DataFrame,
+    ) -> pd.DataFrame:
         """重置列名，代码 -> 企业简称"""
         # 企业简称映射字典
         short_name_mapping: dict = (
-            self.industry_codes
+            self.industry_mapping
             .set_index("股票代码")
             ["公司简称"]
             .to_dict()
         )
-        return {
-            date: df_.rename(index=short_name_mapping)
-            for date, df_ in data.items()
-        }
+        return df.rename(index=short_name_mapping)
 
     def _add_industry(
             self,
-            data: dict[str, pd.DataFrame],
-    ) -> dict[str, pd.DataFrame]:
+            raw_df: pd.DataFrame,
+    ) -> pd.DataFrame:
         """
         加入行业分类数据
-        :param data: 原始数据
+        :param raw_df: 原始数据
         :return: 具有行业信息的数据
         """
         industry = (
-            self.industry_codes[["股票代码", "一级行业", "二级行业", "三级行业"]]
+            self.industry_mapping[["股票代码", "一级行业", "二级行业", "三级行业"]]
             .set_index("股票代码")
         )
-        return {
-            date: df.join(industry, how="left")
+        return (
+            raw_df
+            .join(industry, how="left")
             .fillna(
                 {
                     "一级行业": "未知行业",
@@ -337,61 +291,67 @@ class KlineMonitor:
                     "三级行业": "未知行业",
                 }
             )
-            for date, df in data.items()
-        }
+        )
 
     # --------------------------
     # 行业统计方法
     # --------------------------
-    def _stats_industry(
-            self,
-            critical_value: int
+    @classmethod
+    def _state_global(
+            cls,
+            global_slope: dict[str, pd.DataFrame]
     ) -> dict[str, pd.DataFrame]:
-        """
-        统计行业信息
-        :param critical_value: 临界值
-        """
+        """统计全局斜率特征"""
         result = {}
-
-        for metric, df in self.kline.items():
-            # 斜率筛选出 >= 5
-            filtered_df = df[df["slope"] >= critical_value]
-
-            result[f"{metric}_industry_count"] = pd.concat(
-                [
-                    self._calc_counts_and_percent(filtered_df, df, "一级行业"),
-                    self._calc_counts_and_percent(filtered_df, df, "二级行业"),
-                    self._calc_counts_and_percent(filtered_df, df, "三级行业"),
-                ],
-                axis=1
-            )
+        for metric, df in global_slope.items():
+            # -1 正斜率比率
+            positive_ratio = df.gt(0).mean(axis=1).rename("positive_ratio")
+            # -2 斜率均值
+            mean = df.mean(axis=1).rename("mean")
+            result[f"{metric}"] = pd.concat(
+                [positive_ratio, mean],
+                axis=1,
+                join="inner"
+            ).dropna(how="any")
 
         return result
 
+    def _stats_industry(
+            self,
+            latest_slope: dict[str, pd.DataFrame]
+    ) -> dict[str, pd.DataFrame]:
+        """
+        统计行业信息
+        :param latest_slope: 最新个股斜率
+        """
+        result = {}
+        for metric, df in latest_slope.items():
+            result[f"{metric}_industry_stats"] = pd.concat(
+                [
+                    self.__calc_industry(df, "一级行业"),
+                    self.__calc_industry(df, "二级行业"),
+                    self.__calc_industry(df, "三级行业"),
+                ],
+                axis=1
+            )
+        return result
+
     @staticmethod
-    def _calc_counts_and_percent(
-            filtered_df: pd.DataFrame,
+    def __calc_industry(
             df: pd.DataFrame,
-            industry_col: str
+            by: str
     ) -> pd.DataFrame:
         """
-        计算行业数与占自身的比重
-        :param filtered_df: 过滤后的数据
-        :param df: 原始数据
-        :param industry_col: 行业名
-        :return: 行业数及其占比
+        统计行业特征
+        :param df: 最新个股斜率
+        :param by: 分组字符串
+        :return: 行业特征 -1 正斜率比率 -2 斜率均值
         """
-        industry_counts = df[industry_col].value_counts()
-        filtered_counts = filtered_df.value_counts(industry_col).rename(industry_col)
-        filtered_percent = (
-            (filtered_counts / industry_counts * 100)
-            .rename(f"{industry_col}%")
-            .dropna()
-        )
+        grouped_df = df.groupby(by)
         return pd.concat(
-            [
-                filtered_counts,
-                filtered_percent,
+            objs=[
+                grouped_df["slope"].mean().rename(f"{by}_mean"),
+                grouped_df.apply(lambda x: (x["slope"] > 0).mean()).rename(f"{by}_positive_ratio")
             ],
             axis=1
         )
@@ -400,12 +360,13 @@ class KlineMonitor:
     # 存储、可视化方法
     # --------------------------
     def _store_results(
-            self
+            self,
+            result: dict[str, pd.DataFrame]
     ) -> None:
         """存储分析结果"""
         storage = DataStorage(self.result_data_path)
         storage.write_dict_to_parquet(
-            self.kline,
+            result,
             merge_original_data=False
         )
 
@@ -419,14 +380,25 @@ class KlineMonitor:
         try:
             # -1 加载数据
             self._load_data()
-            # -2 整合数据
-            self._aggregate_into_panel_data()
+            global_slope = self._get_global_slope()
+            latest_slope = self._get_latest_slope(global_slope)
+
+            # -2 统计全局
+            global_stats = self._state_global(global_slope)
+
             # -3 统计行业
-            self.kline.update(
-                self._stats_industry(self.slope_critical)
-            )
+            industry_stats = self._stats_industry(latest_slope)
+
             # -4 存储
-            self._store_results()
+            self._store_results(latest_slope)
+            self._store_results(industry_stats)
+
+            self._draw_charts(
+                self.result_data_path,
+                global_stats,
+                self.PARAMS.visualization
+            )
+
         except Exception as e:
             self.logger.error(f"分析流程异常终止: {str(e)}") if self.logger else print(f"Error: {str(e)}")
             raise

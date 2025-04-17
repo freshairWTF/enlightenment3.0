@@ -1,11 +1,12 @@
-import numpy as np
-import pandas as pd
 from typing import Literal
 from pathlib import Path
 from pyecharts import options as opts
 from pyecharts.charts import Bar, Line, Pie, Scatter, Page, Grid, Timeline, HeatMap
 from pyecharts.components import Table
 from pyecharts.commons.utils import JsCode
+
+import numpy as np
+import pandas as pd
 
 from constant.draw_specs import *
 
@@ -14,11 +15,11 @@ from constant.draw_specs import *
 # 若pyecharts服务器响应有误，则需要启动本地服务器：python -m http.server
 # 以下为静态资源服务器指向重定位，若服务器响应正常，则可关闭
 # 配置CurrentConfig.ONLINE_HOST为本机地址资源
-# from pyecharts.globals import CurrentConfig
-# CurrentConfig.ONLINE_HOST = "http://127.0.0.1:8000/assets/v5/"
+from pyecharts.globals import CurrentConfig
+CurrentConfig.ONLINE_HOST = "http://127.0.0.1:8000/assets/v5/"
+
+
 ###############################################################
-
-
 COLOR_MAP = [
     '#FF731D', '#004d61', '#bc8420', '#CF0A0A', '#83FFE6', '#0000A1', '#fff568', '#0080ff', '#7A57D1',
     '#81C6E8', '#385098', '#ffb5ba', '#EA047E', '#B1AFFF', '#425F57', '#CFFF8D', '#100720', '#18978F',

@@ -17,8 +17,8 @@ def individual_analysis():
         start_date="2015-03-30",
         financial_end_date="2024-12-31",
         end_date="2025-04-12",
-        storage_dir_name="圣农发展24Y",
-        target_info="002299",
+        storage_dir_name="锦泓集团24Y",
+        target_info="603518",
         debug=False
     )
     analyzer.run()
@@ -39,10 +39,10 @@ def normal_analysis():
         financial_cycle="quarter",
         start_date="2015-03-31",
         financial_end_date="2024-09-30",
-        end_date="2025-04-11",
+        end_date="2025-04-17",
 
-        storage_dir_name="肉鸡养殖250402W",
-        target_info={"肉鸡养殖": "三级行业"},
+        storage_dir_name="零食250403W",
+        target_info={"零食": "三级行业"},
         draw_filter=True,
         debug=False
     )
@@ -132,9 +132,10 @@ def inventory_cycle_analysis():
     analyzer.run()
 
 
+# ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
-    # normal_analysis()
+    # individual_analysis()
+    normal_analysis()
     # quant_analysis()
     # factor_analysis()
     # inventory_cycle_analysis()

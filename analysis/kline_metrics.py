@@ -245,24 +245,24 @@ class KLineMetrics(Metrics):
             window: int
     ) -> None:
         """计算价格序列的线性趋势斜率"""
+        def calculate_slope(window_values):
+            valid_mask = ~np.isnan(window_values)
+            valid_count = valid_mask.sum()
+            if valid_count < 2:
+                return np.nan
+            x = np.arange(len(window_values))[valid_mask]       # 生成时间序列自变量（使用位置索引）
+            y = window_values[valid_mask]
+            result = linregress(x, y)
+            return result.slope
+
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
+        # 对数收益率
+        price_series = np.log(self.metrics["close"] / self.metrics["close"].shift(1))
+        # 滚动计算斜率
+        slopes = price_series.rolling(
+            window=rolling_window,
+            min_periods=2
+        ).apply(calculate_slope, raw=False)
 
-        # 获取有效值索引
-        price_series = self.metrics["close"].iloc[-rolling_window:]
-        valid_mask = price_series.notna()
-        valid_count = valid_mask.sum()
-
-        # 至少需要2个点才能计算斜率
-        if valid_count < 2:
-            return
-
-        # 生成时间序列自变量（使用位置索引）
-        x = np.arange(len(price_series))[valid_mask]
-        y = price_series[valid_mask].values
-
-        # 使用scipy进行线性回归
-        result = linregress(x, y)
-
-        # 转换为角度
-        self.metrics[f"斜率_{window}"] = np.degrees(np.arctan(result.slope))
+        self.metrics[f"斜率_{window}"] = slopes

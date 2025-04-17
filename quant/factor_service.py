@@ -17,7 +17,7 @@ from base_service import BaseService
 from range_filter import RangeFilter
 from markov_chain import MarkovChainAnalyzer
 from constant.quant import (
-                            FactorVisualization, RESTRUCTURE_FACTOR,
+                            Factor, RESTRUCTURE_FACTOR,
                             NEGATIVE_SINGLE_COLUMN
                         )
 from constant.path_config import DataPATH
@@ -128,14 +128,13 @@ class FactorAnalyzer(BaseService):
         self.industry_mapping = self.load_industry_mapping()
         self.listed_nums = self.load_listed_nums()
         self.raw_data = self.load_factor_data(self.source_dir)
-        self.index_data = self.load_index_kline(self.index_path)
 
         # --------------------------
         # 其他参数
         # --------------------------
         self.support_factors_name = self._get_support_factors()
         self.group_label = self.setup_group_label(self.group_nums)
-        self.visual_setting = FactorVisualization()
+        self.setting = Factor()
         self.filter_mode = Literal[
             "_entire_filter",
             "_overall_filter",
@@ -147,7 +146,16 @@ class FactorAnalyzer(BaseService):
 
         # 最少行数
         self.min_nums = 100
-    
+
+        # --------------------------
+        # 指数数据
+        # --------------------------
+        self.index_data = self._calculate_kline(
+            self.load_index_kline(self.index_path),
+            self.cycle,
+            self.setting.kline.kline
+        )
+
     def _get_support_factors(
             self
     ) -> list[str]:
@@ -498,88 +506,89 @@ class FactorAnalyzer(BaseService):
         :param group_mode: 分组模式
         :param filter_mode: 过滤模式
         """
-        try:
-            self.logger.info(f"start: {factor_name} - {group_mode} - {filter_mode}")
-            # --------------------------
-            # 初始化
-            # --------------------------
-            storage_dir = self._get_storage_dir(factor_name, filter_mode)
-            processed_factor_col = f"processed_{factor_name}"
-            valid_factors = self._get_valid_factor(factor_name)
+        # try:
+        self.logger.info(f"start: {factor_name} - {group_mode} - {filter_mode}")
+        # --------------------------
+        # 初始化
+        # --------------------------
+        storage_dir = self._get_storage_dir(factor_name, filter_mode)
+        processed_factor_col = f"processed_{factor_name}"
+        valid_factors = self._get_valid_factor(factor_name)
 
-            # --------------------------
-            # 数据处理
-            # --------------------------
-            grouped_data = self._data_process(
-                raw_data, valid_factors, filter_mode, group_mode, factor_name, processed_factor_col
+        # --------------------------
+        # 数据处理
+        # --------------------------
+        grouped_data = self._data_process(
+            raw_data, valid_factors, filter_mode, group_mode, factor_name, processed_factor_col
+        )
+        if not grouped_data:
+            raise ValueError("分组数据为空值")
+
+        # ---------------------------------------
+        # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
+        # ---------------------------------------
+        # ic类统计
+        ic_stats = self.calc_ic_metrics(
+                grouped_data, processed_factor_col, self.cycle
             )
-            if not grouped_data:
-                raise ValueError("分组数据为空值")
+        # ic均值
+        ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
+        # 是否为反转因子
+        reverse = True if ic_mean < 0 else False
 
-            # ---------------------------------------
-            # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
-            # ---------------------------------------
-            # ic类统计
-            ic_stats = self.calc_ic_metrics(
-                    grouped_data, processed_factor_col, self.cycle
+        result = {
+            **{
+                "coverage": self.calc_coverage(grouped_data, self.listed_nums),
+                "desc_stats": self.get_desc_stats(
+                    grouped_data,
+                    list(set([factor_name, processed_factor_col] + self.DESCRIPTIVE_FACTOR))
                 )
-            # ic均值
-            ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
-            # 是否为反转因子
-            reverse = True if ic_mean < 0 else False
+            },
+            **ic_stats,
+            **self.calc_return_metrics(
+                grouped_data, self.cycle, self.group_label,
+                reverse=reverse
+            ),
+            **self.calc_return_metrics(
+                grouped_data, self.cycle, self.group_label,
+                mode="mv_weight", reverse=reverse, prefix="mw"
+            ),
+        }
 
-            result = {
-                **{
-                    "coverage": self.calc_coverage(grouped_data, self.listed_nums),
-                    "desc_stats": self.get_desc_stats(
-                        grouped_data,
-                        list(set([factor_name, processed_factor_col] + self.DESCRIPTIVE_FACTOR))
-                    )
-                },
-                **ic_stats,
-                **self.calc_return_metrics(
-                    grouped_data, self.cycle, self.group_label,
-                    reverse=reverse
-                ),
-                **self.calc_return_metrics(
-                    grouped_data, self.cycle, self.group_label,
-                    mode="mv_weight", reverse=reverse, prefix="mw"
-                ),
-            }
+        # 马尔科夫链，识别不同市场下的因子表现
+        markov_chain = MarkovChainAnalyzer(
+            factor_return=result["ic"]["ic"],
+            index_return=self.index_data[["pctChg", "累加收益率_0.25", "收益率标准差_0.25", "斜率_0.25"]]
+        )
+        markov_chain.run_analysis()
+        result.update(
+            {"markov_chain": markov_chain.performance}
+        )
 
-            # 马尔科夫链，识别不同市场下的因子表现
-            markov_chain = MarkovChainAnalyzer(
-                factor_return=result["ic"]["ic"],
-                index_return=self.index_data["pctChg"]
-            )
-            markov_chain.run_analysis()
-            result.update(
-                {"markov_chain": markov_chain.performance}
-            )
+        # 因子综合评价
+        measure_metrics = self._get_measure_indicator(
+            factor_name, filter_mode, group_mode,
+            self.group_label[0] if ic_mean < 0 else self.group_label[-1],
+            result
+        )
 
-            # 因子综合评价
-            measure_metrics = self._get_measure_indicator(
-                factor_name, filter_mode, group_mode,
-                self.group_label[0] if ic_mean < 0 else self.group_label[-1],
-                result
-            )
-
-            # ---------------------------------------
-            # 存储、可视化
-            # ---------------------------------------
-            # excel 因子判断
-            self._save_measure_indicator(measure_metrics, lock)
-            # pycharts IC 收益率
-            self._draw_charts(storage_dir, result, self.visual_setting)
-            # png 因子分布
-            self._calc_and_save_pdf(grouped_data, factor_name, storage_dir)
-            # parquet 分组数据
-            # self._store_results(grouped_data, storage_dir)
-        except Exception as e:
-            self.logger.error(
-                f"错误信息: {factor_name} {group_mode} {filter_mode}|"
-                f"异常类型: {type(e).__name__}, 错误详情: {str(e)}, 堆栈跟踪:\n{traceback.format_exc()}"
-            )
+        # ---------------------------------------
+        # 存储、可视化
+        # ---------------------------------------
+        # excel 因子判断
+        self._save_measure_indicator(measure_metrics, lock)
+        # pycharts IC 收益率
+        self._draw_charts(storage_dir, result, self.setting.visualization)
+        # png 因子分布
+        self._calc_and_save_pdf(grouped_data, factor_name, storage_dir)
+        print(dd)
+        # parquet 分组数据
+        # self._store_results(grouped_data, storage_dir)
+        # except Exception as e:
+        #     self.logger.error(
+        #         f"错误信息: {factor_name} {group_mode} {filter_mode}|"
+        #         f"异常类型: {type(e).__name__}, 错误详情: {str(e)}, 堆栈跟踪:\n{traceback.format_exc()}"
+        #     )
 
     # --------------------------
     # 多进程方法
