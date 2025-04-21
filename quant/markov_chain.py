@@ -67,7 +67,7 @@ class MarkovChainAnalyzer:
         """
         self.model = MarkovRegression(
             endog=self.data['factor_return'],
-            exog=self.data[['pctChg', "累加收益率_0.25", "收益率标准差_0.25", "斜率_0.25"]],
+            exog=self.data[[ "累加收益率_0.25", "收益率标准差_0.25", "斜率_0.25"]],
             k_regimes=self.n_regimes,
             trend='c',
             switching_variance=True                     # 是否允许不同状态的方差不同

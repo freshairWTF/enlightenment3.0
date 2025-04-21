@@ -55,24 +55,22 @@ class FinancialMetrics(Metrics):
     # --------------------------
     # 财务指标
     # --------------------------
+    @depends_on("现金转换周期")
     def _operating_monetary_fund(self) -> None:
         """
         经营性货币资金 = 企业历史平均货币资金占收入比 * 本期营收
-        极端情况下，货币资金会大于营业收入，如巨额募资的萌芽期企业，但由于经营性货币资金应小于等于货币资金，因此经营性货币资金率应小于1
-        """
-        # 货币资金占比（近5年滚动）
-        monetary_fund_ratio = (
-            self._safe_divide(
-                self.metrics["货币资金"],
-                self.metrics["营业收入"]
-            )
-            .rolling(window=5*self.annual_window, min_periods=2).mean()
-        )
-        usual_monetary_fund = monetary_fund_ratio * self.metrics["营业收入"]
 
-        self.metrics["理论经营性货币资金"] = usual_monetary_fund
-        # 限制最大值 现有货币资金是最大值
-        self.metrics["经营性货币资金"] = np.minimum(usual_monetary_fund, self.metrics["货币资金"])
+        20250421：
+        经营性货币资金 = 现金转化周期 / 365 * 本期营收
+        """
+        usual_monetary_fund = self.metrics["现金转化周期"] / 365 * self.metrics["营业收入"]
+
+        # 最大限限制（货币资金）
+        usual_monetary_fund = np.minimum(usual_monetary_fund, self.metrics["货币资金"])
+        # 最小值限制（0）
+        usual_monetary_fund = np.maximum(usual_monetary_fund, 0)
+
+        self.metrics["经营性货币资金"] = usual_monetary_fund
 
     @depends_on("经营性货币资金")
     def _financial_monetary_fund(self) -> None:
@@ -94,10 +92,18 @@ class FinancialMetrics(Metrics):
             + 一年内到期的非流动资产 + 合同资产 + 流动资产其他项目 + 经营性货币资金
         """
         self.metrics["经营性流动资产"] = (
-                self.metrics["应收票据及应收账款"] + self.metrics["应收款项融资"] + self.metrics["预付款项"]
-                + self.metrics["存货"] + self.metrics["其他流动资产"] + self.metrics["其他应收款"] - self.metrics["应收利息"]
-                - self.metrics["应收股利"] + self.metrics["一年内到期的非流动资产"] + self.metrics["合同资产"]
-                + self.metrics["流动资产其他项目"] + self.metrics["经营性货币资金"]
+                self.metrics["应收票据及应收账款"]
+                + self.metrics["应收款项融资"]
+                + self.metrics["预付款项"]
+                + self.metrics["存货"]
+                + self.metrics["其他流动资产"]
+                + self.metrics["其他应收款"]
+                - self.metrics["应收利息"]
+                - self.metrics["应收股利"]
+                + self.metrics["一年内到期的非流动资产"]
+                + self.metrics["合同资产"]
+                + self.metrics["流动资产其他项目"]
+                + self.metrics["经营性货币资金"]
         )
 
     @depends_on("金融性货币资金")
@@ -106,8 +112,11 @@ class FinancialMetrics(Metrics):
         金融性流动资产 = 交易性金融资产 + 衍生金融资产 + 金融性货币资金 + 应收利息 + 应收股利
         """
         self.metrics["金融性流动资产"] = (
-                self.metrics["交易性金融资产"] + self.metrics["衍生金融资产"] + self.metrics["金融性货币资金"]
-                + self.metrics["应收利息"] + self.metrics["应收股利"]
+                self.metrics["交易性金融资产"]
+                + self.metrics["衍生金融资产"]
+                + self.metrics["金融性货币资金"]
+                + self.metrics["应收利息"]
+                + self.metrics["应收股利"]
         )
 
     def _operating_long_term_assets(self) -> None:
@@ -117,11 +126,22 @@ class FinancialMetrics(Metrics):
         生产性生物资产（农业）；油气资产（油气开采）
         """
         self.metrics["经营性长期资产"] = (
-                self.metrics["长期应收款"] + self.metrics["投资性房地产"] + self.metrics["固定资产净额"]
-                + self.metrics["在建工程"] + self.metrics["无形资产"] + self.metrics["开发支出"] + self.metrics["商誉"]
-                + self.metrics["使用权资产"] + self.metrics["长期待摊费用"] + self.metrics["递延所得税资产"]
-                + self.metrics["其他非流动资产"] + self.metrics["生产性生物资产"] + self.metrics["油气资产"]
-                + self.metrics["长期股权投资"] + self.metrics["发放贷款及垫款"] + self.metrics["持有待售资产"]
+                self.metrics["长期应收款"]
+                + self.metrics["投资性房地产"]
+                + self.metrics["固定资产净额"]
+                + self.metrics["在建工程"]
+                + self.metrics["无形资产"]
+                + self.metrics["开发支出"]
+                + self.metrics["商誉"]
+                + self.metrics["使用权资产"]
+                + self.metrics["长期待摊费用"]
+                + self.metrics["递延所得税资产"]
+                + self.metrics["其他非流动资产"]
+                + self.metrics["生产性生物资产"]
+                + self.metrics["油气资产"]
+                + self.metrics["长期股权投资"]
+                + self.metrics["发放贷款及垫款"]
+                + self.metrics["持有待售资产"]
         )
 
     def _financial_long_term_assets(self) -> None:
@@ -229,8 +249,11 @@ class FinancialMetrics(Metrics):
         经营性长期负债 = 长期应付职工薪酬 + 预计负债 + 递延所得税负债 + 其他非流动负债 + 递延收益
         """
         self.metrics["经营性长期负债"] = (
-                self.metrics["长期应付职工薪酬"] + self.metrics["预计负债"] + self.metrics["递延所得税负债"]
-                + self.metrics["其他非流动负债"] + self.metrics["递延收益"]
+                self.metrics["长期应付职工薪酬"]
+                + self.metrics["预计负债"]
+                + self.metrics["递延所得税负债"]
+                + self.metrics["其他非流动负债"]
+                + self.metrics["递延收益"]
         )
 
     @depends_on("经营性负债")
@@ -264,7 +287,9 @@ class FinancialMetrics(Metrics):
         利润留存 = 盈余公积 + 未分配利润 + 专项储备 + 一般风险准备
         """
         self.metrics["利润留存"] = (
-                self.metrics["盈余公积"] + self.metrics["未分配利润"] + self.metrics["专项储备"]
+                self.metrics["盈余公积"]
+                + self.metrics["未分配利润"]
+                + self.metrics["专项储备"]
                 + self.metrics["一般风险准备"]
         )
 
@@ -354,8 +379,12 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["核心利润"] = (
                 (
-                        self.metrics["营业收入"] - self.metrics["营业成本"] - self.metrics["营业税金及附加"]
-                        - self.metrics["销售费用"] - self.metrics["管理费用"] - self.metrics["利息费用"]
+                        self.metrics["营业收入"]
+                        - self.metrics["营业成本"]
+                        - self.metrics["营业税金及附加"]
+                        - self.metrics["销售费用"]
+                        - self.metrics["管理费用"]
+                        - self.metrics["利息费用"]
                         - self.metrics["研发费用"]
                 )
                 * (1 - self.metrics["实际税率"])
@@ -420,10 +449,18 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["经营净利润"] = (
                 (
-                        self.metrics["营业收入"] - self.metrics["营业成本"] - self.metrics["营业税金及附加"]
-                        - self.metrics["管理费用"] - self.metrics["销售费用"] - self.metrics["研发费用"]
-                        + self.metrics["资产减值损失"] + self.metrics["信用减值损失"] + self.metrics["其他收益"]
-                        + self.metrics["营业外收入"] - self.metrics["营业外支出"] + self.metrics["对联营企业和合营企业的投资收益"]
+                        self.metrics["营业收入"]
+                        - self.metrics["营业成本"]
+                        - self.metrics["营业税金及附加"]
+                        - self.metrics["管理费用"]
+                        - self.metrics["销售费用"]
+                        - self.metrics["研发费用"]
+                        + self.metrics["资产减值损失"]
+                        + self.metrics["信用减值损失"]
+                        + self.metrics["其他收益"]
+                        + self.metrics["营业外收入"]
+                        - self.metrics["营业外支出"]
+                        + self.metrics["对联营企业和合营企业的投资收益"]
                 )
                 * (1 - self.metrics["实际税率"])
         )
@@ -437,8 +474,10 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["金融净利润"] = (
                 (
-                        self.metrics["投资收益"] - self.metrics["对联营企业和合营企业的投资收益"]
-                        + self.metrics["公允价值变动收益"] - self.metrics["财务费用"]
+                        self.metrics["投资收益"]
+                        - self.metrics["对联营企业和合营企业的投资收益"]
+                        + self.metrics["公允价值变动收益"]
+                        - self.metrics["财务费用"]
                 )
                 * (1 - self.metrics["实际税率"])
         )
@@ -494,8 +533,10 @@ class FinancialMetrics(Metrics):
         期间费用 = 销售费用 + 管理费用 + 财务费用 + 研发费用
         """
         self.metrics["期间费用"] = (
-                self.metrics["销售费用"] + self.metrics["管理费用"]
-                + self.metrics["财务费用"] + self.metrics["研发费用"]
+                self.metrics["销售费用"]
+                + self.metrics["管理费用"]
+                + self.metrics["财务费用"]
+                + self.metrics["研发费用"]
         )
 
     def _period_expense_rate(self) -> None:
@@ -504,7 +545,9 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["期间费用率"] = self._safe_divide(
                 (
-                        self.metrics["销售费用"] + self.metrics["管理费用"] + self.metrics["财务费用"]
+                        self.metrics["销售费用"]
+                        + self.metrics["管理费用"]
+                        + self.metrics["财务费用"]
                         + self.metrics["研发费用"]
                 ),
                 self.metrics["营业收入"]

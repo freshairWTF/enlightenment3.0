@@ -134,8 +134,8 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    # individual_analysis()
-    normal_analysis()
+    individual_analysis()
+    # normal_analysis()
     # quant_analysis()
     # factor_analysis()
     # inventory_cycle_analysis()

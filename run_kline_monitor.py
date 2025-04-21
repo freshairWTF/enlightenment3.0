@@ -10,8 +10,8 @@ def kline_monitor():
         params=Kline(),
 
         start_date="2024-05-26",
-        end_date="2025-04-17",
-        storage_dir_name="2025-04-17",
+        end_date="2025-04-18",
+        storage_dir_name="2025-04-18",
         target_info={"全部": "三级行业"},
         cycle="day",
 
