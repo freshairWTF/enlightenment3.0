@@ -154,8 +154,10 @@ class KlineMonitor(BaseService):
             if "error" in result:
                 self.logger.error(result["error"])
                 continue
-            # 更新数据容器
-            self.kline[code] = result["kline"]
+
+            # 更新数据容器: 交易正常
+            if result["kline"].loc[self.end_date, "tradestatus"] == 1:
+                self.kline[code] = result["kline"]
 
     def _process_single_company(
             self,
@@ -215,7 +217,8 @@ class KlineMonitor(BaseService):
         return {
             k: self._reset_index(
                 self._add_industry(
-                    v.iloc[-1, :].rename("slope").to_frame()
+                    v.loc[self.end_date, :].rename("slope").to_frame()
+
                 )
             )
             for k, v in global_slope.items()

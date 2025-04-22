@@ -10,9 +10,9 @@ def download_kline():
         download_object="stock",            # 可选：stock/index
         category="day",                     # 指数仅支持 day
         adjust_flag="2",                    # 复权模式
-        start_date="2025-04-18",            # 起始时间
-        end_date="2025-04-18",              # 结束时间
-        code="sz.300175",                   # 代码：需要sh/sz前缀
+        start_date="2025-04-01",            # 起始时间
+        end_date="2025-04-21",              # 结束时间
+        code="sh.603120",                   # 代码：需要sh/sz前缀
         filter_mode="all",                  # 可选：None/all/from_code
         industry_info=None,                 # 指定行业
         pause_time=0.3
@@ -25,8 +25,8 @@ def clean_kline():
     cleaner = Cleaner(
         clean_object="stock",                # 可选：stock/index
         num_processes=10,                    # 多进程核数
-        adjust_mode="split_adjusted",     # 复权模式
-        code="603257",                       # 代码：无需sh/sz前缀
+        adjust_mode="split_adjusted",        # 复权模式
+        code="603120",                       # 代码：无需sh/sz前缀
         filter_mode="all",                   # 可选：None/all/from_code
         industry_info=None                   # 指定行业
     )

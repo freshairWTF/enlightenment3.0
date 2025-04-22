@@ -5,6 +5,7 @@ import pandas as pd
 
 from base_metrics import Metrics, depends_on
 from constant.type_ import CYCLE, validate_literal_params
+from utils.data_processor import DataProcessor
 
 
 ###############################################################
@@ -257,8 +258,9 @@ class KLineMetrics(Metrics):
 
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
-        # 对数收益率
-        price_series = np.log(self.metrics["close"] / self.metrics["close"].shift(1))
+        # 标准化
+        price_series = DataProcessor.standardization(self.metrics["close"])
+
         # 滚动计算斜率
         slopes = price_series.rolling(
             window=rolling_window,

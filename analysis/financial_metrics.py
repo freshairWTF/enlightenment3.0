@@ -58,10 +58,12 @@ class FinancialMetrics(Metrics):
     @depends_on("现金转换周期")
     def _operating_monetary_fund(self) -> None:
         """
-        经营性货币资金 = 企业历史平均货币资金占收入比 * 本期营收
-
-        20250421：
         经营性货币资金 = 现金转化周期 / 365 * 本期营收
+
+        Notes
+        -----
+        version changed: 2025.04.21
+        计算公式从「历史平均货币资金占收入比」调整为「现金转化周期/365*营收」
         """
         usual_monetary_fund = self.metrics["现金转化周期"] / 365 * self.metrics["营业收入"]
 
@@ -119,13 +121,13 @@ class FinancialMetrics(Metrics):
                 + self.metrics["应收股利"]
         )
 
-    def _operating_long_term_assets(self) -> None:
+    def _display_operating_long_term_assets(self) -> None:
         """
-        经营性长期资产 = 长期应收款 + 投资性房地产 + 固定资产净额 + 在建工程 + 无形资产 + 开发支出 + 商誉 + 使用权资产
+        展示用经营性长期资产 = 长期应收款 + 投资性房地产 + 固定资产净额 + 在建工程 + 无形资产 + 开发支出 + 商誉 + 使用权资产
             + 长期待摊费用 + 递延所得税资产 + 其他非流动资产 + 生产性生物资产 + 油气资产 + 长期股权投资 + 发放贷款及垫款 + 持有待售资产
         生产性生物资产（农业）；油气资产（油气开采）
         """
-        self.metrics["经营性长期资产"] = (
+        self.metrics["展示用经营性长期资产"] = (
                 self.metrics["长期应收款"]
                 + self.metrics["投资性房地产"]
                 + self.metrics["固定资产净额"]
@@ -142,6 +144,36 @@ class FinancialMetrics(Metrics):
                 + self.metrics["长期股权投资"]
                 + self.metrics["发放贷款及垫款"]
                 + self.metrics["持有待售资产"]
+        )
+
+    def _operating_long_term_assets(self) -> None:
+        """
+        经营性长期资产 = 长期应收款 + 固定资产净额 + 在建工程 + 无形资产 + 开发支出 + 使用权资产
+            + 长期待摊费用 + 其他非流动资产 + 生产性生物资产 + 油气资产 + 长期股权投资
+        生产性生物资产（农业）；油气资产（油气开采）
+
+        Notes
+        -----
+        version changed: 2025.04.21
+        计算公式剔除：
+            1、商誉
+            2、投资性房地产
+            3、递延所得税资产
+            4、持有待售资产
+            5、发放贷款及垫款
+        """
+        self.metrics["经营性长期资产"] = (
+                self.metrics["长期应收款"]
+                + self.metrics["固定资产净额"]
+                + self.metrics["在建工程"]
+                + self.metrics["无形资产"]
+                + self.metrics["开发支出"]
+                + self.metrics["使用权资产"]
+                + self.metrics["长期待摊费用"]
+                + self.metrics["其他非流动资产"]
+                + self.metrics["生产性生物资产"]
+                + self.metrics["油气资产"]
+                + self.metrics["长期股权投资"]
         )
 
     def _financial_long_term_assets(self) -> None:
@@ -208,10 +240,17 @@ class FinancialMetrics(Metrics):
             + 长期应付款 + 向中央银行借款 + 衍生金融负债 + 应付利息 + 应付股利
         """
         self.metrics["金融性负债"] = (
-                self.metrics["短期借款"] + self.metrics["交易性金融负债"] + self.metrics["一年内到期的非流动负债"]
-                + self.metrics["长期借款"] + self.metrics["应付债券"] + self.metrics["租赁负债"]
-                + self.metrics["长期应付款"] + self.metrics["向中央银行借款"] + self.metrics["衍生金融负债"]
-                + self.metrics["应付利息"] + self.metrics["应付股利"]
+                self.metrics["短期借款"]
+                + self.metrics["交易性金融负债"]
+                + self.metrics["一年内到期的非流动负债"]
+                + self.metrics["长期借款"]
+                + self.metrics["应付债券"]
+                + self.metrics["租赁负债"]
+                + self.metrics["长期应付款"]
+                + self.metrics["向中央银行借款"]
+                + self.metrics["衍生金融负债"]
+                + self.metrics["应付利息"]
+                + self.metrics["应付股利"]
         )
 
     @depends_on("金融性负债")
@@ -227,10 +266,19 @@ class FinancialMetrics(Metrics):
             + 长期应付职工薪酬 + 递延所得税负债 + 其他非流动负债 + 合同负债 + 预计负债 + 递延收益
         """
         self.metrics["经营性负债"] = (
-                self.metrics["应付票据及应付账款"] + self.metrics["预收款项"] + self.metrics["应付职工薪酬"]
-                + self.metrics["应交税费"] + self.metrics["其他应付款"] - self.metrics["应付利息"] - self.metrics["应付股利"]
-                + self.metrics["其他流动负债"] + self.metrics["长期应付职工薪酬"] + self.metrics["递延所得税负债"]
-                + self.metrics["其他非流动负债"] + self.metrics["合同负债"] + self.metrics["预计负债"]
+                self.metrics["应付票据及应付账款"]
+                + self.metrics["预收款项"]
+                + self.metrics["应付职工薪酬"]
+                + self.metrics["应交税费"]
+                + self.metrics["其他应付款"]
+                - self.metrics["应付利息"]
+                - self.metrics["应付股利"]
+                + self.metrics["其他流动负债"]
+                + self.metrics["长期应付职工薪酬"]
+                + self.metrics["递延所得税负债"]
+                + self.metrics["其他非流动负债"]
+                + self.metrics["合同负债"]
+                + self.metrics["预计负债"]
                 + self.metrics["递延收益"]
         )
 
@@ -239,9 +287,15 @@ class FinancialMetrics(Metrics):
         经营性流动负债 = 应付票据及应付账款 + 预收款项 + 应付职工薪酬 + 应交税费 + 其他应付款 - 应付利息 - 应付股利 + 其他流动负债 + 合同负债
         """
         self.metrics["经营性流动负债"] = (
-                self.metrics["应付票据及应付账款"] + self.metrics["预收款项"] + self.metrics["应付职工薪酬"]
-                + self.metrics["应交税费"] + self.metrics["其他应付款"] - self.metrics["应付利息"]
-                - self.metrics["应付股利"] + self.metrics["其他流动负债"] + self.metrics["合同负债"]
+                self.metrics["应付票据及应付账款"]
+                + self.metrics["预收款项"]
+                + self.metrics["应付职工薪酬"]
+                + self.metrics["应交税费"]
+                + self.metrics["其他应付款"]
+                - self.metrics["应付利息"]
+                - self.metrics["应付股利"]
+                + self.metrics["其他流动负债"]
+                + self.metrics["合同负债"]
         )
 
     def _operating_long_term_liabilities(self) -> None:
@@ -280,7 +334,11 @@ class FinancialMetrics(Metrics):
         """
         股东入资 = 实收资本 + 资本公积 - 库存股
         """
-        self.metrics["股东入资"] = self.metrics["实收资本"] + self.metrics["资本公积"] - self.metrics["库存股"]
+        self.metrics["股东入资"] = (
+                self.metrics["实收资本"]
+                + self.metrics["资本公积"]
+                - self.metrics["库存股"]
+        )
 
     def _profit_accumulation(self) -> None:
         """
@@ -338,7 +396,7 @@ class FinancialMetrics(Metrics):
         """
         净经营资产 = 净负债 + 所有者权益
         """
-        self.metrics["净经营资产"] = (self.metrics["净负债"] + self.metrics["所有者权益"])
+        self.metrics["净经营资产"] = self.metrics["净负债"] + self.metrics["所有者权益"]
 
     @depends_on("金融性负债", "金融性资产")
     def _net_liabilities(self) -> None:
@@ -816,7 +874,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["经营性资产收益率"] = self._safe_divide(
             self.metrics["经营净利润"],
-            self.metrics["经营性资产"]
+            self.metrics["经营性资产"].rolling(min_periods=1, window=2).mean()
         )
 
     @depends_on("金融净利润", "金融性资产")
@@ -826,7 +884,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["金融性资产收益率"] = self._safe_divide(
             self.metrics["金融净利润"],
-            self.metrics["金融性资产"]
+            self.metrics["金融性资产"].rolling(min_periods=1, window=2).mean()
         )
 
     @depends_on("经营净利率", "净经营资产周转率")
@@ -862,7 +920,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["总资产净利率"] = self._safe_divide(
             self.metrics["净利润"],
-            self.metrics["负债和所有者权益"]
+            self.metrics["负债和所有者权益"].rolling(min_periods=1, window=2).mean()
         )
 
     def _return_on_equity(self) -> None:
@@ -872,7 +930,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["权益净利率"] = self._safe_divide(
             self.metrics["净利润"],
-            self.metrics["所有者权益"]
+            self.metrics["所有者权益"].rolling(min_periods=1, window=2).mean()
         )
 
     def _return_on_equity_to_shareholder(self) -> None:
@@ -881,7 +939,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["归母权益净利率"] = self._safe_divide(
             self.metrics["归属于母公司所有者的净利润"],
-            self.metrics["所有者权益"]
+            self.metrics["所有者权益"].rolling(min_periods=1, window=2).mean()
         )
 
     @depends_on("核心利润")
@@ -901,7 +959,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["核心利润净利率"] = self._safe_divide(
             self.metrics["核心利润"],
-            self.metrics["所有者权益"]
+            self.metrics["所有者权益"].rolling(min_periods=1, window=2).mean()
         )
 
     def _cash_to_income_ratio(self) -> None:
@@ -956,7 +1014,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["存货周转天数"] = 360 / self._safe_divide(
             self.metrics["营业收入"],
-            self.metrics["存货"]
+            self.metrics["存货"].rolling(min_periods=1, window=2).mean()
         )
 
     def _receivable_and_bills_turnover_days(self) -> None:
@@ -965,7 +1023,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["应收票据及应收账款周转天数"] = 360 / self._safe_divide(
             self.metrics["营业收入"],
-            self.metrics["应收票据及应收账款"]
+            self.metrics["应收票据及应收账款"].rolling(min_periods=1, window=2).mean()
         )
 
     def _payable_and_bills_turnover_days(self) -> None:
@@ -974,7 +1032,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["应付票据及应付账款周转天数"] = 360 / self._safe_divide(
             self.metrics["营业成本"],
-            self.metrics["应付票据及应付账款"]
+            self.metrics["应付票据及应付账款"].rolling(min_periods=1, window=2).mean()
         )
 
     def _fixed_assets_turnover_days(self) -> None:
@@ -983,7 +1041,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["固定资产周转天数"] = 360 / self._safe_divide(
             self.metrics["营业收入"],
-            self.metrics["固定资产净额"]
+            self.metrics["固定资产净额"].rolling(min_periods=1, window=2).mean()
         )
 
     def _current_asset_turnover_days(self) -> None:
@@ -992,7 +1050,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["流动资产周转天数"] = 360 / self._safe_divide(
             self.metrics["营业收入"],
-            self.metrics["流动资产合计"]
+            self.metrics["流动资产合计"].rolling(min_periods=1, window=2).mean()
         )
 
     def _non_current_asset_turnover_days(self) -> None:
@@ -1001,7 +1059,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["非流动资产周转天数"] = 360 / self._safe_divide(
             self.metrics["营业收入"],
-            self.metrics["非流动资产合计"]
+            self.metrics["非流动资产合计"].rolling(min_periods=1, window=2).mean()
         )
 
     def _total_assets_turnover_days(self) -> None:
@@ -1010,7 +1068,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["总资产周转天数"] = 360 / self._safe_divide(
             self.metrics["营业收入"],
-            self.metrics["负债和所有者权益"]
+            self.metrics["负债和所有者权益"].rolling(min_periods=1, window=2).mean()
         )
 
     @depends_on("应收票据及应收账款周转天数", "存货周转天数")
@@ -1026,7 +1084,8 @@ class FinancialMetrics(Metrics):
         现金转换周期 = 应收票据及应收账款周转天数 + 存货周转天数 - 应付票据及应付账款周转天数
         """
         self.metrics["现金转换周期"] = (
-                self.metrics["应收票据及应收账款周转天数"] + self.metrics["存货周转天数"]
+                self.metrics["应收票据及应收账款周转天数"]
+                + self.metrics["存货周转天数"]
                 - self.metrics["应付票据及应付账款周转天数"]
         )
 
@@ -1092,7 +1151,7 @@ class FinancialMetrics(Metrics):
         单位营收所需的经营性营运资本 = 经营性营运资本 / 营业收入
         """
         self.metrics["单位营收所需的经营性营运资本"] = self._safe_divide(
-            self.metrics["经营性营运资本"],
+            self.metrics["经营性营运资本"].rolling(min_periods=1, window=2).mean(),
             self.metrics["营业收入"]
         )
 
@@ -1120,8 +1179,10 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["上下游资金占用"] = self._safe_divide(
             (
-                    self.metrics["应付票据及应付账款"].diff(1) + self.metrics["预收款项"].diff(1)
-                    - self.metrics["应收票据及应收账款"].diff(1) - self.metrics["预付款项"].diff(1)
+                    self.metrics["应付票据及应付账款"].diff(1)
+                    + self.metrics["预收款项"].diff(1)
+                    - self.metrics["应收票据及应收账款"].diff(1)
+                    - self.metrics["预付款项"].diff(1)
             ),
             self.metrics["营业收入"]
         )
@@ -1165,7 +1226,11 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["扩张倍数"] = self._safe_divide(
             self.metrics["购建固定资产、无形资产和其他长期资产支付的现金"],
-            self.metrics["固定资产净额"] + self.metrics["在建工程"] + self.metrics["无形资产"]
+            (
+                    self.metrics["固定资产净额"]
+                    + self.metrics["在建工程"]
+                    + self.metrics["无形资产"]
+            ).rolling(min_periods=1, window=2).mean()
         )
 
     @depends_on("金融性负债")
@@ -1175,7 +1240,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["收缩倍数"] = self._safe_divide(
             self.metrics["偿还债务支付的现金"],
-            self.metrics["金融性负债"]
+            self.metrics["金融性负债"].rolling(min_periods=1, window=2).mean()
         )
 
     def _1st_difference_of_revenue(self) -> None:
@@ -1213,7 +1278,7 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["资本回报率"] = self._safe_divide(
             self.metrics["息税前利润"],
-            self.metrics["营运资本"] + self.metrics["固定资产净额"]
+            (self.metrics["营运资本"] + self.metrics["固定资产净额"]).rolling(min_periods=1, window=2).mean()
         )
 
     @depends_on("息税前利润", "超额现金")
@@ -1224,7 +1289,11 @@ class FinancialMetrics(Metrics):
         """
         self.metrics["资本回报率1"] = self._safe_divide(
             self.metrics["息税前利润"],
-            self.metrics["所有者权益"] + self.metrics["金融性负债"] - self.metrics["超额现金"]
+            (
+                    self.metrics["所有者权益"]
+                    + self.metrics["金融性负债"]
+                    - self.metrics["超额现金"]
+            ).rolling(min_periods=1, window=2).mean()
         )
 
     @depends_on("毛利率")
