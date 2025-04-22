@@ -102,7 +102,7 @@ class Individual:
                     "实际税率"
                 ],
                 "其他": [
-                    "经营性流动资产", "经营性流动负债", "经营性营运资本", "经营性长期资产",
+                    "经营性流动资产", "经营性流动负债", "经营性营运资本", "经营性长期资产", "展示用经营性长期资产",
                     "经营性长期负债", "净经营性长期资产", "净经营资产", "金融性负债",
                     "金融性资产", "净负债", "经营净利润", "金融净利润", "beneish_m_score",
 
@@ -202,11 +202,11 @@ class Individual:
                     "_blpp-5": QuadrantsChartSpecs(
                         title="经营性长期资产",
                         ul_data_source="rolling_financial",
-                        ul_column=["经营性长期资产", "经营性长期负债"],
+                        ul_column=["展示用经营性长期资产", "经营性长期负债"],
                         ll_data_source="rolling_financial",
                         ll_column=["净经营性长期资产", "净经营性长期资产_yoy"],
                         ll_chart="line",
-                        ur_column=parameters["经营性长期资产"],
+                        ur_column=parameters["展示用经营性长期资产"],
                         ur_data_source="rolling_financial",
                         lr_column=parameters["经营性长期负债"],
                         lr_data_source="rolling_financial",
