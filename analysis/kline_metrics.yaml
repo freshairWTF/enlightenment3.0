@@ -16,6 +16,7 @@ FUNCTION_OF_KLINE:
     真实波幅标准差: _std_atr
 
     斜率: _slope
+    k线中继形态: _ch_relay_form
 
 FUNCTION_OF_SPECIAL:
     资本回报率_5年滚动均值: _roic_rolling_mean_5y

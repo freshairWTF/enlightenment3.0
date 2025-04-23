@@ -13,13 +13,13 @@ def individual_analysis():
         params=Individual(),
 
         cycle="month",
-        financial_cycle="year",
+        financial_cycle="quarter",
         start_date="2015-03-30",
-        financial_end_date="2024-12-31",
+        financial_end_date="2024-09-30",
         end_date="2025-04-12",
-        storage_dir_name="锦泓集团24Y",
-        target_info="603518",
-        debug=False
+        storage_dir_name="汇成真空24Q3",
+        target_info="301392",
+        debug=True
     )
     analyzer.run()
 
@@ -31,7 +31,7 @@ def normal_analysis():
         index_code="000300",
         params=Normal(),
 
-        dimension="micro",
+        dimension="meso",
         class_level="三级行业",
         weight_name="市值",
 
@@ -41,8 +41,8 @@ def normal_analysis():
         financial_end_date="2024-09-30",
         end_date="2025-04-17",
 
-        storage_dir_name="零食250403W",
-        target_info={"零食": "三级行业"},
+        storage_dir_name="测试250403W",
+        target_info={"零食": "三级行业", "电池化学品": "三级行业"},
         draw_filter=True,
         debug=False
     )
@@ -91,18 +91,19 @@ def factor_analysis():
         class_level="三级行业",
         weight_name="市值",
 
-        cycle="week",
+        cycle="day",
+        kline_adjust="split_adjusted",
         financial_cycle="quarter",
         start_date="2000-03-31",
         financial_end_date="2024-09-30",
-        end_date="2025-04-03",
+        end_date="2025-04-23",
 
         storage_dir_name="20250401W量价",
-        target_info={"全部": "三级行业"},
+        target_info=["300718"],
 
         index_code="000300",
         processes_nums=10,
-        debug=False
+        debug=True
     )
     analyzer.run()
 
@@ -134,8 +135,8 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
+    # individual_analysis()
     # normal_analysis()
     # quant_analysis()
-    # factor_analysis()
+    factor_analysis()
     # inventory_cycle_analysis()

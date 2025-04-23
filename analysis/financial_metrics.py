@@ -65,7 +65,7 @@ class FinancialMetrics(Metrics):
         version changed: 2025.04.21
         计算公式从「历史平均货币资金占收入比」调整为「现金转化周期/365*营收」
         """
-        usual_monetary_fund = self.metrics["现金转化周期"] / 365 * self.metrics["营业收入"]
+        usual_monetary_fund = self.metrics["现金转换周期"] / 365 * self.metrics["营业收入"]
 
         # 最大限限制（货币资金）
         usual_monetary_fund = np.minimum(usual_monetary_fund, self.metrics["货币资金"])

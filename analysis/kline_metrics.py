@@ -9,7 +9,202 @@ from utils.data_processor import DataProcessor
 
 
 ###############################################################
-class KLineMetrics(Metrics):
+class KlineDetermination:
+    """k线形态判定"""
+
+    @classmethod
+    def positive_line(
+            cls,
+            df: pd.DataFrame,
+            min_change: float = 0.0,
+            upper_shadow_bounds: tuple[float, float] = None,
+            lower_shadow_bounds: tuple[float, float] = None
+    ) -> pd.Series:
+        """
+        阳线判定（带涨幅阈值、上下影线）
+        :param df: 必须包含open, close, pctChg列的DataFrame
+        :param min_change: 最小涨幅阈值（正数百分比，如0.02表示2%跌幅）
+        :param upper_shadow_bounds: 上影线区间控制
+                                    例：(0.1, 0.5)表示上影线在实体10%-50%之间
+                                    None表示不限制
+        :param lower_shadow_bounds: 下影线区间控制
+        """
+        # 参数检验
+        required_columns = {'open', 'close', 'high', 'low', 'pctChg'}
+        if not required_columns.issubset(df.columns):
+            missing = required_columns - set(df.columns)
+            raise ValueError(f"缺少必要字段: {missing}")
+
+        # k线判定
+        is_positive = pd.Series(df['close'] > df['open'], index=df.index)
+        entity = df['close'] - df['open']
+
+        # 上影线控制
+        if upper_shadow_bounds is not None:
+            # 上影线长度
+            upper_shadow = df['high'] - df['close']
+            # 上下比例
+            lower, upper = upper_shadow_bounds
+            if lower is not None: lower = entity * lower
+            if upper is not None: upper = entity * upper
+            # 区间验证
+            if lower is not None: is_positive &= (upper_shadow >= lower)
+            if upper is not None: is_positive &= (upper_shadow <= upper)
+
+        # 下影线控制
+        if lower_shadow_bounds is not None:
+            # 下影线长度
+            lower_shadow = df['open'] - df['low']
+            # 上下比例
+            lower, upper = lower_shadow_bounds
+            if lower is not None: lower = entity * lower
+            if upper is not None: upper = entity * upper
+            # 区间验证
+            if lower is not None: is_positive &= (lower_shadow >= lower)
+            if upper is not None: is_positive &= (lower_shadow <= upper)
+
+        # 涨幅控制
+        if min_change:
+            is_positive &= (df["pctChg"] >= min_change)
+
+        return is_positive
+
+    @classmethod
+    def negative_line(
+            cls,
+            df: pd.DataFrame,
+            min_change: float = 0.0,
+            upper_shadow_bounds: tuple[float, float] = None,
+            lower_shadow_bounds: tuple[float, float] = None
+    ) -> pd.Series:
+        """阴线判定（带跌幅阈值）
+        :param df: 必须包含open, close, pctChg列的DataFrame
+        :param min_change: 最小跌幅阈值（正数百分比，如0.02表示2%跌幅）
+        :param upper_shadow_bounds: 上影线区间控制
+                            例：(0.1, 0.5)表示上影线在实体10%-50%之间
+                            None表示不限制
+        :param lower_shadow_bounds: 下影线区间控制
+        """
+        # 参数检验
+        required_columns = {'open', 'close', 'high', 'low', 'pctChg'}
+        if not required_columns.issubset(df.columns):
+            missing = required_columns - set(df.columns)
+            raise ValueError(f"缺少必要字段: {missing}")
+
+        # k线判定
+        is_negative = pd.Series(df['close'] < df['open'], index=df.index)
+        entity = df['open'] - df['close']
+
+        # 上影线控制
+        if upper_shadow_bounds is not None:
+            # 上影线长度
+            upper_shadow = df['high'] - df['open']
+            # 上下比例
+            lower, upper = upper_shadow_bounds
+            if lower is not None: lower = entity * lower
+            if upper is not None: upper = entity * upper
+            # 区间验证
+            if lower is not None: is_negative &= (upper_shadow >= lower)
+            if upper is not None: is_negative &= (upper_shadow <= upper)
+
+        # 下影线控制
+        if lower_shadow_bounds is not None:
+            # 下影线长度
+            lower_shadow = df['close'] - df['low']
+            # 上下比例
+            lower, upper = lower_shadow_bounds
+            if lower is not None: lower = entity * lower
+            if upper is not None: upper = entity * upper
+            # 区间验证
+            if lower is not None: is_negative &= (lower_shadow >= lower)
+            if upper is not None: is_negative &= (lower_shadow <= upper)
+
+        # 跌幅控制
+        if min_change > 0:
+            is_negative &= (df['pctChg'] <= -min_change)
+
+        return is_negative
+
+    @classmethod
+    def explosive_quantity(
+            cls,
+            df: pd.DataFrame,
+            window: int = 1,
+            min_change: float = 1.0
+    ) -> pd.Series:
+        """
+        成交量爆量
+        :param df: 必须包含volume列的DataFrame
+        :param window: 比对均值窗口数
+        :param min_change: 最小变动幅度
+        """
+        # 参数检验
+        if 'volume' not in df.columns:
+            raise ValueError("输入数据必须包含volume列")
+        if window < 1:
+            raise ValueError("窗口长度至少为1日")
+        if min_change < 1.0:
+            raise ValueError("min_change应大于等于1")
+
+        # 计算历史均值（排除当日）
+        historical_ma = (
+            df['volume']
+            .rolling(window=window, min_periods=2)
+            .mean()
+            .shift(1)
+        )
+
+        return (df['volume'] > historical_ma * min_change).fillna(False)
+
+    @classmethod
+    def reduced_quantity(
+            cls,
+            df: pd.DataFrame,
+            window: int = 1,
+            min_change: float = 0.999
+    ) -> pd.Series:
+        """
+        成交量爆量
+        :param df: 必须包含volume列的DataFrame
+        :param window: 比对均值窗口数
+        :param min_change: 最小变动幅度
+        """
+        # 参数检验
+        if 'volume' not in df.columns:
+            raise ValueError("输入数据必须包含volume列")
+        if window < 1:
+            raise ValueError("窗口长度至少为1日")
+        if min_change > 1.0:
+            raise ValueError("min_change应小于1")
+
+        # 计算历史均值（排除当日）
+        historical_ma = (
+            df['volume']
+            .rolling(window=window, min_periods=2)
+            .mean()
+            .shift(1)
+        )
+
+        return (df['volume'] > historical_ma * min_change).fillna(False)
+
+    @classmethod
+    def n_consecutive_mask(
+            cls,
+            series: pd.Series,
+            n: int = 1
+    ) -> pd.Series:
+        """标记连续N个True的情况"""
+        return (
+            series
+            .rolling(window=n, min_periods=n)
+            .apply(lambda x: x.all())
+            .fillna(0)
+            .astype(bool)
+        )
+
+
+###############################################################
+class KLineMetrics(Metrics, KlineDetermination):
     """
     量价指标计算器
     指标命名规则：指标名_计算窗口
@@ -268,3 +463,55 @@ class KLineMetrics(Metrics):
         ).apply(calculate_slope, raw=False)
 
         self.metrics[f"斜率_{window}"] = slopes
+
+    """
+    涨停次数
+    波动率
+    资金流入
+    """
+
+    def _ch_relay_form(
+            self,
+            window: int
+    ) -> None:
+        """
+        来源 -> 川海
+        上涨中继形态：
+            1、2根中大阳线爆量，5%-8%、成交量放大3-5倍；
+            2、第三根上影线缩量，影线长度约1/3-1/2；
+        """
+        pd.set_option('display.max_rows', None)
+        # -1 2根中大阳线爆量
+        # 连续2日中、大阳线判定
+        medium_or_large_positive_line = self.n_consecutive_mask(
+            self.positive_line(
+                self.metrics,
+                min_change=5
+            ),
+            2
+        )
+        # 中、大阳线爆量
+        explosive_quantity = self.explosive_quantity(
+            self.metrics,
+            window=30,
+            min_change=3
+        )
+        model_1 = (medium_or_large_positive_line & explosive_quantity).shift(1).fillna(False)
+        print(model_1)
+
+        print(dd)
+        # -2 第三根上影线缩量
+        upper_shadow = self.positive_line(
+            self.metrics,
+            upper_shadow_bounds=(0.5, 1.2)
+        )
+        lower_shadow = self.negative_line(
+            self.metrics,
+            upper_shadow_bounds=(0.5, 1.2)
+        )
+        print(lower_shadow)
+
+        # print(upper_shadow)
+        print(dd)
+
+
