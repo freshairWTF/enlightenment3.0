@@ -65,6 +65,7 @@ class FactorAnalyzer(BaseService):
             benchmark_code: str = "000300",
             double_sort_factor_name: str = '',
             group_nums: int = 5,
+            group_mode: GROUP_MODE = "frequency",
             processes_nums: int = 1
     ):
         """
@@ -80,6 +81,7 @@ class FactorAnalyzer(BaseService):
         :param lag_period: 滞后期数
         :param benchmark_code: 基准指数代码
         :param double_sort_factor_name: 双重排序因子名
+        :param group_mode: 分组模式
         :param group_nums: 分组数
         :param processes_nums: 多进程数
         """
@@ -96,6 +98,7 @@ class FactorAnalyzer(BaseService):
         self.lag_period = lag_period
         self.benchmark_code = benchmark_code
         self.double_sort_factor_name = double_sort_factor_name
+        self.group_mode = group_mode
         self.group_nums = group_nums
         self.processes_nums = processes_nums
 
@@ -142,7 +145,6 @@ class FactorAnalyzer(BaseService):
             "_mega_cap_filter",
             "_small_cap_filter"
         ]
-        self.group_mode = Literal["frequency"]
 
         # 最少行数
         self.min_nums = 100
@@ -267,6 +269,7 @@ class FactorAnalyzer(BaseService):
             group_label=self.group_label,
             negative=True if factor_name in NEGATIVE_SINGLE_COLUMN else False
         )
+
         return grouped_data
 
     # --------------------------
@@ -495,7 +498,6 @@ class FactorAnalyzer(BaseService):
             self,
             raw_data: dict[str, pd.DataFrame],
             factor_name: str,
-            group_mode: GROUP_MODE,
             filter_mode: FILTER_MODE,
             lock: Lock = None
     ) -> None:
@@ -503,11 +505,10 @@ class FactorAnalyzer(BaseService):
         单个因子分析
         :param raw_data: 原始数据
         :param factor_name: 因子名
-        :param group_mode: 分组模式
         :param filter_mode: 过滤模式
         """
         # try:
-        self.logger.info(f"start: {factor_name} - {group_mode} - {filter_mode}")
+        self.logger.info(f"start: {factor_name} - {self.group_mode} - {filter_mode}")
         # --------------------------
         # 初始化
         # --------------------------
@@ -519,7 +520,7 @@ class FactorAnalyzer(BaseService):
         # 数据处理
         # --------------------------
         grouped_data = self._data_process(
-            raw_data, valid_factors, filter_mode, group_mode, factor_name, processed_factor_col
+            raw_data, valid_factors, filter_mode, self.group_mode, factor_name, processed_factor_col
         )
         if not grouped_data:
             raise ValueError("分组数据为空值")
@@ -557,8 +558,9 @@ class FactorAnalyzer(BaseService):
 
         # 马尔科夫链，识别不同市场下的因子表现
         markov_chain = MarkovChainAnalyzer(
-            factor_return=result["ic"]["ic"],
-            index_return=self.index_data[["pctChg", "累加收益率_0.25", "收益率标准差_0.25", "斜率_0.25"]]
+            factor_return=result["returns"]["hedge"],
+            index_return=self.index_data[["pctChg", "累加收益率_0.25", "收益率标准差_0.25", "斜率_0.25"]],
+            cycle=self.cycle
         )
         markov_chain.run_analysis()
         result.update(
@@ -567,7 +569,7 @@ class FactorAnalyzer(BaseService):
 
         # 因子综合评价
         measure_metrics = self._get_measure_indicator(
-            factor_name, filter_mode, group_mode,
+            factor_name, filter_mode, self.group_mode,
             self.group_label[0] if ic_mean < 0 else self.group_label[-1],
             result
         )
@@ -581,12 +583,12 @@ class FactorAnalyzer(BaseService):
         self._draw_charts(storage_dir, result, self.setting.visualization)
         # png 因子分布
         self._calc_and_save_pdf(grouped_data, factor_name, storage_dir)
-        print(dd)
+        # print(dd)
         # parquet 分组数据
         # self._store_results(grouped_data, storage_dir)
         # except Exception as e:
         #     self.logger.error(
-        #         f"错误信息: {factor_name} {group_mode} {filter_mode}|"
+        #         f"错误信息: {factor_name} {self.group_mode} {filter_mode}|"
         #         f"异常类型: {type(e).__name__}, 错误详情: {str(e)}, 堆栈跟踪:\n{traceback.format_exc()}"
         #     )
 
@@ -640,22 +642,19 @@ class FactorAnalyzer(BaseService):
     def run(self) -> None:
         """执行完整分析流程"""
         for k, factor_name in enumerate(self.factors_name, 1):
-            for group_method in get_args(self.group_mode):
-                for filter_mode in get_args(self.filter_mode):
-                    self._analyze_single_factor(
-                        raw_data=self.raw_data,
-                        factor_name=factor_name,
-                        group_mode=group_method,
-                        filter_mode=filter_mode
-                    )
+            for filter_mode in get_args(self.filter_mode):
+                self._analyze_single_factor(
+                    raw_data=self.raw_data,
+                    factor_name=factor_name,
+                    filter_mode=filter_mode
+                )
 
     def multi_run(self) -> None:
         """多进程执行完整分析流程"""
         # 生成任务参数列表
         task_args = [
-            (factor_name, group_mode, filter_mode)
+            (factor_name, filter_mode)
             for factor_name in self.factors_name
-            for group_mode in get_args(self.group_mode)
             for filter_mode in get_args(self.filter_mode)
         ]
 
@@ -682,8 +681,8 @@ class FactorAnalyzer(BaseService):
                 # 使用 starmap_async 支持进度跟踪
                 results = pool.starmap_async(
                     self._parallel_task,
-                    [(init_params, factor_name, group_mode, filter_mode, lock,
+                    [(init_params, factor_name, filter_mode, lock,
                       self.raw_data, self.industry_mapping, self.listed_nums)
-                     for factor_name, group_mode, filter_mode in task_args]
+                     for factor_name, filter_mode in task_args]
                 )
                 results.get()

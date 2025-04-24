@@ -7,7 +7,7 @@ def update_support():
     """更新支持数据"""
     updater = SupportDataUpdater(
         start_date="2000-01-01",
-        end_date="2025-04-12",
+        end_date="2025-04-23",
         get_listed_code=False        # 仅更新交易日历 = False
     )
     tasks = {
@@ -22,13 +22,13 @@ def update_support():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="20250401W量价",
-        storage_dir="20250401W"
+        source_dir="K线中继形态测试1",
+        storage_dir="K线中继形态测试1"
     )
     convert.run()
 
 
 # ------------------------- 执行入口 -------------------------
 if __name__ == "__main__":
-    update_support()
-    # data_convert()
+    # update_support()
+    data_convert()

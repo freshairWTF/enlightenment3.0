@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from analysis.analysis_service import Analyzer
 from constant.analysis_setting import Individual, Normal, Quant, Factor, InventoryCycle
 
@@ -19,7 +20,7 @@ def individual_analysis():
         end_date="2025-04-12",
         storage_dir_name="汇成真空24Q3",
         target_info="301392",
-        debug=True
+        debug=False
     )
     analyzer.run()
 
@@ -94,12 +95,13 @@ def factor_analysis():
         cycle="day",
         kline_adjust="split_adjusted",
         financial_cycle="quarter",
-        start_date="2000-03-31",
+        start_date="2010-03-31",
         financial_end_date="2024-09-30",
         end_date="2025-04-23",
 
         storage_dir_name="K线中继形态测试1",
         target_info={"全部": "三级行业"},
+        # target_info=["002234"],
 
         index_code="000300",
         processes_nums=10,

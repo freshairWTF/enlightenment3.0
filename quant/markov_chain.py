@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+from constant.type_ import CYCLE
+
 
 ########################################################
 class MarkovChainAnalyzer:
@@ -20,13 +22,16 @@ class MarkovChainAnalyzer:
             self,
             factor_return: pd.Series,
             index_return: pd.DataFrame,
+            cycle: CYCLE
     ):
         """
         :param factor_return: 因子收益率
         :param index_return: 指数收益率
+        :param cycle: 周期
         """
         self.factor_return = factor_return
         self.index_return = index_return
+        self.cycle = cycle
 
         # 市场状态数量 (默认为3: 牛市/熊市/震荡市)
         self.n_regimes = 3
@@ -41,8 +46,12 @@ class MarkovChainAnalyzer:
     ) -> pd.DataFrame:
         """数据预处理：处理缺失值、标准化"""
         # 日期转换：仅取年月
-        self.factor_return.index = pd.to_datetime(self.factor_return.index).strftime("%Y-%m")
-        self.index_return.index = pd.to_datetime(self.index_return.index).strftime("%Y-%m")
+        if self.cycle in ["day", "week"]:
+            self.factor_return.index = pd.to_datetime(self.factor_return.index)
+            self.index_return.index = pd.to_datetime(self.index_return.index)
+        else:
+            self.factor_return.index = pd.to_datetime(self.factor_return.index).strftime("%Y-%m")
+            self.index_return.index = pd.to_datetime(self.index_return.index).strftime("%Y-%m")
 
         # 数据合并
         merger_df = pd.concat(
@@ -95,9 +104,6 @@ class MarkovChainAnalyzer:
             sorted_states[2]: 'Bear'
         }
         self.data['state_label'] = self.data['state'].map(label_map)
-        pd.set_option("display.max_rows", None)
-        print(self.data['state_label'])
-        print(dd)
 
         return self
 
@@ -128,9 +134,7 @@ class MarkovChainAnalyzer:
             })
 
         self.performance = pd.DataFrame(results).set_index('state')
-        print(self.state_prob)
-        print(self.performance)
-        print(dd)
+
         return self
 
     def plot_results(
@@ -175,5 +179,4 @@ class MarkovChainAnalyzer:
             self.__fit_model()
             .__assign_states()
             .__analyze_performance()
-            .plot_results()
         )

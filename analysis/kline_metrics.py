@@ -519,4 +519,4 @@ class KLineMetrics(Metrics, KlineDetermination):
         )
         condition_2 = (upper_shadow | lower_shadow) & reduced_quantity
 
-        return condition_1 & condition_2
+        self.metrics["ch_relay_form"] = (condition_1 & condition_2).astype("int")
