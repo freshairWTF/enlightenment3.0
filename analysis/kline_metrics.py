@@ -185,7 +185,7 @@ class KlineDetermination:
             .shift(1)
         )
 
-        return (df['volume'] > historical_ma * min_change).fillna(False)
+        return (df['volume'] < historical_ma * min_change).fillna(False)
 
     @classmethod
     def n_consecutive_mask(
@@ -479,10 +479,16 @@ class KLineMetrics(Metrics, KlineDetermination):
         上涨中继形态：
             1、2根中大阳线爆量，5%-8%、成交量放大3-5倍；
             2、第三根上影线缩量，影线长度约1/3-1/2；
+
+        超参：
+            1、中大阳线定义：5%
+            2、成交量均值窗口数：30
+            3、成交量最低涨幅：3倍
+            4、上影线相对实体区间：0.5-1.2
+            5、成交量最低缩量：0.8
         """
         pd.set_option('display.max_rows', None)
         # -1 2根中大阳线爆量
-        # 连续2日中、大阳线判定
         medium_or_large_positive_line = self.n_consecutive_mask(
             self.positive_line(
                 self.metrics,
@@ -490,16 +496,13 @@ class KLineMetrics(Metrics, KlineDetermination):
             ),
             2
         )
-        # 中、大阳线爆量
         explosive_quantity = self.explosive_quantity(
             self.metrics,
             window=30,
             min_change=3
         )
-        model_1 = (medium_or_large_positive_line & explosive_quantity).shift(1).fillna(False)
-        print(model_1)
+        condition_1 = (medium_or_large_positive_line & explosive_quantity).shift(1).fillna(False)
 
-        print(dd)
         # -2 第三根上影线缩量
         upper_shadow = self.positive_line(
             self.metrics,
@@ -509,9 +512,11 @@ class KLineMetrics(Metrics, KlineDetermination):
             self.metrics,
             upper_shadow_bounds=(0.5, 1.2)
         )
-        print(lower_shadow)
+        reduced_quantity = self.reduced_quantity(
+            self.metrics,
+            window=2,
+            min_change=0.8
+        )
+        condition_2 = (upper_shadow | lower_shadow) & reduced_quantity
 
-        # print(upper_shadow)
-        print(dd)
-
-
+        return condition_1 & condition_2
