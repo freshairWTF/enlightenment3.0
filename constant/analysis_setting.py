@@ -134,11 +134,11 @@ class Individual:
             parameters = DataLoader.load_yaml_file(DataPATH.FINANCIAL_METRICS, "PARAMETERS_OF_EASTMONEY")
             # page名
             self.pages_name = [
-                "管理用财务报表", "滚动财务", "财务", "估值", "其他"
+                "管理用财务报表", "滚动管理用财务报表", "滚动财务", "财务", "估值", "其他"
             ]
             # 图表配置
             self.pages_config = {
-                "管理用财务报表": {
+                "滚动管理用财务报表": {
                     "_upper_lower_dichotomy-1": QuadrantsChartSpecs(
                         title="总资产",
                         ul_data_source="rolling_financial",
@@ -286,6 +286,154 @@ class Individual:
                         lr_column=["营业收入", "净经营资产"],
                     ),
                 },
+                "管理用财务报表": {
+                    "_upper_lower_dichotomy-1": QuadrantsChartSpecs(
+                        title="总资产",
+                        ul_data_source="financial",
+                        ul_column="负债和所有者权益",
+                        ll_data_source="financial",
+                        ll_column="负债和所有者权益_yoy"
+                    ),
+                    "_blpp-1": QuadrantsChartSpecs(
+                        title="资产来源",
+                        ul_data_source="financial",
+                        ul_column=["金融性负债", "经营性负债", "股东入资", "利润留存"],
+                        ll_data_source="financial",
+                        ll_column=["金融性负债_yoy", "经营性负债_yoy", "股东入资_yoy", "利润留存_yoy"],
+                        ll_chart="line",
+                        ur_column=parameters["股东入资"],
+                        ur_data_source="financial",
+                        lr_column=parameters["利润留存"],
+                        lr_data_source="financial",
+                        main_pie_show=True
+                    ),
+                    "_blpp-2": QuadrantsChartSpecs(
+                        title="资产流向",
+                        ul_data_source="financial",
+                        ul_column=["经营性资产", "金融性资产"],
+                        ll_data_source="financial",
+                        ll_column=["经营性资产_yoy", "金融性资产_yoy"],
+                        ll_chart="line",
+                        ur_column=parameters["经营性资产"],
+                        ur_data_source="financial",
+                        lr_column=parameters["金融性资产"],
+                        lr_data_source="financial",
+                        main_pie_show=True
+                    ),
+                    "_blpp-3": QuadrantsChartSpecs(
+                        title="资产流动性",
+                        ul_data_source="financial",
+                        ul_column=["流动资产合计", "非流动资产合计"],
+                        ll_data_source="financial",
+                        ll_column=["流动资产合计_yoy", "非流动资产合计_yoy"],
+                        ll_chart="line",
+                        ur_column=parameters["流动资产"],
+                        ur_data_source="financial",
+                        lr_column=parameters["非流动资产"],
+                        lr_data_source="financial",
+                        main_pie_show=True
+                    ),
+                    "_blpp-4": QuadrantsChartSpecs(
+                        title="经营性流动资产",
+                        ul_data_source="financial",
+                        ul_column=["经营性流动资产", "经营性流动负债"],
+                        ll_data_source="financial",
+                        ll_column=["经营性营运资本", "经营性营运资本_yoy"],
+                        ll_chart="line",
+                        ur_column=parameters["经营性流动资产"],
+                        ur_data_source="financial",
+                        lr_column=parameters["经营性流动负债"],
+                        lr_data_source="financial",
+                        main_pie_show=True
+                    ),
+                    "_blpp-5": QuadrantsChartSpecs(
+                        title="经营性长期资产",
+                        ul_data_source="financial",
+                        ul_column=["经营性长期资产", "经营性长期负债"],
+                        ll_data_source="financial",
+                        ll_column=["净经营性长期资产", "净经营性长期资产_yoy"],
+                        ll_chart="line",
+                        ur_column=parameters["经营性长期资产"],
+                        ur_data_source="financial",
+                        lr_column=parameters["经营性长期负债"],
+                        lr_data_source="financial",
+                        main_pie_show=True
+                    ),
+                    "_blpp-6": QuadrantsChartSpecs(
+                        title="金融性资产",
+                        ul_data_source="financial",
+                        ul_column=["金融性资产", "金融性负债"],
+                        ll_data_source="financial",
+                        ll_column=["净负债", "净负债_yoy"],
+                        ll_chart="line",
+                        ur_column=parameters["金融性资产"],
+                        ur_data_source="financial",
+                        lr_column=parameters["金融性负债"],
+                        lr_data_source="financial",
+                        main_pie_show=True
+                    ),
+                    "_quadrants-1": QuadrantsChartSpecs(
+                        title="净经营资产",
+                        ul_data_source="financial",
+                        ul_column="净经营资产",
+                        ll_data_source="financial",
+                        ll_column="净经营资产_yoy",
+                        ll_chart="line",
+                        ur_column=["净负债", "所有者权益"],
+                        ur_data_source="financial",
+                        lr_column=["净负债_yoy", "所有者权益_yoy"],
+                        lr_data_source="financial",
+                        lr_chart="line"
+                    ),
+                    "_quadrants-2": QuadrantsChartSpecs(
+                        title="利润来源",
+                        ul_data_source="financial",
+                        ul_column="经营净利润",
+                        ll_data_source="financial",
+                        ll_column="经营净利润_yoy",
+                        ll_chart="line",
+                        ur_data_source="financial",
+                        ur_column="金融净利润",
+                        lr_data_source="financial",
+                        lr_column="金融净利润_yoy",
+                        lr_chart="line"
+                    ),
+                    "_upper_lower_dichotomy-2": QuadrantsChartSpecs(
+                        title="权益净利率",
+                        ul_data_source="financial",
+                        ul_column="权益净利率",
+                        ll_data_source="financial",
+                        ll_column="归母权益净利率"
+                    ),
+                    "_quadrants-4": QuadrantsChartSpecs(
+                        title="权益净利率拆解"
+                              "\n权益净利率=净经营资产净利率+杠杆贡献率"
+                              "\n杠杆贡献率=经营差异率*净财务杠杆"
+                              "\n经营差异率=净经营资产净利率-税后利息率",
+                        ul_data_source="financial",
+                        ul_column="权益净利率",
+                        ll_data_source="financial",
+                        ll_column=["净经营资产净利率", "杠杆贡献率"],
+                        ur_data_source="financial",
+                        ur_column=["经营差异率", "净财务杠杆"],
+                        lr_data_source="financial",
+                        lr_column=["净经营资产净利率", "税后利息率"],
+                    ),
+                    "_quadrants-5": QuadrantsChartSpecs(
+                        title="净经营资产净利率拆解"
+                              "\n净经营资产净利率=经营净利率*净经营资产周转率"
+                              "\n经营净利率=经营净利润/营业收入"
+                              "\n净经营资产周转率=营业收入/净经营资产",
+                        ul_data_source="financial",
+                        ul_column="净经营资产净利率",
+                        ll_data_source="financial",
+                        ll_column=["经营净利率", "净经营资产周转率"],
+                        ur_data_source="financial",
+                        ur_column=["经营净利润", "营业收入"],
+                        lr_data_source="financial",
+                        lr_column=["营业收入", "净经营资产"],
+                    ),
+                },
                 "滚动财务": {
                     "_quadrants-1": QuadrantsChartSpecs(
                         title="偿债能力",
@@ -320,15 +468,6 @@ class Individual:
                         lr_data_source="rolling_financial",
                         lr_column=["营业税金负担率"]
                     ),
-                    "_blpp-1": QuadrantsChartSpecs(
-                        title="利润来源",
-                        ul_data_source="rolling_financial",
-                        ul_column=["核心利润", "投资利润", "杂项利润", "营业外收支净额"],
-                        ll_data_source="rolling_financial",
-                        ll_column=["核心利润_yoy", "投资利润_yoy", "杂项利润_yoy", "营业外收支净额_yoy"],
-                        ll_chart="line",
-                        main_pie_show=True
-                    ),
                     "_quadrants-4": QuadrantsChartSpecs(
                         title="费用",
                         ul_data_source="rolling_financial",
@@ -354,6 +493,15 @@ class Individual:
                         ur_column="减值损失核心利润占比",
                         lr_data_source="rolling_financial",
                         lr_column=["资产减值损失净资产占比", "信用减值损失净资产占比"]
+                    ),
+                    "_blpp-1": QuadrantsChartSpecs(
+                        title="利润来源",
+                        ul_data_source="rolling_financial",
+                        ul_column=["核心利润", "投资利润", "杂项利润", "营业外收支净额"],
+                        ll_data_source="rolling_financial",
+                        ll_column=["核心利润_yoy", "投资利润_yoy", "杂项利润_yoy", "营业外收支净额_yoy"],
+                        ll_chart="line",
+                        main_pie_show=True
                     ),
                     "_quadrants-6": QuadrantsChartSpecs(
                         title="非核心利润来源",
@@ -464,15 +612,6 @@ class Individual:
                         lr_data_source="financial",
                         lr_column=["营业税金负担率"]
                     ),
-                    "_blpp-1": QuadrantsChartSpecs(
-                        title="利润来源",
-                        ul_data_source="financial",
-                        ul_column=["核心利润", "投资利润", "杂项利润", "营业外收支净额"],
-                        ll_data_source="financial",
-                        ll_column=["核心利润_yoy", "投资利润_yoy", "杂项利润_yoy", "营业外收支净额_yoy"],
-                        ll_chart="line",
-                        main_pie_show=True
-                    ),
                     "_quadrants-4": QuadrantsChartSpecs(
                         title="费用",
                         ul_data_source="financial",
@@ -498,6 +637,15 @@ class Individual:
                         ur_column="减值损失核心利润占比",
                         lr_data_source="financial",
                         lr_column=["资产减值损失净资产占比", "信用减值损失净资产占比"]
+                    ),
+                    "_blpp-1": QuadrantsChartSpecs(
+                        title="利润来源",
+                        ul_data_source="financial",
+                        ul_column=["核心利润", "投资利润", "杂项利润", "营业外收支净额"],
+                        ll_data_source="financial",
+                        ll_column=["核心利润_yoy", "投资利润_yoy", "杂项利润_yoy", "营业外收支净额_yoy"],
+                        ll_chart="line",
+                        main_pie_show=True
                     ),
                     "_quadrants-6": QuadrantsChartSpecs(
                         title="非核心利润来源",

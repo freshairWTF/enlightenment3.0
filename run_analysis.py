@@ -17,9 +17,9 @@ def individual_analysis():
         financial_cycle="quarter",
         start_date="2020-03-30",
         financial_end_date="2025-03-31",
-        end_date="2025-04-24",
-        storage_dir_name="森麒麟25Q1",
-        target_info="002984",
+        end_date="2025-04-25",
+        storage_dir_name="民和股份25Q1",
+        target_info="002234",
         debug=False
     )
     analyzer.run()
@@ -139,10 +139,10 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    # individual_analysis()
+    individual_analysis()
     # normal_analysis()
     # quant_analysis()
-    factor_analysis()
+    # factor_analysis()
     # inventory_cycle_analysis()
 
     # 长期斜率为正，突然杀跌
