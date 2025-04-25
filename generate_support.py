@@ -22,8 +22,8 @@ def update_support():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="K线中继形态测试1",
-        storage_dir="K线中继形态测试1"
+        source_dir="斜率",
+        storage_dir="斜率"
     )
     convert.run()
 

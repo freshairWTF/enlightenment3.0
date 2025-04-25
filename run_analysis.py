@@ -15,11 +15,11 @@ def individual_analysis():
 
         cycle="month",
         financial_cycle="quarter",
-        start_date="2015-03-30",
-        financial_end_date="2024-09-30",
-        end_date="2025-04-12",
-        storage_dir_name="汇成真空24Q3",
-        target_info="301392",
+        start_date="2020-03-30",
+        financial_end_date="2025-03-31",
+        end_date="2025-04-24",
+        storage_dir_name="森麒麟25Q1",
+        target_info="002984",
         debug=False
     )
     analyzer.run()
@@ -56,6 +56,7 @@ def quant_analysis():
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
+        trade_status_filter=True,
         params=Quant(),
 
         # 运存不足，无法满足 day 的运存消耗
@@ -85,6 +86,7 @@ def factor_analysis():
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
+        trade_status_filter=True,
         params=Factor(),
 
         # 运存不足，无法满足 day 的运存消耗
@@ -92,16 +94,16 @@ def factor_analysis():
         class_level="三级行业",
         weight_name="市值",
 
-        cycle="day",
+        cycle="week",
         kline_adjust="split_adjusted",
         financial_cycle="quarter",
-        start_date="2010-03-31",
+        start_date="2000-03-31",
         financial_end_date="2024-09-30",
         end_date="2025-04-23",
 
-        storage_dir_name="K线中继形态测试1",
+        storage_dir_name="斜率",
         target_info={"全部": "三级行业"},
-        # target_info=["002234"],
+        # target_info=["603963"],
 
         index_code="000300",
         processes_nums=10,
@@ -142,3 +144,5 @@ if __name__ == "__main__":
     # quant_analysis()
     factor_analysis()
     # inventory_cycle_analysis()
+
+    # 长期斜率为正，突然杀跌

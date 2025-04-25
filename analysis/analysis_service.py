@@ -177,6 +177,7 @@ class Analyzer:
             draw_filter: bool = False,
             quant: bool = False,
             processes_nums: int = 1,
+            trade_status_filter: bool = False,
             debug: bool = False
     ):
         """
@@ -197,7 +198,8 @@ class Analyzer:
         :param index_code: 指数代码
         :param code_range: 代码范围
         :param processes_nums: 多进程数
-        :param debug: 修复bug模式
+        :param trade_status_filter: 交易状态过滤
+        :param debug: debug模式
         """
         self.dimension = dimension
         self.PARAMS = params
@@ -217,6 +219,7 @@ class Analyzer:
         self.quant = quant
         self.processes_nums = processes_nums
         self.CLEANED_METRICS = CLEANED_METRICS
+        self.trade_status_filter = trade_status_filter
         self.debug = debug
 
         # --------------------------
@@ -648,6 +651,10 @@ class Analyzer:
             end_date=self.end_date,
             aligned_to_month_end=self.aligned_to_month_end
         )
+
+        if self.trade_status_filter:
+            df = df[df["tradestatus"] == 1]
+
         return df.drop("code", axis=1)
 
     def _get_financial_data(

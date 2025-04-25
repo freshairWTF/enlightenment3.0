@@ -187,6 +187,11 @@ class KlineDetermination:
 
         return (df['volume'] < historical_ma * min_change).fillna(False)
 
+    # 涨停、跌停
+    # @classmethod
+    # def
+
+
     @classmethod
     def n_consecutive_mask(
             cls,
@@ -487,14 +492,19 @@ class KLineMetrics(Metrics, KlineDetermination):
             4、上影线相对实体区间：0.5-1.2
             5、成交量最低缩量：0.8
         """
-        pd.set_option('display.max_rows', None)
         # -1 2根中大阳线爆量
-        medium_or_large_positive_line = self.n_consecutive_mask(
-            self.positive_line(
-                self.metrics,
-                min_change=5
-            ),
-            2
+        # medium_or_large_positive_line = self.n_consecutive_mask(
+        #     self.positive_line(
+        #         self.metrics,
+        #         min_change=5
+        #     ),
+        #     2
+        # )
+
+        # -1 1根中大阳线爆量
+        medium_or_large_positive_line = self.positive_line(
+            self.metrics,
+            min_change=5
         )
         explosive_quantity = self.explosive_quantity(
             self.metrics,
@@ -504,19 +514,19 @@ class KLineMetrics(Metrics, KlineDetermination):
         condition_1 = (medium_or_large_positive_line & explosive_quantity).shift(1).fillna(False)
 
         # -2 第三根上影线缩量
-        upper_shadow = self.positive_line(
+        upper_shadow_p = self.positive_line(
             self.metrics,
             upper_shadow_bounds=(0.5, 1.2)
         )
-        lower_shadow = self.negative_line(
+        upper_shadow_n = self.negative_line(
             self.metrics,
             upper_shadow_bounds=(0.5, 1.2)
         )
         reduced_quantity = self.reduced_quantity(
             self.metrics,
             window=2,
-            min_change=0.8
+            min_change=0.9
         )
-        condition_2 = (upper_shadow | lower_shadow) & reduced_quantity
+        condition_2 = (upper_shadow_p | upper_shadow_n) & reduced_quantity
 
         self.metrics["ch_relay_form"] = (condition_1 & condition_2).astype("int")

@@ -7,9 +7,9 @@ def download_fundamental():
     downloader = Crawler(
         data_name="financial_data",
         start_date="2024-12-31",            # 起始时间
-        end_date="2024-12-31",              # 结束时间
+        end_date="2025-03-31",              # 结束时间
 
-        code="688408",                      # 代码：无需sh/sz前缀
+        code="002984",                      # 代码：无需sh/sz前缀
         filter_mode=None,                   # 可选：None/all/from_code
         industry_info=None,                 # 指定行业
 
@@ -25,7 +25,7 @@ def clean_fundamental():
         data_name="financial_data",
         num_processes=10,                   # 多进程核数
 
-        code="688408",                      # 代码：无需sh/sz前缀
+        code="002984",                      # 代码：无需sh/sz前缀
         filter_mode=None,                   # 可选：None/all/from_code
         industry_info=None                  # 指定行业
     )

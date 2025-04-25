@@ -6,12 +6,13 @@ from constant.path_config import DataPATH
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="K线中继形态测试1",
+        source_dir="斜率",
         # source_dir="202503M",
-        index_path=DataPATH.INDEX_KLINE_DATA / "day" / "000300",
+        index_path=DataPATH.INDEX_KLINE_DATA / "week" / "000300",
         factors_name=[
+            "斜率_0.09", "斜率_0.17", "斜率_0.25", "斜率_0.5", "斜率_1", "斜率_1.5", "斜率_2",
             # "非流动资产合计"
-            "ch_relay_form"
+            # "ch_relay_form"
             # "非流动资产合计", "少数股东权益", "应收票据", "应收账款", "实收资本",
             # "库存股", "存货", "所有者权益", "负债和所有者权益",
             # "利润总额", "资产减值损失", "信用减值损失", "归属于母公司所有者的净利润",
@@ -42,14 +43,16 @@ def factor_analysis():
             # "内含增长率", "可持续增长率", "利润留存率", "股利支付率", "扩张倍数",
             # "收缩倍数"
         ],
-        cycle="day",
+        cycle="week",
         standardization=False,
         mv_neutral=False,
         industry_neutral=False,
         restructure=False,
 
-        group_mode="distant",
-        group_nums=2,
+        group_mode="frequency",
+        group_nums=10,
+
+        # ！！！# 若大于1，则在因子端需要计算连续n日的收益率
         lag_period=1
     )
     # 运存限制，使用单进程
