@@ -652,8 +652,12 @@ class Analyzer:
             aligned_to_month_end=self.aligned_to_month_end
         )
 
+        # 交易状态过滤
         if self.trade_status_filter:
             df = df[df["tradestatus"] == 1]
+
+        # 交易日期过滤（部分退市股出现截止日期不统一的问题）
+        df = df[df.index.isin(self.financial_fill_date)]
 
         return df.drop("code", axis=1)
 

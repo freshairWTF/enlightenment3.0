@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from analysis.analysis_service import Analyzer
 from constant.analysis_setting import Individual, Normal, Quant, Factor, InventoryCycle
 
@@ -99,11 +98,10 @@ def factor_analysis():
         financial_cycle="quarter",
         start_date="2000-03-31",
         financial_end_date="2024-09-30",
-        end_date="2025-04-23",
+        end_date="2025-04-11",
 
         storage_dir_name="斜率",
         target_info={"全部": "三级行业"},
-        # target_info=["603963"],
 
         index_code="000300",
         processes_nums=10,
@@ -139,10 +137,10 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
+    # individual_analysis()
     # normal_analysis()
     # quant_analysis()
-    # factor_analysis()
+    factor_analysis()
     # inventory_cycle_analysis()
 
     # 长期斜率为正，突然杀跌
