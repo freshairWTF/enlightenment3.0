@@ -75,7 +75,9 @@ class BaseService:
             path: Path | str
     ) -> pd.DataFrame:
         """加载指数k线数据"""
-        return cls.loader.load_parquet(path).set_index("date")
+        df = cls.loader.load_parquet(path).set_index("date")
+        df.index = pd.to_datetime(df.index)
+        return df
 
     @classmethod
     @validate_literal_params

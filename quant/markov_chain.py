@@ -1,26 +1,138 @@
 from typing import Self
+from scipy.stats import ttest_1samp
 from statsmodels.tsa.regime_switching.markov_regression import MarkovRegression
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
 from constant.type_ import CYCLE
+from utils.data_processor import DataProcessor
+
+
+########################################################
+class DifferentMarketAnalyzer:
+    """不同市场分析"""
+
+    def __init__(
+            self,
+            factor_ic: pd.Series,
+            market_metrics: pd.DataFrame,
+            cycle: CYCLE
+    ):
+        """
+        :param factor_ic: 因子ic
+        :param market_metrics: 市场指标
+        :param cycle: 周期
+        """
+        self.factor_ic = factor_ic
+        self.factor_ic.index = pd.to_datetime(self.factor_ic.index)
+        self.market_metrics = market_metrics
+        self.cycle = cycle
+
+    @classmethod
+    def __mark_status(
+            cls,
+            row: pd.Series,
+            prev_state: str
+    ) -> str:
+        """
+        判定市场状态
+        :param row: 行数据
+        :param prev_state: 之前状态
+        """
+        # 熊市
+        if (
+                (row['pctChg'] <= -0.06)
+                # or (row['pctChg'] <= -0.03
+                #     and prev_state == 'Bear')
+                or (row["close"] < row["收盘价均线_1"]
+                    and row["收盘价均线_0.25"] < row["收盘价均线_1"]
+                    and prev_state == 'Bear')
+        ):
+            return 'Bear'
+        # 牛市
+        elif (
+                (row['pctChg'] >= 0.05
+                 and row['volatility'] <= 0.25)
+                or (row["close"] > row["收盘价均线_1"]
+                    and row["收盘价均线_0.25"] > row["收盘价均线_1"]
+                    and prev_state == 'Bull')
+        ):
+            return 'Bull'
+        else:
+            return 'Range'
+
+    def __analyze_performance(
+            self,
+            status: pd.Series
+    ) -> pd.DataFrame:
+        """
+        统计ic在各个市场环境下的表现
+        :param status: 状态标识
+        :return: 统计结果
+        """
+        # 数据合并
+        merger_df = pd.concat(
+            [self.factor_ic, status],
+            axis=1,
+            join="inner"
+        )
+
+        # 生成统计
+        results = []
+        for status, group in merger_df.groupby("status"):
+            ic_mean = group["ic"].mean()
+            volatility = group["ic"].std()
+
+            # T检验
+            t_stat, p_value = ttest_1samp(group["ic"], 0)
+
+            results.append({
+                'status': status,
+                'mean': ic_mean,
+                'vol': volatility,
+                "ic_ir": ic_mean / volatility,
+                't_stat': t_stat,
+                'p_value': p_value,
+                'n_obs': len(group)
+            })
+
+        return pd.DataFrame(results).set_index('status')
+
+    # -----------------------------
+    # 公开 API
+    # -----------------------------
+    def run(
+            self
+    ) -> pd.DataFrame:
+        """运行"""
+        # 初始赋值
+        self.market_metrics["status"] = None
+        # 首月前状态设为震荡市
+        prev_state = 'Range'
+
+        # 按时间顺序逐行处理（确保索引已按日期排序）
+        for idx in self.market_metrics.index:
+            row = self.market_metrics.loc[idx]
+            current_state = self.__mark_status(row, prev_state)
+            self.market_metrics.at[idx, 'status'] = current_state
+            prev_state = current_state
+
+        # 统计结果
+        return self.__analyze_performance(self.market_metrics["status"])
 
 
 ########################################################
 class MarkovChainAnalyzer:
     """
-    基于马尔可夫区制转换模型分析因子在不同市场状态（牛市/熊市/震荡市）中的表现差异
-
-    1、 自动划分市场状态（使用马尔可夫区制转换模型）
+    基于马尔可夫链分析因子在不同市场状态（牛市/熊市/震荡市）中的表现差异
+    1、 自动划分市场状态
     2、 分析因子在不同状态下的收益、波动性、显著性
-    3、 可视化状态划分结果及因子表现
     """
 
     def __init__(
             self,
-            factor_return: pd.Series,
+            factor_return: pd.DataFrame,
             index_return: pd.DataFrame,
             cycle: CYCLE
     ):
@@ -36,14 +148,13 @@ class MarkovChainAnalyzer:
         # 市场状态数量 (默认为3: 牛市/熊市/震荡市)
         self.n_regimes = 3
 
-        self.data = self.__preprocess_data()
         self.model = None
         self.state_prob = None
         self.performance = None
 
     def __preprocess_data(
             self
-    ) -> pd.DataFrame:
+    ) -> Self:
         """数据预处理：处理缺失值、标准化"""
         # 日期转换：仅取年月
         if self.cycle in ["day", "week"]:
@@ -53,20 +164,24 @@ class MarkovChainAnalyzer:
             self.factor_return.index = pd.to_datetime(self.factor_return.index).strftime("%Y-%m")
             self.index_return.index = pd.to_datetime(self.index_return.index).strftime("%Y-%m")
 
-        # 数据合并
-        merger_df = pd.concat(
-            [
-                self.factor_return.rename("factor_return"),
-                self.index_return
-            ],
-            axis=1,
-            join="inner"
-        )
-
         # 去除缺失值
-        merger_df.dropna(inplace=True)
+        self.factor_return.dropna(inplace=True)
+        self.index_return.dropna(inplace=True)
 
-        return merger_df
+        # 日期索引对齐
+        self.factor_return, self.index_return = self.factor_return.align(
+            self.index_return,
+            join='inner',
+            axis=0
+        )
+        print(self.factor_return)
+        # 标准化
+        print(self.index_return)
+        self.index_return = DataProcessor.standardization(self.index_return)
+
+        print(self.index_return)
+
+        return self
 
     def __fit_model(
             self
@@ -75,8 +190,8 @@ class MarkovChainAnalyzer:
         训练马尔可夫区制转换模型
         """
         self.model = MarkovRegression(
-            endog=self.data['factor_return'],
-            exog=self.data[[ "累加收益率_0.25", "收益率标准差_0.25", "斜率_0.25"]],
+            endog=self.factor_return,
+            exog=self.index_return,
             k_regimes=self.n_regimes,
             trend='c',
             switching_variance=True                     # 是否允许不同状态的方差不同
@@ -91,10 +206,10 @@ class MarkovChainAnalyzer:
     ) -> Self:
         """根据最大概率划分市场状态"""
         # 获取最可能的状态序列
-        self.data['state'] = np.argmax(self.state_prob, axis=1)
+        self.factor_return['state'] = np.argmax(self.state_prob, axis=1)
 
         # 自动生成状态标签 (假设按因子收益排序)
-        state_means = self.data.groupby('state')['factor_return'].mean()
+        state_means = self.factor_return.groupby('state')['factor_return'].mean()
         sorted_states = state_means.sort_values(ascending=False).index
 
         # 分配标签：牛市 > 震荡市 > 熊市
@@ -103,7 +218,7 @@ class MarkovChainAnalyzer:
             sorted_states[1]: 'Neutral',
             sorted_states[2]: 'Bear'
         }
-        self.data['state_label'] = self.data['state'].map(label_map)
+        self.factor_return['state_label'] = self.factor_return['state'].map(label_map)
 
         return self
 
@@ -112,7 +227,7 @@ class MarkovChainAnalyzer:
     ) -> Self:
         """分析不同市场状态下的因子表现"""
         results = []
-        for label, group in self.data.groupby('state_label'):
+        for label, group in self.factor_return.groupby('state_label'):
             # 计算关键指标
             mean_return = group['factor_return'].mean()
             volatility = group['factor_return'].std()
@@ -137,37 +252,6 @@ class MarkovChainAnalyzer:
 
         return self
 
-    def plot_results(
-            self
-    ) -> Self:
-        """可视化状态划分及因子表现"""
-        plt.figure(figsize=(14, 10))
-
-        # 子图1：状态概率
-        plt.subplot(2, 1, 1)
-        for i in range(self.n_regimes):
-            plt.plot(self.data.index, self.state_prob[i],
-                     label=f'State {i} Prob', alpha=0.7)
-        plt.title('Market Regime Probabilities')
-        plt.legend()
-
-        # 子图2：因子累计收益
-        plt.subplot(2, 1, 2)
-        self.data['cumulative_return'] = (
-                (1 + self.data['factor_return']).cumprod() - 1
-        )
-        for state, color in zip(['Bull', 'Bear', 'Neutral'],
-                                ['g', 'r', 'b']):
-            subset = self.data[self.data['state_label'] == state]
-            plt.scatter(subset.index, subset['cumulative_return'],
-                        color=color, label=state, alpha=0.6)
-        plt.title('Factor Cumulative Returns by Regime')
-        plt.legend()
-
-        plt.tight_layout()
-        plt.show()
-        return self
-
     # ------------------------
     # 公开 API
     # ------------------------
@@ -176,7 +260,8 @@ class MarkovChainAnalyzer:
     ) -> Self:
         """执行完整分析流程"""
         return (
-            self.__fit_model()
+            self.__preprocess_data()
+            .__fit_model()
             .__assign_states()
             .__analyze_performance()
         )

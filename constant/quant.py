@@ -60,6 +60,9 @@ class Factor:
                 "斜率": [
                     0.25
                 ],
+                "收盘价均线": [
+                    0.25, 1
+                ]
             }
 
     class Visualization:
@@ -102,7 +105,7 @@ class Factor:
                     ),
                     "_basic_table-7": BasicChartSpecs(
                         title="分市场IC",
-                        data_source="markov_chain",
+                        data_source="different_market_result",
                         column="",
                         date=False
                     ),

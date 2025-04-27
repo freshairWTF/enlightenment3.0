@@ -1,17 +1,28 @@
 from quant.factor_service import FactorAnalyzer
-from constant.path_config import DataPATH
+
+from download.support_service import SupportDataUpdater
+
+# --------------------------------------------------
+def update_support():
+    """更新支持数据"""
+    updater = SupportDataUpdater(
+        start_date="2000-01-01",
+        end_date="2025-04-25",
+        get_listed_code=False        # 仅更新交易日历 = False
+    )
+    updater.run({updater.trading_calendar: True})
 
 
 # --------------------------------------------
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="斜率",
-        # source_dir="202503M",
-        index_path=DataPATH.INDEX_KLINE_DATA / "week" / "000300",
+        # source_dir="斜率",
+        source_dir="202503M",
+        index_code="000300",
         factors_name=[
-            "斜率_0.09", "斜率_0.17", "斜率_0.25", "斜率_0.5", "斜率_1", "斜率_1.5", "斜率_2",
-            # "非流动资产合计"
+            # "斜率_0.09", "斜率_0.17", "斜率_0.25", "斜率_0.5", "斜率_1", "斜率_1.5", "斜率_2",
+            "非流动资产合计"
             # "ch_relay_form"
             # "非流动资产合计", "少数股东权益", "应收票据", "应收账款", "实收资本",
             # "库存股", "存货", "所有者权益", "负债和所有者权益",
@@ -43,10 +54,10 @@ def factor_analysis():
             # "内含增长率", "可持续增长率", "利润留存率", "股利支付率", "扩张倍数",
             # "收缩倍数"
         ],
-        cycle="week",
-        standardization=False,
-        mv_neutral=False,
-        industry_neutral=False,
+        cycle="month",
+        standardization=True,
+        mv_neutral=True,
+        industry_neutral=True,
         restructure=False,
 
         group_mode="frequency",
@@ -60,4 +71,5 @@ def factor_analysis():
 
 
 if __name__ == "__main__":
+    # update_support()
     factor_analysis()
