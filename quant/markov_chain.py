@@ -16,18 +16,49 @@ class DifferentMarketAnalyzer:
     def __init__(
             self,
             factor_ic: pd.Series,
-            market_metrics: pd.DataFrame,
+            month_market_metrics: pd.DataFrame,
+            day_market_metrics: pd.DataFrame,
             cycle: CYCLE
     ):
         """
         :param factor_ic: 因子ic
-        :param market_metrics: 市场指标
+        :param month_market_metrics: 月频市场指标
+        :param day_market_metrics: 日频市场指标
         :param cycle: 周期
         """
+        self.cycle = cycle
+
         self.factor_ic = factor_ic
         self.factor_ic.index = pd.to_datetime(self.factor_ic.index)
-        self.market_metrics = market_metrics
-        self.cycle = cycle
+        self.factor_ic = self.factor_ic.resample("M").mean()
+
+        self.market_metrics = self.__gen_market_metrics(
+            month_market_metrics,
+            day_market_metrics
+        )
+
+    @classmethod
+    def __gen_market_metrics(
+            cls,
+            month_market_metrics: pd.DataFrame,
+            day_market_metrics: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        生成市场指标
+        :param month_market_metrics: 月频市场指标
+        :param day_market_metrics: 日频市场指标
+        """
+        month_market_metrics.index = month_market_metrics.index + pd.offsets.MonthEnd(0)
+        return pd.concat(
+            [
+                month_market_metrics[["pctChg", "收盘价均线_0.25", "收盘价均线_1", "close"]],
+                day_market_metrics.resample("M")['close'].apply(
+                    lambda x: x.pct_change().std() * np.sqrt(12)
+                ).rename("volatility")
+            ],
+            axis=1,
+            join="inner"
+        )
 
     @classmethod
     def __mark_status(
@@ -43,8 +74,6 @@ class DifferentMarketAnalyzer:
         # 熊市
         if (
                 (row['pctChg'] <= -0.06)
-                # or (row['pctChg'] <= -0.03
-                #     and prev_state == 'Bear')
                 or (row["close"] < row["收盘价均线_1"]
                     and row["收盘价均线_0.25"] < row["收盘价均线_1"]
                     and prev_state == 'Bear')
@@ -53,7 +82,7 @@ class DifferentMarketAnalyzer:
         # 牛市
         elif (
                 (row['pctChg'] >= 0.05
-                 and row['volatility'] <= 0.25)
+                 and row['volatility'] <= 0.12)
                 or (row["close"] > row["收盘价均线_1"]
                     and row["收盘价均线_0.25"] > row["收盘价均线_1"]
                     and prev_state == 'Bull')

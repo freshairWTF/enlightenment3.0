@@ -1593,7 +1593,8 @@ class Quant:
 
     class Statistics:
         def __init__(self):
-            self.stats = ["同比", "滚动归一化"]
+            # "同比", "滚动归一化"
+            self.stats = []
 
     class Visualization:
         def __init__(self):

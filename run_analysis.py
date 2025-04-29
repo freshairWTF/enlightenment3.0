@@ -14,11 +14,11 @@ def individual_analysis():
 
         cycle="month",
         financial_cycle="quarter",
-        start_date="2020-03-30",
+        start_date="2021-03-30",
         financial_end_date="2025-03-31",
         end_date="2025-04-25",
-        storage_dir_name="民和股份25Q1",
-        target_info="002234",
+        storage_dir_name="法拉电子25Q1",
+        target_info="600563",
         debug=False
     )
     analyzer.run()
@@ -59,17 +59,17 @@ def quant_analysis():
         params=Quant(),
 
         # 运存不足，无法满足 day 的运存消耗
-        dimension="meso",
+        dimension="micro",
         class_level="三级行业",
         weight_name="市值",
 
-        cycle="month",
+        cycle="week",
         financial_cycle="quarter",
-        start_date="2022-03-31",
+        start_date="2000-03-31",
         financial_end_date="2024-09-30",
-        end_date="2025-04-11",
+        end_date="2025-04-25",
 
-        storage_dir_name="20250402M估值历史分位数",
+        storage_dir_name="202504W",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -139,8 +139,8 @@ def inventory_cycle_analysis():
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    # quant_analysis()
-    factor_analysis()
+    quant_analysis()
+    # factor_analysis()
     # inventory_cycle_analysis()
 
     # 长期斜率为正，突然杀跌
