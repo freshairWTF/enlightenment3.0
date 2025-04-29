@@ -34,7 +34,7 @@ class MultiFactorsModel(ABC):
         """
 
     # --------------------------
-    # 多因子线性回归
+    # 线性多因子回归
     # --------------------------
     @classmethod
     def calc_z_scores(
@@ -133,6 +133,11 @@ class MultiFactorsModel(ABC):
             result[predict_date] = pd.concat([data[predict_date], predicted], axis=1)
 
         return result
+
+    # --------------------------
+    # xgboost多因子回归
+    # --------------------------
+
 
     # --------------------------
     # 辅助方法

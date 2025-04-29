@@ -420,27 +420,29 @@ class ModelAnalyzer(BaseService):
         # ---------------------------------------
         # 因子去多重共线性（vif + 对称正交）
         # ---------------------------------------
-        collinearity = FactorCollinearityProcessor(processed_factors_name)
-        selected_factors = collinearity.fit_transform(processed_data)
-        if self.model_setting.orthogonal:
-            processed_data = self.processor.calc_symmetric_orthogonal(processed_data, selected_factors)
+        # collinearity = FactorCollinearityProcessor(processed_factors_name)
+        # selected_factors = collinearity.fit_transform(processed_data)
+        # if self.model_setting.orthogonal:
+        #     processed_data = self.processor.calc_symmetric_orthogonal(processed_data, selected_factors)
 
         # ---------------------------------------
         # 预拟合
         # ---------------------------------------
-        beta_feature = self.evaluate.test.calc_beta_feature(
-            processed_data, processed_factors_name, "pctChg"
-        )
-        r_squared = self.evaluate.test.calc_r_squared(
-            processed_data, processed_factors_name, "pctChg"
-        )
+        # beta_feature = self.evaluate.test.calc_beta_feature(
+        #     processed_data, processed_factors_name, "pctChg"
+        # )
+        # r_squared = self.evaluate.test.calc_r_squared(
+        #     processed_data, processed_factors_name, "pctChg"
+        # )
 
+        self.factors_name = {date: self.factors_name for date in processed_data.keys()}
+        print(self.factors_name)
         # ---------------------------------------
         # 生成模型
         # ---------------------------------------
         model = self.model(
             raw_data=processed_data,
-            factors_name=selected_factors,
+            factors_name=self.factors_name,
             group_nums=self.model_setting.group_nums,
             group_label=self.group_label,
             group_mode=self.model_setting.group_mode,

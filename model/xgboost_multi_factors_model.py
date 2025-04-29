@@ -6,10 +6,10 @@ from utils.quant_processor import QuantProcessor
 
 
 ########################################################################
-class MultiFactors(MultiFactorsModel):
-    """线性多因子模型"""
+class XGBoostMultiFactors(MultiFactorsModel):
+    """xgboost多因子模型"""
 
-    model_name: str = "线性多因子模型"
+    model_name: str = "xgboost多因子模型"
 
     @validate_literal_params
     def __init__(
@@ -66,6 +66,7 @@ class MultiFactors(MultiFactorsModel):
             method=self.factor_weight_method,
             window=self.factor_weight_window
         )
+        print(factor_weights)
 
         # -2 综合Z值
         z_score = self.calc_z_scores(
@@ -73,7 +74,10 @@ class MultiFactors(MultiFactorsModel):
             factors_name=self.factors_name,
             weights=factor_weights
         )
+        print(z_score)
         z_score_data = self.join_data(self.raw_data, z_score)
+        print(z_score_data)
+        print(dd)
 
         # -3 预期收益率
         predict_return = self.calc_predict_return(
