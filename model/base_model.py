@@ -137,7 +137,131 @@ class MultiFactorsModel(ABC):
     # --------------------------
     # xgboost多因子回归
     # --------------------------
+    @classmethod
+    def calc_weight_factors(
+            cls,
+            data: dict[str, pd.DataFrame],
+            factors_name: dict[str, list[str]],
+            weights: pd.DataFrame,
+    ) -> dict[str, pd.DataFrame]:
+        """
+        计算因子加权值
+        :param data: 数据
+        :param factors_name: T期因子名
+        :param weights: 权重
+        :return: 因子综合Z值
+        """
+        # -1 计算加权因子
+        weight_factors = {
+            date: filtered_df
+            for date, df in data.items()
+            if not (
+                filtered_df := (
+                        df[factors_name[date]] * weights.loc[date]
+                )
+            ).dropna().empty
+        }
 
+        # -2 标准化
+        return {
+            date: cls.processor.standardization(df, error="ignore")
+            for date, df in weight_factors.items()
+        }
+
+    @classmethod
+    def calc_predict_return_by_xgboost(
+            cls,
+            data: dict[str, pd.DataFrame],
+            factors_name: dict[str, list[str]],
+            window: int = 12
+    ) -> dict[str, pd.DataFrame]:
+        """
+        滚动窗口回归预测收益率
+        :param data: T期截面数据
+        :param window: 滚动窗口长度
+        :return: 预期收益率
+        """
+        import xgboost as xgb
+        from sklearn.model_selection import train_test_split
+
+
+        # XGBoost参数配置[1,4](@ref)
+        params = {
+            'objective': 'reg:squarederror',
+            'learning_rate': 0.05,
+            'max_depth': 5,
+            'subsample': 0.8,
+            'colsample_bytree': 0.8,
+            'n_estimators': 1000,
+            # 'early_stopping_rounds': 50
+        }
+
+        # 按日期排序并转换为列表
+        sorted_dates = sorted(data.keys())
+        result = {}
+
+        # 滚动窗口遍历
+        for i in range(window, len(sorted_dates)):
+            # ====================
+            # 样本内训练
+            # ====================
+            # 获取训练窗口数据
+            train_window = sorted_dates[i - window:i]
+
+            print(train_window)
+
+            # 合并窗口期数据
+            train_dfs = []
+            for date in train_window:
+                df = data[date].copy()
+                df["date"] = date                           # 添加时间标记
+                train_dfs.append(df)
+            train_data = pd.concat(train_dfs).dropna()
+
+            y_train = train_data["pctChg"]
+            # 准备训练数据
+            x_train = sm.add_constant(train_data.drop(["pctChg", "date"], axis=1), has_constant="add")
+
+            # x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+            print(x_train)
+            print(y_train)
+            print(x_train.columns)
+            model = xgb.XGBRegressor(**params).fit(
+                x_train,
+                y_train
+            )
+            # 训练模型
+            # try:
+            #     model = xgb.XGBRegressor(**params).fit(
+            #         x_train,
+            #         y_train
+            #     )
+            # except Exception as e:
+            #     print(str(e))
+            #     continue  # 处理奇异矩阵等异常情况
+
+            # ====================
+            # 样本外预测
+            # ====================
+            # 获取预测日数据
+            predict_date = sorted_dates[i]
+            predict_df = data[predict_date][factors_name[predict_date]].copy()
+
+            # 生成预测特征
+            x_predict = sm.add_constant(predict_df, has_constant="add")
+
+            # 执行预测
+            predicted = model.predict(x_predict)
+            predicted.name = "predicted"
+
+            print(predict_date)
+            print(predict_df)
+            print(dd)
+
+            # 存储结果
+            result[predict_date] = pd.concat([data[predict_date], predicted], axis=1)
+
+        return result
 
     # --------------------------
     # 辅助方法

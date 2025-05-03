@@ -14,12 +14,12 @@ def individual_analysis():
 
         cycle="month",
         financial_cycle="quarter",
-        start_date="2021-03-30",
+        start_date="2020-03-30",
         financial_end_date="2025-03-31",
-        end_date="2025-04-25",
-        storage_dir_name="法拉电子25Q1",
-        target_info="600563",
-        debug=False
+        end_date="2025-05-03",
+        storage_dir_name="道道全25Q1",
+        target_info="002852",
+        debug=True
     )
     analyzer.run()
 
@@ -31,18 +31,18 @@ def normal_analysis():
         index_code="000300",
         params=Normal(),
 
-        dimension="meso",
+        dimension="micro",
         class_level="三级行业",
         weight_name="市值",
 
         cycle="month",
         financial_cycle="quarter",
-        start_date="2015-03-31",
-        financial_end_date="2024-09-30",
-        end_date="2025-04-17",
+        start_date="2014-03-31",
+        financial_end_date="2025-03-31",
+        end_date="2025-05-02",
 
-        storage_dir_name="测试250403W",
-        target_info={"零食": "三级行业", "电池化学品": "三级行业"},
+        storage_dir_name="啤酒25Q1",
+        target_info={"啤酒": "三级行业"},
         draw_filter=True,
         debug=False
     )
@@ -137,9 +137,9 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    # individual_analysis()
+    individual_analysis()
     # normal_analysis()
-    quant_analysis()
+    # quant_analysis()
     # factor_analysis()
     # inventory_cycle_analysis()
 

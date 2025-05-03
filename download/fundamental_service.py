@@ -623,7 +623,7 @@ class Cleaner:
             if cleaned_df.empty:
                 self.logger.error(f"下载失败 | Code: {code} | Type: {data_type} | Error: 数据为空值")
             else:
-                self._save_data(self.storage_dir, cleaned_df, file_name, sort_by=["date"])
+                self._save_data(self.storage_dir, cleaned_df, file_name, sort_by=["date"], subset=["date"])
                 self.logger.success(f"清洗成功 | Code: {code} | Type: {data_type}")
         except Exception as e:
             self.logger.error(f"清洗失败 | Code: {code} | Error: {str(e)}")
@@ -763,7 +763,7 @@ class Cleaner:
                 cleaned_df = cleaner.clean_bonus_financing(raw_df, data_type)
                 # 存储清洗后的数据
                 if not cleaned_df.empty:
-                    Cleaner._save_data(task.storage_dir, cleaned_df, file_name, sort_by=["date"])
+                    Cleaner._save_data(task.storage_dir, cleaned_df, file_name, sort_by=["date"], subset=["date"])
             except FileNotFoundError:
                 continue
             except Exception as e:

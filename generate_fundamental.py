@@ -5,12 +5,12 @@ from download.fundamental_service import Crawler, Cleaner
 def download_fundamental():
     """下载基本面数据"""
     downloader = Crawler(
-        data_name="financial_data",
-        start_date="2024-12-31",            # 起始时间
-        end_date="2025-03-31",              # 结束时间
+        data_name="bonus_financing",
+        start_date="2000-03-31",            # 起始时间
+        end_date="2025-05-02",              # 结束时间
 
-        code="600563",                      # 代码：无需sh/sz前缀
-        filter_mode=None,                   # 可选：None/all/from_code
+        code="000001",                      # 代码：无需sh/sz前缀
+        filter_mode="all",                  # 可选：None/all/from_code
         industry_info=None,                 # 指定行业
 
         announcement_max_page=1000          # 公告标题最大页数
@@ -22,11 +22,11 @@ def download_fundamental():
 def clean_fundamental():
     """基本面数据清洗"""
     cleaner = Cleaner(
-        data_name="financial_data",
+        data_name="bonus_financing",
         num_processes=10,                   # 多进程核数
 
-        code="600563",                      # 代码：无需sh/sz前缀
-        filter_mode=None,                   # 可选：None/all/from_code
+        code="002852",                      # 代码：无需sh/sz前缀
+        filter_mode="all",                  # 可选：None/all/from_code
         industry_info=None                  # 指定行业
     )
     cleaner.multi_run()

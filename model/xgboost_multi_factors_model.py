@@ -66,22 +66,23 @@ class XGBoostMultiFactors(MultiFactorsModel):
             method=self.factor_weight_method,
             window=self.factor_weight_window
         )
-        print(factor_weights)
 
-        # -2 综合Z值
-        z_score = self.calc_z_scores(
+        # -2 加权因子
+        weight_factors = self.calc_weight_factors(
             data=self.raw_data,
             factors_name=self.factors_name,
             weights=factor_weights
         )
-        print(z_score)
-        z_score_data = self.join_data(self.raw_data, z_score)
-        print(z_score_data)
-        print(dd)
+
+        weight_factors = self.join_data(
+            weight_factors,
+            {date: df["pctChg"] for date, df in self.raw_data.items()}
+        )
 
         # -3 预期收益率
-        predict_return = self.calc_predict_return(
-            data=z_score_data,
+        predict_return = self.calc_predict_return_by_xgboost(
+            data=weight_factors,
+            factors_name=self.factors_name,
             window=self.factor_weight_window
         )
 
