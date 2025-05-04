@@ -278,7 +278,7 @@ class QuantProcessor:
                 target_original_df = raw_data[lag_date].copy(deep=False)
                 # 更新因子列
                 target_original_df[valid_factors] = src_df[valid_factors]
-                result[lag_date] = target_original_df
+                result[lag_date] = target_original_df.dropna(how="any")
 
         return result
 

@@ -39,6 +39,7 @@ class ModelSetting:
     class_level: CLASS_LEVEL = "一级行业"                 # 中性化行业
     orthogonal: bool = False                            # 正交化
     lag_period: int = 1                                 # 滞后周期
+    dimension_reduction: bool = False                   # 因子降维
 
     group_nums: int = 10                                # 分组数
     group_mode: GROUP_MODE = "frequency"                # 分组方法

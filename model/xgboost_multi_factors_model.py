@@ -53,11 +53,11 @@ class XGBoostMultiFactors(MultiFactorsModel):
 
     def run(self):
         """
-        线性模型：
-            1）因子/异象数据预处理；
-            2）因子正交；
-            3）选择加权方法，计算综合Z-Score
-            4）Z-Score回归；
+        xgboost非线性模型：
+            1）因子加权；
+            2）模型训练/回测；
+            3）分组；
+            4）仓位权重；
         """
         # -1 因子权重
         factor_weights = self.factor_weight.get_weights(
@@ -73,7 +73,6 @@ class XGBoostMultiFactors(MultiFactorsModel):
             factors_name=self.factors_name,
             weights=factor_weights
         )
-
         weight_factors = self.join_data(
             weight_factors,
             {date: df["pctChg"] for date, df in self.raw_data.items()}
@@ -85,6 +84,16 @@ class XGBoostMultiFactors(MultiFactorsModel):
             factors_name=self.factors_name,
             window=self.factor_weight_window
         )
+        print(predict_return)
+
+        # -2 综合Z值
+        z_score = self.calc_z_scores(
+            data=self.raw_data,
+            factors_name=self.factors_name,
+            weights=factor_weights
+        )
+        predict_return = self.join_data(predict_return, z_score)
+        print(predict_return)
 
         # -4 分组
         grouped_data = QuantProcessor.divide_into_group(

@@ -400,49 +400,39 @@ class ModelAnalyzer(BaseService):
         ]
 
         # ---------------------------------------
-        # 因子降维
+        # 因子降维（去多重共线性 -> vif + 对称正交 + 预拟合）
         # ---------------------------------------
-        # from model.dimensionality_reduction import FactorPCA
-        # pca = FactorPCA(n_components=0.95)
-        # # 执行降维
-        # reduced_data = pca.fit_transform(processed_data["2025-02-28"][processed_factors_name])
-        #
-        # print("\n降维结果:")
-        # print(reduced_data.head())
-        #
-        # print("\n主成分因子载荷:")
-        # print(pca.get_components())
-        #
-        # print("\n方差解释:")
-        # print(pca.get_variance())
-        # print(dd)
+        if self.model_setting.dimension_reduction:
+            # 因子降维
+            collinearity = FactorCollinearityProcessor(processed_factors_name)
+            selected_factors = collinearity.fit_transform(processed_data)
+            # 因子正交
+            if self.model_setting.orthogonal:
+                processed_data = self.processor.calc_symmetric_orthogonal(
+                    processed_data,
+                    selected_factors
+                )
+            # 预拟合
+            beta_feature = self.evaluate.test.calc_beta_feature(
+                processed_data, processed_factors_name, "pctChg"
+            )
+            r_squared = self.evaluate.test.calc_r_squared(
+                processed_data, processed_factors_name, "pctChg"
+            )
+        else:
+            selected_factors = {
+                date: [f"processed_{factor_name}" for factor_name in self.factors_name]
+                for date in processed_data.keys()
+            }
+            beta_feature = pd.DataFrame()
+            r_squared = pd.DataFrame()
 
-        # ---------------------------------------
-        # 因子去多重共线性（vif + 对称正交）
-        # ---------------------------------------
-        # collinearity = FactorCollinearityProcessor(processed_factors_name)
-        # selected_factors = collinearity.fit_transform(processed_data)
-        # if self.model_setting.orthogonal:
-        #     processed_data = self.processor.calc_symmetric_orthogonal(processed_data, selected_factors)
-
-        # ---------------------------------------
-        # 预拟合
-        # ---------------------------------------
-        # beta_feature = self.evaluate.test.calc_beta_feature(
-        #     processed_data, processed_factors_name, "pctChg"
-        # )
-        # r_squared = self.evaluate.test.calc_r_squared(
-        #     processed_data, processed_factors_name, "pctChg"
-        # )
-
-        self.factors_name = {date: self.factors_name for date in processed_data.keys()}
-        print(self.factors_name)
         # ---------------------------------------
         # 生成模型
         # ---------------------------------------
         model = self.model(
             raw_data=processed_data,
-            factors_name=self.factors_name,
+            factors_name=selected_factors,
             group_nums=self.model_setting.group_nums,
             group_label=self.group_label,
             group_mode=self.model_setting.group_mode,

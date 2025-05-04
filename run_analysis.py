@@ -17,9 +17,9 @@ def individual_analysis():
         start_date="2020-03-30",
         financial_end_date="2025-03-31",
         end_date="2025-05-03",
-        storage_dir_name="道道全25Q1",
-        target_info="002852",
-        debug=True
+        storage_dir_name="利欧股份25Q1",
+        target_info="002131",
+        debug=False
     )
     analyzer.run()
 

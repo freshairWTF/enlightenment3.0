@@ -54,10 +54,11 @@ class LinearMultiFactors(MultiFactorsModel):
     def run(self):
         """
         线性模型：
-            1）因子/异象数据预处理；
-            2）因子正交；
-            3）选择加权方法，计算综合Z-Score
-            4）Z-Score回归；
+            1）计算因子权重；
+            2）选择加权方法，计算综合Z-Score
+            3）Z-Score回归/计算预期收益率；
+            4）分组；
+            5）仓位权重；
         """
         # -1 因子权重
         factor_weights = self.factor_weight.get_weights(
@@ -80,7 +81,9 @@ class LinearMultiFactors(MultiFactorsModel):
             data=z_score_data,
             window=self.factor_weight_window
         )
-
+        """
+        这个 predict_return 是不是有全部的信息，而在xgboost模型中，没了！！！
+        """
         # -4 分组
         grouped_data = QuantProcessor.divide_into_group(
             predict_return,

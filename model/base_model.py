@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from statsmodels import api as sm
 
 import pandas as pd
+import xgboost as xgb
 
 from data_processor import DataProcessor
 from factor_weight import FactorWeight
@@ -178,11 +179,10 @@ class MultiFactorsModel(ABC):
         """
         滚动窗口回归预测收益率
         :param data: T期截面数据
+        :param factors_name: T期因子名
         :param window: 滚动窗口长度
         :return: 预期收益率
         """
-        import xgboost as xgb
-        from sklearn.model_selection import train_test_split
 
 
         # XGBoost参数配置[1,4](@ref)
@@ -193,7 +193,6 @@ class MultiFactorsModel(ABC):
             'subsample': 0.8,
             'colsample_bytree': 0.8,
             'n_estimators': 1000,
-            # 'early_stopping_rounds': 50
         }
 
         # 按日期排序并转换为列表
@@ -208,8 +207,6 @@ class MultiFactorsModel(ABC):
             # 获取训练窗口数据
             train_window = sorted_dates[i - window:i]
 
-            print(train_window)
-
             # 合并窗口期数据
             train_dfs = []
             for date in train_window:
@@ -222,23 +219,14 @@ class MultiFactorsModel(ABC):
             # 准备训练数据
             x_train = sm.add_constant(train_data.drop(["pctChg", "date"], axis=1), has_constant="add")
 
-            # x_train, x_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
-            print(x_train)
-            print(y_train)
-            print(x_train.columns)
-            model = xgb.XGBRegressor(**params).fit(
-                x_train,
-                y_train
-            )
-            # 训练模型
-            # try:
-            #     model = xgb.XGBRegressor(**params).fit(
-            #         x_train,
-            #         y_train
-            #     )
-            # except Exception as e:
-            #     print(str(e))
-            #     continue  # 处理奇异矩阵等异常情况
+            try:
+                model = xgb.XGBRegressor(**params).fit(
+                    x_train,
+                    y_train
+                )
+            except Exception as e:
+                print(str(e))
+                continue                # 处理奇异矩阵等异常情况
 
             # ====================
             # 样本外预测
@@ -246,17 +234,15 @@ class MultiFactorsModel(ABC):
             # 获取预测日数据
             predict_date = sorted_dates[i]
             predict_df = data[predict_date][factors_name[predict_date]].copy()
-
             # 生成预测特征
             x_predict = sm.add_constant(predict_df, has_constant="add")
 
             # 执行预测
-            predicted = model.predict(x_predict)
+            predicted = pd.Series(
+                model.predict(x_predict),
+                index=x_predict.index
+            )
             predicted.name = "predicted"
-
-            print(predict_date)
-            print(predict_df)
-            print(dd)
 
             # 存储结果
             result[predict_date] = pd.concat([data[predict_date], predicted], axis=1)
