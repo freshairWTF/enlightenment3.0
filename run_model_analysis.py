@@ -47,17 +47,17 @@ if __name__ == "__main__":
         filter_mode="_entire_filter",
         factors_setting=factors_setting,
         class_level="三级行业",
-        orthogonal=False,
         lag_period=1,
         group_nums=10,
         group_mode="frequency",
         factor_weight_method="ir_decay_weight",
         factor_weight_window=12,
         dimension_reduction=False,
+        orthogonal=False,
         position_weight_method="equal",
         position_distribution=(3, 1)
     )
 
     # 回测
-    xgboost_multi_factors_model()
-    # linear_multi_factors_model()
+    # xgboost_multi_factors_model()
+    linear_multi_factors_model()

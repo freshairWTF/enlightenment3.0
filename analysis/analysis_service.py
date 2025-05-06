@@ -657,7 +657,7 @@ class Analyzer:
             df = df[df["tradestatus"] == 1]
 
         # 交易日期过滤（部分退市股出现截止日期不统一的问题）
-        if self.financial_fill_date:
+        if self.financial_fill_date is not None:
             df = df[df.index.isin(self.financial_fill_date)]
 
         return df.drop("code", axis=1)
