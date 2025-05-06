@@ -43,7 +43,7 @@ class MultiFactorsModel(ABC):
             data: dict[str, pd.DataFrame],
             factors_name: dict[str, list[str]],
             weights: pd.DataFrame,
-    ) -> dict[str, pd.Series]:
+    ) -> dict[str, pd.DataFrame]:
         """
         计算因子综合Z值
         :param data: 数据
@@ -53,7 +53,7 @@ class MultiFactorsModel(ABC):
         """
         # -1 计算z值
         z_score = {
-            date: filtered_df.rename("综合Z值")
+            date: filtered_df.rename("综合Z值").to_frame()
             for date, df in data.items()
             if not (
                 filtered_df := (
@@ -79,7 +79,7 @@ class MultiFactorsModel(ABC):
     @classmethod
     def calc_predict_return(
             cls,
-            x_value: dict[str, pd.Series],
+            x_value: dict[str, pd.DataFrame],
             y_value: dict[str, pd.Series],
             window: int = 12
     ) -> dict[str, pd.DataFrame]:
@@ -136,7 +136,7 @@ class MultiFactorsModel(ABC):
             predicted.name = "predicted"
 
             # 存储结果
-            result[predict_date] = pd.concat([x_value[predict_date], predicted], axis=1)
+            result[predict_date] = predicted.to_frame()
 
         return result
 
@@ -177,20 +177,18 @@ class MultiFactorsModel(ABC):
     @classmethod
     def calc_predict_return_by_xgboost(
             cls,
-            data: dict[str, pd.DataFrame],
-            factors_name: dict[str, list[str]],
+            x_value: dict[str, pd.DataFrame | pd.Series],
+            y_value: dict[str, pd.Series],
             window: int = 12
     ) -> dict[str, pd.DataFrame]:
         """
         滚动窗口回归预测收益率
-        :param data: T期截面数据
-        :param factors_name: T期因子名
+        :param x_value: T期截面数据
+        :param y_value: T期收益率
         :param window: 滚动窗口长度
         :return: 预期收益率
         """
-
-
-        # XGBoost参数配置[1,4](@ref)
+        # XGBoost参数配置
         params = {
             'objective': 'reg:squarederror',
             'learning_rate': 0.05,
@@ -201,7 +199,7 @@ class MultiFactorsModel(ABC):
         }
 
         # 按日期排序并转换为列表
-        sorted_dates = sorted(data.keys())
+        sorted_dates = sorted(x_value.keys())
         result = {}
 
         # 滚动窗口遍历
@@ -212,16 +210,15 @@ class MultiFactorsModel(ABC):
             # 获取训练窗口数据
             train_window = sorted_dates[i - window:i]
 
-            # 合并窗口期数据
             train_dfs = []
             for date in train_window:
-                df = data[date].copy()
-                df["date"] = date                           # 添加时间标记
+                df = pd.concat([x_value[date], y_value[date]], axis=1, join="inner")
+                df["date"] = date
                 train_dfs.append(df)
             train_data = pd.concat(train_dfs).dropna()
 
-            y_train = train_data["pctChg"]
             # 准备训练数据
+            y_train = train_data["pctChg"]
             x_train = sm.add_constant(train_data.drop(["pctChg", "date"], axis=1), has_constant="add")
 
             try:
@@ -231,16 +228,18 @@ class MultiFactorsModel(ABC):
                 )
             except Exception as e:
                 print(str(e))
-                continue                # 处理奇异矩阵等异常情况
+                continue
 
             # ====================
             # 样本外预测
             # ====================
             # 获取预测日数据
             predict_date = sorted_dates[i]
-            predict_df = data[predict_date][factors_name[predict_date]].copy()
+            predict_df = x_value[predict_date]
+
             # 生成预测特征
             x_predict = sm.add_constant(predict_df, has_constant="add")
+            # print(x_predict)
 
             # 执行预测
             predicted = pd.Series(
@@ -250,7 +249,7 @@ class MultiFactorsModel(ABC):
             predicted.name = "predicted"
 
             # 存储结果
-            result[predict_date] = pd.concat([data[predict_date], predicted], axis=1)
+            result[predict_date] = predicted.to_frame()
 
         return result
 

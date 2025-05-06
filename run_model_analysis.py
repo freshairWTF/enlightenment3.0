@@ -36,7 +36,7 @@ def xgboost_multi_factors_model():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "202503M"
-    storage_dir = "linear/测试1"
+    storage_dir = "xgboost/测试1"
 
     # 因子参数设置
     factors_setting = list(OVERALL_FACTOR.values())

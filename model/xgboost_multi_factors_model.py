@@ -67,41 +67,26 @@ class XGBoostMultiFactors(MultiFactorsModel):
             window=self.factor_weight_window
         )
 
-        # -2 加权因子
-        weight_factors = self.calc_weight_factors(
-            data=self.raw_data,
-            factors_name=self.factors_name,
-            weights=factor_weights
-        )
-        weight_factors = self.join_data(
-            weight_factors,
-            {date: df["pctChg"] for date, df in self.raw_data.items()}
-        )
-
-        # -3 预期收益率
-        predict_return = self.calc_predict_return_by_xgboost(
-            data=weight_factors,
-            factors_name=self.factors_name,
-            window=self.factor_weight_window
-        )
-        pd.set_option("display.max_columns", None)
-        print(predict_return["2023-01-31"])
-
-        predict_return = self.join_data(
-            self.raw_data,
-            predict_return
-        )
-        print(predict_return["2023-01-31"])
-        print(dd)
         # -2 综合Z值
         z_score = self.calc_z_scores(
             data=self.raw_data,
             factors_name=self.factors_name,
             weights=factor_weights
         )
-        predict_return = self.join_data(predict_return, z_score)
-        print(predict_return["2023-01-31"])
-        print(dd)
+
+        # -3 加权因子
+        weight_factors = self.calc_weight_factors(
+            data=self.raw_data,
+            factors_name=self.factors_name,
+            weights=factor_weights
+        )
+
+        # -4 预期收益率
+        predict_return = self.calc_predict_return_by_xgboost(
+            x_value=weight_factors,
+            y_value={date: df["pctChg"] for date, df in self.raw_data.items()},
+            window=self.factor_weight_window
+        )
 
         # -4 分组
         grouped_data = QuantProcessor.divide_into_group(
@@ -120,6 +105,10 @@ class XGBoostMultiFactors(MultiFactorsModel):
             method=self.position_weight_method,
             distribution=self.position_distribution
         )
-        position_weight_data = self.join_data(grouped_data, position_weight)
 
-        return position_weight_data
+        # -6 数据合并
+        result = self.join_data(grouped_data, position_weight)
+        result = self.join_data(result, z_score)
+        result = self.join_data(result, self.raw_data)
+
+        return result

@@ -100,8 +100,9 @@ class LinearMultiFactors(MultiFactorsModel):
             distribution=self.position_distribution
         )
 
-        position_weight_data = self.join_data(grouped_data, position_weight)
-
-        result = self.join_data(position_weight_data, self.raw_data)
+        # -6 数据合并
+        result = self.join_data(grouped_data, position_weight)
+        result = self.join_data(result, z_score)
+        result = self.join_data(result, self.raw_data)
 
         return result
