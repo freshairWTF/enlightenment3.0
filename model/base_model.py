@@ -67,8 +67,11 @@ class MultiFactorsModel(ABC):
 
         # -2 标准化
         z_score = {
-            date: cls.processor.standardization(df, error="ignore")
+            date: processed_df
             for date, df in z_score.items()
+            if not (
+                processed_df := cls.processor.standardization(df, error="ignore").dropna()
+            ).empty
         }
 
         return z_score
@@ -76,17 +79,19 @@ class MultiFactorsModel(ABC):
     @classmethod
     def calc_predict_return(
             cls,
-            data: dict[str, pd.DataFrame],
+            x_value: dict[str, pd.Series],
+            y_value: dict[str, pd.Series],
             window: int = 12
     ) -> dict[str, pd.DataFrame]:
         """
         滚动窗口回归预测收益率
-        :param data: T期截面数据
+        :param x_value: T期截面数据
+        :param y_value: T期收益率
         :param window: 滚动窗口长度
         :return: 预期收益率
         """
         # 按日期排序并转换为列表
-        sorted_dates = sorted(data.keys())
+        sorted_dates = sorted(x_value.keys())
         result = {}
 
         # 滚动窗口遍历
@@ -100,8 +105,8 @@ class MultiFactorsModel(ABC):
             # 合并窗口期数据
             train_dfs = []
             for date in train_window:
-                df = data[date][["综合Z值", "pctChg"]].copy()
-                df["date"] = date  # 添加时间标记
+                df = pd.concat([x_value[date], y_value[date]], axis=1, join="inner")
+                df["date"] = date
                 train_dfs.append(df)
             train_data = pd.concat(train_dfs).dropna()
 
@@ -121,17 +126,17 @@ class MultiFactorsModel(ABC):
             # ====================
             # 获取预测日数据
             predict_date = sorted_dates[i]
-            predict_df = data[predict_date][["综合Z值"]].copy()
+            predict_df = x_value[predict_date]
 
             # 生成预测特征
-            x_predict = sm.add_constant(predict_df["综合Z值"], has_constant="add")
+            x_predict = sm.add_constant(predict_df, has_constant="add")
 
             # 执行预测
             predicted = model.predict(x_predict)
             predicted.name = "predicted"
 
             # 存储结果
-            result[predict_date] = pd.concat([data[predict_date], predicted], axis=1)
+            result[predict_date] = pd.concat([x_value[predict_date], predicted], axis=1)
 
         return result
 
@@ -255,7 +260,7 @@ class MultiFactorsModel(ABC):
     @staticmethod
     def join_data(
             merge_data: dict[str, pd.DataFrame],
-            merged_data: dict[str, pd.Series],
+            merged_data: dict[str, pd.Series | pd.DataFrame],
     ) -> dict[str, pd.DataFrame]:
         """
         合并数据
@@ -264,6 +269,9 @@ class MultiFactorsModel(ABC):
         :return: 合并数据后的数据
         """
         return {
-            date: df.join(merged_data[date], how="left")
+            date: df.join(
+                merged_data.get(date, pd.DataFrame()),
+                how="left"
+            )
             for date, df in merge_data.items()
         }

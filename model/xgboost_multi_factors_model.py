@@ -84,8 +84,15 @@ class XGBoostMultiFactors(MultiFactorsModel):
             factors_name=self.factors_name,
             window=self.factor_weight_window
         )
-        print(predict_return)
+        pd.set_option("display.max_columns", None)
+        print(predict_return["2023-01-31"])
 
+        predict_return = self.join_data(
+            self.raw_data,
+            predict_return
+        )
+        print(predict_return["2023-01-31"])
+        print(dd)
         # -2 综合Z值
         z_score = self.calc_z_scores(
             data=self.raw_data,
@@ -93,7 +100,8 @@ class XGBoostMultiFactors(MultiFactorsModel):
             weights=factor_weights
         )
         predict_return = self.join_data(predict_return, z_score)
-        print(predict_return)
+        print(predict_return["2023-01-31"])
+        print(dd)
 
         # -4 分组
         grouped_data = QuantProcessor.divide_into_group(

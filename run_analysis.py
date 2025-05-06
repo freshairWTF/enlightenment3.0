@@ -123,24 +123,25 @@ def inventory_cycle_analysis():
         params=InventoryCycle(),
 
         weight_name="市值",
-        class_level="一级行业",
+        class_level="三级行业",
 
-        start_date="2021-03-31",
-        end_date="2024-09-30",
-        financial_end_date="2024-09-30",
+        start_date="2022-03-31",
+        end_date="2025-04-30",
+        financial_end_date="2025-03-31",
 
-        storage_dir_name="库存周期24Q4",
+        storage_dir_name="库存周期25Q1",
         target_info={"全部": "三级行业"},
+        debug=False
     )
     analyzer.run()
 
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
+    # individual_analysis()
     # normal_analysis()
     # quant_analysis()
     # factor_analysis()
-    # inventory_cycle_analysis()
+    inventory_cycle_analysis()
 
     # 长期斜率为正，突然杀跌

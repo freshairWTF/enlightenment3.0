@@ -74,16 +74,14 @@ class LinearMultiFactors(MultiFactorsModel):
             factors_name=self.factors_name,
             weights=factor_weights
         )
-        z_score_data = self.join_data(self.raw_data, z_score)
 
         # -3 预期收益率
         predict_return = self.calc_predict_return(
-            data=z_score_data,
+            x_value=z_score,
+            y_value={date: df["pctChg"] for date, df in self.raw_data.items()},
             window=self.factor_weight_window
         )
-        """
-        这个 predict_return 是不是有全部的信息，而在xgboost模型中，没了！！！
-        """
+
         # -4 分组
         grouped_data = QuantProcessor.divide_into_group(
             predict_return,
@@ -101,6 +99,9 @@ class LinearMultiFactors(MultiFactorsModel):
             method=self.position_weight_method,
             distribution=self.position_distribution
         )
+
         position_weight_data = self.join_data(grouped_data, position_weight)
 
-        return position_weight_data
+        result = self.join_data(position_weight_data, self.raw_data)
+
+        return result

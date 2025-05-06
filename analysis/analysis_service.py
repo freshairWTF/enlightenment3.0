@@ -657,7 +657,8 @@ class Analyzer:
             df = df[df["tradestatus"] == 1]
 
         # 交易日期过滤（部分退市股出现截止日期不统一的问题）
-        df = df[df.index.isin(self.financial_fill_date)]
+        if self.financial_fill_date:
+            df = df[df.index.isin(self.financial_fill_date)]
 
         return df.drop("code", axis=1)
 
@@ -848,6 +849,7 @@ class Analyzer:
         :param micro_data: 个股截面数据
         :return: 宏观/行业数据
         """
+        print(micro_data["weight"])
         weights = micro_data["weight"][self.weight_name]
         weight_categories = {
             "financial": weights,
