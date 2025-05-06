@@ -17,8 +17,8 @@ def individual_analysis():
         start_date="2020-03-30",
         financial_end_date="2025-03-31",
         end_date="2025-05-03",
-        storage_dir_name="利欧股份25Q1",
-        target_info="002131",
+        storage_dir_name="新宙邦25Q1",
+        target_info="300037",
         debug=False
     )
     analyzer.run()
@@ -37,12 +37,12 @@ def normal_analysis():
 
         cycle="month",
         financial_cycle="quarter",
-        start_date="2014-03-31",
+        start_date="2021-03-31",
         financial_end_date="2025-03-31",
         end_date="2025-05-02",
 
-        storage_dir_name="啤酒25Q1",
-        target_info={"啤酒": "三级行业"},
+        storage_dir_name="电池化学品25Q1",
+        target_info={"电池化学品": "三级行业"},
         draw_filter=True,
         debug=False
     )
@@ -138,10 +138,10 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    # individual_analysis()
+    individual_analysis()
     # normal_analysis()
     # quant_analysis()
-    factor_analysis()
+    # factor_analysis()
     # inventory_cycle_analysis()
 
     # 长期斜率为正，突然杀跌

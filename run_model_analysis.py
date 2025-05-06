@@ -35,11 +35,11 @@ def xgboost_multi_factors_model():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "202503M"
-    storage_dir = "xgboost/测试1"
+    source_dir = "20250501-WEEK"
+    storage_dir = "linear/20250501W-全部-等频分组-ir衰退加权-正交-等权仓位"
 
     # 因子参数设置
-    factors_setting = list(OVERALL_FACTOR.values())
+    factors_setting = list(FACTOR_LIBRARY.values())
 
     # 模型参数设置
     model_setting = ModelSetting(
@@ -52,8 +52,8 @@ if __name__ == "__main__":
         group_mode="frequency",
         factor_weight_method="ir_decay_weight",
         factor_weight_window=12,
-        dimension_reduction=False,
-        orthogonal=False,
+        dimension_reduction=True,
+        orthogonal=True,
         position_weight_method="equal",
         position_distribution=(3, 1)
     )

@@ -248,40 +248,6 @@ class QuantProcessor:
     # ---------------------------------------
     # 平移
     # ---------------------------------------
-    @classmethod
-    def shift_factors(
-            cls,
-            raw_data: dict[str, pd.DataFrame],
-            lag_periods: int,
-            factors_col: list[str] | None = None,
-    ) -> dict[str, pd.DataFrame]:
-        # 按日期排序（假设输入键均为交易日）
-        sorted_dates = sorted(raw_data.keys(), key=lambda x: pd.to_datetime(x))
-
-        # 构建日期对：(原始日期, 滞后日期)
-        date_pairs = list(zip(sorted_dates, sorted_dates[lag_periods:]))
-
-        # 初始化结果字典
-        result = {}
-
-        # 处理每个日期对
-        for date, lag_date in date_pairs:
-            # 获取原始数据（浅拷贝）
-            src_df = raw_data[date].copy(deep=False)
-            # 筛选有效因子列
-            if factors_col is None:
-                factors_col = src_df.columns.difference(["pctChg"]).tolist()
-            valid_factors = [f for f in factors_col if f in src_df.columns]
-            # 创建或更新目标日期的数据
-            if lag_date not in result:
-                # 获取目标日期的原始数据（含 pctChg）
-                target_original_df = raw_data[lag_date].copy(deep=False)
-                # 更新因子列
-                target_original_df[valid_factors] = src_df[valid_factors]
-                result[lag_date] = target_original_df.dropna(how="any")
-
-        return result
-
     # @classmethod
     # def shift_factors(
     #         cls,
@@ -289,52 +255,86 @@ class QuantProcessor:
     #         lag_periods: int,
     #         factors_col: list[str] | None = None,
     # ) -> dict[str, pd.DataFrame]:
-    #     """
-    #     将每个DataFrame中的因子向后移指定期数，用于 T-N期因子 与 T期涨跌幅 的拟合回归
-    #     :param raw_data: 原始数据
-    #     :param lag_periods: 滞后期数
-    #     :param factors_col: 因子名
-    #     :return: 平移后的数据
-    #     """
-    #     # 深拷贝原始数据
-    #     copied_data = {k: v.copy(deep=True) for k, v in raw_data.items()}
+    #     # 按日期排序（假设输入键均为交易日）
+    #     sorted_dates = sorted(raw_data.keys(), key=lambda x: pd.to_datetime(x))
     #
-    #     # 确定需要平移的列
-    #     if factors_col is None:
-    #         sample_df = next(iter(copied_data.values()))
-    #         factors_col = sample_df.columns.difference(["pctChg"]).tolist()
-    #     else:
-    #         factors_col = [f for f in factors_col if f != "pctChg"]
+    #     # 构建日期对：(原始日期, 滞后日期)
+    #     date_pairs = list(zip(sorted_dates, sorted_dates[lag_periods:]))
     #
-    #     # 无有效列直接返回
-    #     if not factors_col:
-    #         return copied_data
-    #
-    #     # 合并所有数据并添加临时日期标记
-    #     combined = pd.concat(
-    #         {date: df[factors_col] for date, df in copied_data.items()},
-    #         names=["date"]
-    #     ).reset_index(level="date")
-    #
-    #     # 按资产分组，滞后平移
-    #     shifted = combined.groupby(combined.index)[factors_col].shift(lag_periods)
-    #     combined[factors_col] = shifted
-    #
-    #     # 按日期拆分回字典
+    #     # 初始化结果字典
     #     result = {}
-    #     sorted_dates = sorted(copied_data.keys(), key=lambda x: pd.to_datetime(x))
-    #     for date in sorted_dates:
-    #         df = combined[combined.date == date].drop(columns="date")
-    #         df = df.reindex(copied_data[date].index)
     #
-    #         result_date = copied_data[date].copy()
-    #         result_date[factors_col] = df[factors_col]
-    #         result_date = result_date.dropna(subset=factors_col, how="any")
-    #
-    #         if not result_date.empty:
-    #             result[date] = result_date
+    #     # 处理每个日期对
+    #     for date, lag_date in date_pairs:
+    #         # 获取原始数据（浅拷贝）
+    #         src_df = raw_data[date].copy(deep=False)
+    #         # 筛选有效因子列
+    #         if factors_col is None:
+    #             factors_col = src_df.columns.difference(["pctChg"]).tolist()
+    #         valid_factors = [f for f in factors_col if f in src_df.columns]
+    #         # 创建或更新目标日期的数据
+    #         if lag_date not in result:
+    #             # 获取目标日期的原始数据（含 pctChg）
+    #             target_original_df = raw_data[lag_date].copy(deep=False)
+    #             # 更新因子列
+    #             target_original_df[valid_factors] = src_df[valid_factors]
+    #             result[lag_date] = target_original_df.dropna(how="any")
     #
     #     return result
+
+    @classmethod
+    def shift_factors(
+            cls,
+            raw_data: dict[str, pd.DataFrame],
+            lag_periods: int,
+            factors_col: list[str] | None = None,
+    ) -> dict[str, pd.DataFrame]:
+        """
+        将每个DataFrame中的因子向后移指定期数，用于 T-N期因子 与 T期涨跌幅 的拟合回归
+        :param raw_data: 原始数据
+        :param lag_periods: 滞后期数
+        :param factors_col: 因子名
+        :return: 平移后的数据
+        """
+        # 深拷贝原始数据
+        copied_data = {k: v.copy(deep=True) for k, v in raw_data.items()}
+
+        # 确定需要平移的列
+        if factors_col is None:
+            sample_df = next(iter(copied_data.values()))
+            factors_col = sample_df.columns.difference(["pctChg"]).tolist()
+        else:
+            factors_col = [f for f in factors_col if f != "pctChg"]
+
+        # 无有效列直接返回
+        if not factors_col:
+            return copied_data
+
+        # 合并所有数据并添加临时日期标记
+        combined = pd.concat(
+            {date: df[factors_col] for date, df in copied_data.items()},
+            names=["date"]
+        ).reset_index(level="date")
+
+        # 按资产分组，滞后平移
+        shifted = combined.groupby(combined.index)[factors_col].shift(lag_periods)
+        combined[factors_col] = shifted
+
+        # 按日期拆分回字典
+        result = {}
+        sorted_dates = sorted(copied_data.keys(), key=lambda x: pd.to_datetime(x))
+        for date in sorted_dates:
+            df = combined[combined.date == date].drop(columns="date")
+            df = df.reindex(copied_data[date].index)
+
+            result_date = copied_data[date].copy()
+            result_date[factors_col] = df[factors_col]
+            result_date = result_date.dropna(subset=factors_col, how="any")
+
+            if not result_date.empty:
+                result[date] = result_date
+
+        return result
 
     # ---------------------------------------
     # 正交化

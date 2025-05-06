@@ -194,12 +194,12 @@ class ModelVisualization:
                     column="",
                     date=False
                 ),
-                "_basic_bar-2": BasicChartSpecs(
-                    title="IC衰退",
-                    data_source="ic_decay",
-                    column="",
-                    date=False
-                ),
+                # "_basic_bar-2": BasicChartSpecs(
+                #     title="IC衰退",
+                #     data_source="ic_decay",
+                #     column="",
+                #     date=False
+                # ),
                 "_basic_table-5": BasicChartSpecs(
                     title="基础信息",
                     data_source="0.0_basic_stats",
