@@ -493,6 +493,7 @@ class Analyzer:
             self.financial_cycle,
             bonus
         )
+
         rolling_financial = self._get_financial_data(
             code,
             self.financial_cycle,
@@ -849,7 +850,6 @@ class Analyzer:
         :param micro_data: 个股截面数据
         :return: 宏观/行业数据
         """
-        print(micro_data["weight"])
         weights = micro_data["weight"][self.weight_name]
         weight_categories = {
             "financial": weights,

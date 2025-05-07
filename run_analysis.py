@@ -81,7 +81,10 @@ def quant_analysis():
 
 # ---------------------------------------------------
 def factor_analysis():
-    """量化分析 -> 生成因子库中的因子"""
+    """
+    量化分析 -> 生成因子库中的因子
+    注：更新指数数据 -> 更新交易日历 -> 最新数据
+    """
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -94,7 +97,7 @@ def factor_analysis():
         weight_name="市值",
 
         cycle="week",
-        kline_adjust="backward_adjusted",
+        kline_adjust="split_adjusted",
         financial_cycle="quarter",
         start_date="2000-03-31",
         financial_end_date="2025-03-31",
@@ -138,10 +141,10 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
+    # individual_analysis()
     # normal_analysis()
     # quant_analysis()
-    # factor_analysis()
+    factor_analysis()
     # inventory_cycle_analysis()
 
     # 长期斜率为正，突然杀跌

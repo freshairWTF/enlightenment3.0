@@ -11,9 +11,9 @@ def download_kline():
         category="day",                     # 指数仅支持 day
         adjust_flag="2",                    # 复权模式
         start_date="2025-05-06",            # 起始时间
-        end_date="2025-06-06",              # 结束时间
+        end_date="2025-05-06",              # 结束时间
         code="sz.301195",                   # 代码：需要sh/sz前缀
-        filter_mode="from_code",                  # 可选：None/all/from_code
+        filter_mode="all",                  # 可选：None/all/from_code
         industry_info=None,                 # 指定行业
         pause_time=0.3
     )
