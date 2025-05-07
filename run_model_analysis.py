@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # 路径参数
     source_dir = "20250501-WEEK"
     cycle = "week"
-    storage_dir = "xgboost/20250501W-全部股票-ir衰退加权-正交-等权仓位-20组"
+    storage_dir = "模型回测/linear-20250501W-全部股票-ir衰退加权-因子降维-正交-等权仓位-20组"
 
     # 因子参数设置
     factors_setting = list(FACTOR_LIBRARY.values())
@@ -57,7 +57,7 @@ if __name__ == "__main__":
         factor_weight_method="ir_decay_weight",
         factor_weight_window=12,
 
-        dimension_reduction=False,
+        dimension_reduction=True,
         orthogonal=True,
 
         position_weight_method="equal",
@@ -65,5 +65,5 @@ if __name__ == "__main__":
     )
 
     # 回测
-    xgboost_multi_factors_model(cycle)
-    # linear_multi_factors_model(cycle)
+    # xgboost_multi_factors_model(cycle)
+    linear_multi_factors_model(cycle)
