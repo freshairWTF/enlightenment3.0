@@ -17,8 +17,8 @@ def individual_analysis():
         start_date="2020-03-30",
         financial_end_date="2025-03-31",
         end_date="2025-05-03",
-        storage_dir_name="新宙邦25Q1",
-        target_info="300037",
+        storage_dir_name="盘古智能25Q1",
+        target_info="301456",
         debug=False
     )
     analyzer.run()
@@ -39,10 +39,10 @@ def normal_analysis():
         financial_cycle="quarter",
         start_date="2021-03-31",
         financial_end_date="2025-03-31",
-        end_date="2025-05-02",
+        end_date="2025-05-08",
 
-        storage_dir_name="电池化学品25Q1",
-        target_info={"电池化学品": "三级行业"},
+        storage_dir_name="风电零部件25Q1",
+        target_info={"风电零部件": "三级行业"},
         draw_filter=True,
         debug=False
     )
@@ -50,8 +50,8 @@ def normal_analysis():
 
 
 # ---------------------------------------------------
-def quant_analysis():
-    """量化分析 -> 生成分析因子"""
+def factor_analysis():
+    """单因子分析 -> 生成分析因子"""
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -80,9 +80,9 @@ def quant_analysis():
 
 
 # ---------------------------------------------------
-def factor_analysis():
+def model_factor_analysis():
     """
-    量化分析 -> 生成因子库中的因子
+    模型分析 -> 生成因子库中的因子
     注：更新指数数据 -> 更新交易日历 -> 最新数据
     """
     analyzer = Analyzer(
@@ -99,11 +99,11 @@ def factor_analysis():
         cycle="week",
         kline_adjust="split_adjusted",
         financial_cycle="quarter",
-        start_date="2000-03-31",
+        start_date="2022-03-31",
         financial_end_date="2025-03-31",
         end_date="2025-04-30",
 
-        storage_dir_name="20250501-WEEK",
+        storage_dir_name="20250501-WEEK-跟踪",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -128,11 +128,11 @@ def inventory_cycle_analysis():
         weight_name="市值",
         class_level="三级行业",
 
-        start_date="2022-03-31",
+        start_date="2021-03-31",
         end_date="2025-04-30",
         financial_end_date="2025-03-31",
 
-        storage_dir_name="库存周期25Q1",
+        storage_dir_name="三级行业-库存周期25Q1",
         target_info={"全部": "三级行业"},
         debug=False
     )
@@ -141,10 +141,10 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    # individual_analysis()
+    individual_analysis()
     # normal_analysis()
-    # quant_analysis()
-    factor_analysis()
+    # factor_analysis()
+    # model_factor_analysis()
     # inventory_cycle_analysis()
 
     # 长期斜率为正，突然杀跌

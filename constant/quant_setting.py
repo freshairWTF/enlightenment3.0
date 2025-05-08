@@ -9,6 +9,8 @@ from constant.type_ import CLASS_LEVEL, GROUP_MODE, FACTOR_WEIGHT, FILTER_MODE, 
 class FactorSetting:
     """因子配置信息"""
     factor_name: str                            # 因子名
+    primary_classification: str                 # 一级分类
+    secondary_classification: str               # 二级分类
 
     reverse: bool = False                       # 方向反转
     standardization: bool = True                # 标准化

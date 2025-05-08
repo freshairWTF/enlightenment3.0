@@ -22,8 +22,8 @@ def update_support():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="20250501-WEEK",
-        storage_dir="20250501-WEEK"
+        source_dir="20250501-WEEK-跟踪",
+        storage_dir="20250501-WEEK-跟踪"
     )
     convert.run()
 

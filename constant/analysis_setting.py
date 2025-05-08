@@ -1771,7 +1771,7 @@ class InventoryCycle:
             # 基础指标
             self.basic_metrics = ["市值"]
             # 衍生指标
-            self.derived_metrics = []
+            self.derived_metrics = ["市净率"]
 
     class Kline:
         def __init__(self):
@@ -1832,6 +1832,13 @@ class InventoryCycle:
                         ll_data_source="rolling_financial",
                         ll_column="固定资产原值_yoy"
                     ),
+                    "_upper_lower_dichotomy-12": QuadrantsChartSpecs(
+                        title="固定资产净额",
+                        ul_data_source="rolling_financial",
+                        ul_column="固定资产净额",
+                        ll_data_source="rolling_financial",
+                        ll_column="固定资产净额_yoy"
+                    ),
                     "_upper_lower_dichotomy-7": QuadrantsChartSpecs(
                         title="资产负债率",
                         ul_data_source="rolling_financial",
@@ -1867,22 +1874,5 @@ class InventoryCycle:
                         ll_data_source="rolling_financial",
                         ll_column="偿还债务支付的现金_yoy"
                     ),
-                    "_upper_lower_dichotomy-12": QuadrantsChartSpecs(
-                        title="库销比",
-                        ul_data_source="rolling_financial",
-                        ul_column="库销比",
-                        ll_data_source="rolling_financial_normalized",
-                        ll_column="库销比"
-                    ),
-                    # "_basic_bar-1": BasicChartConfig(
-                    #     title="库销比",
-                    #     data_source="rolling_financial",
-                    #     column="库销比"
-                    # ),
-                    # "_basic_scatter-1": BasicChartConfig(
-                    #     title="存货同比",
-                    #     data_source="rolling_financial",
-                    #     column="存货_yoy"
-                    # ),
                 }
             }
