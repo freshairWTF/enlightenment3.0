@@ -3,6 +3,7 @@ import pandas as pd
 from scipy.stats import spearmanr
 
 from type_ import validate_literal_params, FACTOR_WEIGHT
+from data_processor import DataProcessor
 
 
 ####################################################
@@ -171,7 +172,7 @@ class FactorWeight:
     # --------------------------
     @classmethod
     @validate_literal_params
-    def get_weights(
+    def get_factors_weights(
             cls,
             factors_data: dict[str, pd.DataFrame],
             factors_name: dict[str, list[str]],
@@ -194,3 +195,42 @@ class FactorWeight:
         }
 
         return handlers[method]()
+
+    @classmethod
+    def synthesis_factor(
+            cls,
+            bottom_factors_data: dict[str, pd.DataFrame],
+            factors_name: dict[str, list[str]],
+            weights: pd.DataFrame,
+    ) -> dict[str, pd.DataFrame]:
+        """
+        合成因子
+        :param bottom_factors_data: 底层因子数据
+        :param factors_name: T期因子名
+        :param weights: 权重
+        :return: 综合因子
+        """
+        # -1 计算综合因子
+        z_score = {
+            date: filtered_df.rename("综合Z值").to_frame()
+            for date, df in bottom_factors_data.items()
+            if not (
+                filtered_df := (
+                    df[factors_name[date]].mean(axis=1)
+                ) if weights.empty
+                else (
+                        df[factors_name[date]] * weights.loc[date]
+                ).sum(axis=1, skipna=True)
+            ).dropna().empty
+        }
+
+        # -2 综合因子标准化
+        z_score = {
+            date: processed_df
+            for date, df in z_score.items()
+            if not (
+                processed_df := DataProcessor.standardization(df, error="ignore").dropna()
+            ).empty
+        }
+
+        return z_score

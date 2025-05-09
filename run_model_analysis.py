@@ -37,10 +37,10 @@ if __name__ == "__main__":
     # 路径参数
     source_dir = "20250501-WEEK-跟踪"
     cycle = "week"
-    storage_dir = "模型跟踪/linear-20250501W-整体股票-ir衰退加权-正交-等权仓位-20组"
+    storage_dir = "模型跟踪/linear-20250501W-整体股票-ir衰退加权-正交-等权仓位-20组-降维测试"
 
     # 因子参数设置
-    factors_setting = list(FACTOR_LIBRARY.values())
+    factors_setting = list(OVERALL_FACTOR.values())
 
     # 模型参数设置
     model_setting = ModelSetting(
@@ -57,7 +57,7 @@ if __name__ == "__main__":
         factor_weight_method="ir_decay_weight",
         factor_weight_window=12,
 
-        dimension_reduction=False,
+        dimension_reduction=True,
         orthogonal=True,
 
         position_weight_method="equal",

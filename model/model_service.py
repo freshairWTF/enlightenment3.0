@@ -3,6 +3,7 @@
 """
 
 from dataclasses import asdict, dataclass
+from collections import defaultdict
 from pathlib import Path
 
 import yaml
@@ -99,10 +100,34 @@ class ModelAnalyzer(BaseService):
         self.valid_factors_name = self._get_valid_factor()
 
         # --------------------------
+        # 因子大类
+        # --------------------------
+        self.primary_factors = self._get_primary_factors()
+        self.secondary_factors = self._get_secondary_factors()
+
+        # --------------------------
         # 其他参数
         # --------------------------
         self.visual_setting = ModelVisualization()
         self.group_label = self.setup_group_label(self.model_setting.group_nums)
+
+    def _get_primary_factors(
+            self
+    ) -> dict[str, list[str]]:
+        """获取一级分类因子"""
+        result = defaultdict(list)
+        for setting in self.model_setting.factors_setting:
+            result[setting.primary_classification].append(setting.secondary_classification)
+        return {k: list(dict.fromkeys(v)) for k, v in result.items()}
+
+    def _get_secondary_factors(
+            self
+    ) -> dict[str, list[str]]:
+        """获取二级分类因子"""
+        result = defaultdict(list)
+        for setting in self.model_setting.factors_setting:
+            result[setting.secondary_classification].append(f"processed_{setting.factor_name}")
+        return {k: list(dict.fromkeys(v)) for k, v in result.items()}
 
     # --------------------------
     # 数据类 方法
@@ -194,7 +219,8 @@ class ModelAnalyzer(BaseService):
         latest_data = self._create_latest_data(add_industry_data)
 
         shifted_data = self.processor.shift_factors(
-            latest_data, self.model_setting.lag_period
+            latest_data,
+            self.model_setting.lag_period
         )
 
         filtered_data = self.filter(
@@ -406,8 +432,14 @@ class ModelAnalyzer(BaseService):
         if self.model_setting.dimension_reduction:
             self.logger.info("---------- 因子降维 ----------")
             # 因子降维
-            collinearity = FactorCollinearityProcessor(processed_factors_name)
+            collinearity = FactorCollinearityProcessor(
+                processed_factors_name,
+                self.primary_factors,
+                self.secondary_factors
+            )
             selected_factors = collinearity.fit_transform(processed_data)
+
+
             # 预拟合
             beta_feature = self.evaluate.test.calc_beta_feature(
                 processed_data, processed_factors_name, "pctChg"

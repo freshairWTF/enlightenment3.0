@@ -2,57 +2,58 @@ from constant.quant_setting import FactorSetting
 
 
 # 整体股票因子
-# OVERALL_FACTOR = {
-#     # 时序估值
-#     "市销率倒数_rolling_normalized": FactorSetting(
-#         factor_name="市销率倒数_rolling_normalized",
-#         entire_filter=True,
-#         overall_filter=True,
-#         small_filter=True
-#     ),
-#     # 估值
-#     "周期市盈率倒数": FactorSetting(
-#         factor_name="周期市盈率倒数",
-#         entire_filter=True,
-#         overall_filter=True,
-#         large_filter=True
-#     ),
-#     # 规模
-#     "经营性营运资本": FactorSetting(
-#         factor_name="经营性营运资本",
-#         entire_filter=True
-#     ),
-#     # 利润
-#     # "毛利": FactorSetting(
-#     #     factor_name="毛利",
-#     #     entire_filter=True,
-#     #     overall_filter=True,
-#     # ),
-#     "经营净利润": FactorSetting(
-#         factor_name="经营净利润",
-#         entire_filter=True,
-#         overall_filter=True,
-#     ),
-#     # 现金流
-#     "经营活动产生的现金流量净额": FactorSetting(
-#         factor_name="经营活动产生的现金流量净额",
-#         entire_filter=True,
-#         overall_filter=True
-#     ),
-#     # 成长
-#     "购建固定资产、无形资产和其他长期资产支付的现金": FactorSetting(
-#         factor_name="购建固定资产、无形资产和其他长期资产支付的现金",
-#         entire_filter=True
-#     ),
-#     # 量价
-#     "累加收益率_0.25": FactorSetting(
-#         factor_name="累加收益率_0.25",
-#         reverse=True,
-#         entire_filter=True,
-#         overall_filter=True,
-#         small_filter=True
-#     ),
-# }
+OVERALL_FACTOR = {
+    "核心利润盈利市值比": FactorSetting(
+        factor_name="核心利润盈利市值比",
+        primary_classification="基本面因子",
+        secondary_classification="估值因子",
+        entire_filter=True,
+        overall_filter=True,
+    ),
+    "周期市盈率倒数": FactorSetting(
+        factor_name="周期市盈率倒数",
+        primary_classification="基本面因子",
+        secondary_classification="估值因子",
+        entire_filter=True,
+        overall_filter=True,
+        large_filter=True
+    ),
+
+    # 财务
+    # 资产负债表
+    "负债和所有者权益": FactorSetting(
+        factor_name="负债和所有者权益",
+        primary_classification="基本面因子",
+        secondary_classification="规模因子",
+        entire_filter=True,
+        overall_filter=True
+    ),
+    "净经营资产": FactorSetting(
+        factor_name="净经营资产",
+        primary_classification="基本面因子",
+        secondary_classification="规模因子",
+        entire_filter=True,
+        overall_filter=True
+    ),
+    "累加收益率_0.09": FactorSetting(
+        factor_name="累加收益率_0.09",
+        primary_classification="技术面因子",
+        secondary_classification="动量因子",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+        small_filter=True
+    ),
+    "累加收益率_0.17": FactorSetting(
+        factor_name="累加收益率_0.17",
+        primary_classification="技术面因子",
+        secondary_classification="动量因子",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+        small_filter=True
+    ),
+}
 
 
 FACTOR_LIBRARY = {

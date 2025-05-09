@@ -146,5 +146,3 @@ if __name__ == "__main__":
     # factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
-
-    # 长期斜率为正，突然杀跌

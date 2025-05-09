@@ -61,7 +61,7 @@ class LinearMultiFactors(MultiFactorsModel):
             5）仓位权重；
         """
         # -1 因子权重
-        factor_weights = self.factor_weight.get_weights(
+        factor_weights = self.factor_weight.get_factors_weights(
             factors_data=self.raw_data,
             factors_name=self.factors_name,
             method=self.factor_weight_method,

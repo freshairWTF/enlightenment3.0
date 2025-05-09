@@ -6,6 +6,8 @@ import pandas as pd
 import statsmodels.api as sm
 import scipy.cluster.hierarchy as sch
 
+from data_processor import DataProcessor
+
 
 ###################################################
 class FactorCollinearityProcessor:
@@ -16,15 +18,22 @@ class FactorCollinearityProcessor:
     def __init__(
             self,
             factors_name: list[str],
+            primary_factors: dict[str, list[str]],
+            secondary_factors: dict[str, list[str]],
             vif_threshold: float = 10,
             cluster_threshold: float = 0.7
     ):
         """
         :param factors_name: 因子名
+        :param primary_factors: 一级行业分类
+        :param secondary_factors: 二级行业分类
         :param vif_threshold: VIF筛选阈值，高于此值的因子被剔除
         :param cluster_threshold: 聚类距离阈值（0-1之间，值越小聚类越细）
         """
         self.factors_name = factors_name
+        self.primary_factors = primary_factors
+        self.secondary_factors = secondary_factors
+
         self.vif_threshold = vif_threshold
         self.cluster_threshold = cluster_threshold
 
@@ -122,6 +131,16 @@ class FactorCollinearityProcessor:
 
         return selected_factors
 
+    def _bottom_factors_orthogonal(
+            self,
+            processed_data: dict[str, pd.DataFrame],
+    ) -> dict[str, pd.DataFrame]:
+        """三级底层因子正交"""
+        for date, df in processed_data.items():
+            for second, factors in self.secondary_factors.items():
+                processed_data[date][factors] = DataProcessor.symmetric_orthogonal(df[factors])
+        return processed_data
+
     def fit_transform(
             self,
             processed_data: dict[str, pd.DataFrame],
@@ -131,6 +150,10 @@ class FactorCollinearityProcessor:
         :param processed_data: 输入数据 {date: df}
         :return: 处理后的数据 {date: df_selected}
         """
+        # 三级底层因子正交
+        processed_data = self._bottom_factors_orthogonal(processed_data)
+
+
         selected_factors = {}
         for date, df in processed_data.items():
             # -------------------
