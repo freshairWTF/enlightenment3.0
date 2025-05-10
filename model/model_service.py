@@ -432,7 +432,6 @@ class ModelAnalyzer(BaseService):
         self.logger.info("---------- 因子降维 ----------")
         # 因子降维
         collinearity = FactorCollinearityProcessor(
-            processed_factors_name,
             self.primary_factors,
             self.secondary_factors,
             self.model_setting.factor_weight_method,
@@ -463,7 +462,10 @@ class ModelAnalyzer(BaseService):
         print({date: df.columns.tolist() for date, df in collinearity_data.items()})
         self.logger.info("---------- 模型生成 ----------")
         model = self.model(
-            raw_data=collinearity_data,
+            raw_data={
+                date: df.join(processed_data.get(date, pd.DataFrame()), how="left")
+                for date, df in collinearity_data.items()
+            },
             factors_name={date: df.columns.tolist() for date, df in collinearity_data.items()},
             group_nums=self.model_setting.group_nums,
             group_label=self.group_label,

@@ -20,7 +20,6 @@ class FactorCollinearityProcessor:
 
     def __init__(
             self,
-            factors_name: list[str],
             primary_factors: dict[str, list[str]],
             secondary_factors: dict[str, list[str]],
             weight_method: FACTOR_WEIGHT,
@@ -29,7 +28,6 @@ class FactorCollinearityProcessor:
             cluster_threshold: float = 0.7
     ):
         """
-        :param factors_name: 因子名
         :param primary_factors: 一级行业分类
         :param secondary_factors: 二级行业分类
         :param weight_method: 加权方法
@@ -37,7 +35,6 @@ class FactorCollinearityProcessor:
         :param vif_threshold: VIF筛选阈值，高于此值的因子被剔除
         :param cluster_threshold: 聚类距离阈值（0-1之间，值越小聚类越细）
         """
-        self.factors_name = factors_name
         self.primary_factors = primary_factors
         self.secondary_factors = secondary_factors
 
