@@ -35,17 +35,17 @@ def xgboost_multi_factors_model(cycle_):
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250501-WEEK-跟踪"
+    source_dir = "20250501-WEEK"
     cycle = "week"
-    storage_dir = "模型跟踪/linear-20250501W-整体股票-ir衰退加权-正交-等权仓位-20组-降维测试"
+    storage_dir = "模型测试/linear-20250501W-全部股票-ir衰退加权-正交-等权仓位-20组-正式降维测试"
 
     # 因子参数设置
-    factors_setting = list(OVERALL_FACTOR.values())
+    factors_setting = list(FACTOR_LIBRARY.values())
 
     # 模型参数设置
     model_setting = ModelSetting(
         industry_info={"全部": "三级行业"},
-        filter_mode="_overall_filter",
+        filter_mode="_entire_filter",
 
         factors_setting=factors_setting,
         class_level="三级行业",

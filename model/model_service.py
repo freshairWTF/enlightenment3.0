@@ -459,7 +459,6 @@ class ModelAnalyzer(BaseService):
         # ---------------------------------------
         # 生成模型
         # ---------------------------------------
-        print({date: df.columns.tolist() for date, df in collinearity_data.items()})
         self.logger.info("---------- 模型生成 ----------")
         model = self.model(
             raw_data={
