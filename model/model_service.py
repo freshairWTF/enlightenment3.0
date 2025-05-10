@@ -448,13 +448,6 @@ class ModelAnalyzer(BaseService):
         r_squared = self.evaluate.test.calc_r_squared(
             processed_data, processed_factors_name, "pctChg"
         )
-        # else:
-        #     selected_factors = {
-        #         date: [f"processed_{factor_name}" for factor_name in self.factors_name]
-        #         for date in processed_data.keys()
-        #     }
-        #     beta_feature = pd.DataFrame()
-        #     r_squared = pd.DataFrame()
 
         # ---------------------------------------
         # 生成模型

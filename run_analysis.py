@@ -101,9 +101,9 @@ def model_factor_analysis():
         financial_cycle="quarter",
         start_date="2022-03-31",
         financial_end_date="2025-03-31",
-        end_date="2025-04-30",
+        end_date="2025-05-09",
 
-        storage_dir_name="20250501-WEEK-跟踪",
+        storage_dir_name="20250502-WEEK-跟踪",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -141,8 +141,8 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
+    # individual_analysis()
     # normal_analysis()
     # factor_analysis()
-    # model_factor_analysis()
+    model_factor_analysis()
     # inventory_cycle_analysis()
