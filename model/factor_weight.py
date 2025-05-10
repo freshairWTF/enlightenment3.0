@@ -202,35 +202,35 @@ class FactorWeight:
             bottom_factors_data: dict[str, pd.DataFrame],
             factors_name: dict[str, list[str]],
             weights: pd.DataFrame,
-    ) -> dict[str, pd.DataFrame]:
+            synthesis_factor_name: str
+    ) -> pd.DataFrame:
         """
         合成因子
         :param bottom_factors_data: 底层因子数据
         :param factors_name: T期因子名
         :param weights: 权重
+        :param synthesis_factor_name: 合成因子名
         :return: 综合因子
         """
-        # -1 计算综合因子
-        z_score = {
-            date: filtered_df.rename("综合Z值").to_frame()
-            for date, df in bottom_factors_data.items()
-            if not (
-                filtered_df := (
-                    df[factors_name[date]].mean(axis=1)
-                ) if weights.empty
-                else (
-                        df[factors_name[date]] * weights.loc[date]
-                ).sum(axis=1, skipna=True)
-            ).dropna().empty
-        }
+        df_list = []
+        for date, df in bottom_factors_data.items():
+            # 计算因子值
+            filtered_series = (
+                (df[factors_name[date]] * weights.loc[date]).sum(axis=1, skipna=True)
+            ).dropna()
 
-        # -2 综合因子标准化
-        z_score = {
-            date: processed_df
-            for date, df in z_score.items()
-            if not (
-                processed_df := DataProcessor.standardization(df, error="ignore").dropna()
-            ).empty
-        }
+            if not filtered_series.empty:
+                # 转换为DataFrame并添加日期列
+                temp_df = filtered_series.rename(synthesis_factor_name).to_frame()
+                temp_df.insert(0, 'date', date)                 # 在首列插入日期
+                df_list.append(temp_df.reset_index())           # 把索引转为列
 
-        return z_score
+        # 纵向拼接所有数据
+        factors_df = pd.concat(df_list, ignore_index=True) if df_list else pd.DataFrame()
+
+        # 标准化处理
+        factors_df[synthesis_factor_name] = factors_df.groupby('date')[synthesis_factor_name].transform(
+            lambda x: DataProcessor.standardization(x, error="ignore")
+        )
+
+        return factors_df

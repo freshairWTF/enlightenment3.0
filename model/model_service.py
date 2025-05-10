@@ -429,46 +429,42 @@ class ModelAnalyzer(BaseService):
         # ---------------------------------------
         # 因子降维（去多重共线性 -> vif + 对称正交 + 预拟合）
         # ---------------------------------------
-        if self.model_setting.dimension_reduction:
-            self.logger.info("---------- 因子降维 ----------")
-            # 因子降维
-            collinearity = FactorCollinearityProcessor(
-                processed_factors_name,
-                self.primary_factors,
-                self.secondary_factors
-            )
-            selected_factors = collinearity.fit_transform(processed_data)
+        self.logger.info("---------- 因子降维 ----------")
+        # 因子降维
+        collinearity = FactorCollinearityProcessor(
+            processed_factors_name,
+            self.primary_factors,
+            self.secondary_factors,
+            self.model_setting.factor_weight_method,
+            self.model_setting.factor_weight_window
+        )
+        collinearity_data = collinearity.fit_transform(
+            processed_data
+        )
 
+        # 预拟合
+        beta_feature = self.evaluate.test.calc_beta_feature(
+            processed_data, processed_factors_name, "pctChg"
+        )
+        r_squared = self.evaluate.test.calc_r_squared(
+            processed_data, processed_factors_name, "pctChg"
+        )
+        # else:
+        #     selected_factors = {
+        #         date: [f"processed_{factor_name}" for factor_name in self.factors_name]
+        #         for date in processed_data.keys()
+        #     }
+        #     beta_feature = pd.DataFrame()
+        #     r_squared = pd.DataFrame()
 
-            # 预拟合
-            beta_feature = self.evaluate.test.calc_beta_feature(
-                processed_data, processed_factors_name, "pctChg"
-            )
-            r_squared = self.evaluate.test.calc_r_squared(
-                processed_data, processed_factors_name, "pctChg"
-            )
-        else:
-            selected_factors = {
-                date: [f"processed_{factor_name}" for factor_name in self.factors_name]
-                for date in processed_data.keys()
-            }
-            beta_feature = pd.DataFrame()
-            r_squared = pd.DataFrame()
-
-        # 因子正交
-        if self.model_setting.orthogonal:
-            self.logger.info("---------- 因子正交 ----------")
-            processed_data = self.processor.calc_symmetric_orthogonal(
-                processed_data,
-                selected_factors
-            )
         # ---------------------------------------
         # 生成模型
         # ---------------------------------------
+        print({date: df.columns.tolist() for date, df in collinearity_data.items()})
         self.logger.info("---------- 模型生成 ----------")
         model = self.model(
-            raw_data=processed_data,
-            factors_name=selected_factors,
+            raw_data=collinearity_data,
+            factors_name={date: df.columns.tolist() for date, df in collinearity_data.items()},
             group_nums=self.model_setting.group_nums,
             group_label=self.group_label,
             group_mode=self.model_setting.group_mode,
@@ -499,7 +495,7 @@ class ModelAnalyzer(BaseService):
         self.logger.info("---------- 结果存储、可视化 ----------")
         self._draw_charts(self.storage_dir, result, self.visual_setting)
         self._store_grouped_data(grouped_data)
-        self._store_selected_factors(selected_factors)
+        # self._store_selected_factors([])
 
     # --------------------------
     # 公开 API 方法
