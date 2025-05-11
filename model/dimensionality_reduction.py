@@ -185,6 +185,9 @@ class FactorCollinearityProcessor:
                 result = second_df
             else:
                 result = second_df.merge(result, on=['index', 'date'], how='inner')
+                # 列名重置
+
+
 
         return result
 
@@ -198,18 +201,17 @@ class FactorCollinearityProcessor:
         """
         result = []
         for date, df in secondary_factors.groupby("date"):
-
             # ------------------------------
             # 截面PCA降维
             # ------------------------------
             section_df = pd.DataFrame()
-            for factors in self.primary_factors.values():
+            for primary, second_factors in self.primary_factors.items():
                 # -1 二级因子分类PCA降维
                 pca = PCA(n_components=0.95)
                 pca_result = pd.DataFrame(
-                    pca.fit_transform(df[factors]),
+                    pca.fit_transform(df[second_factors]),
                     index=df.index,
-                    columns=[f'PC{i + 1}' for i in range(pca.n_components_)]
+                    columns=[f"{primary}{i+1}" for i in range(pca.n_components_)]
                 )
                 pca_result[["index", "date"]] = df[["index", "date"]]
 
@@ -256,7 +258,7 @@ class FactorCollinearityProcessor:
 
         # -4 转换为 {date: pd.DataFrame}格式
         result = {
-            str(date): group.set_index('index').drop("date", axis=1)
+            str(date): group.set_index('index').drop("date", axis=1).dropna(axis=1, how="all").dropna(how="any")
             for date, group in pca_df.groupby('date')
         }
 

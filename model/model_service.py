@@ -441,6 +441,7 @@ class ModelAnalyzer(BaseService):
             processed_data
         )
 
+        selected_factors = {date: df.columns.tolist() for date, df in collinearity_data.items()}
         # 预拟合
         beta_feature = self.evaluate.test.calc_beta_feature(
             processed_data, processed_factors_name, "pctChg"
@@ -458,7 +459,7 @@ class ModelAnalyzer(BaseService):
                 date: df.join(processed_data.get(date, pd.DataFrame()), how="left")
                 for date, df in collinearity_data.items()
             },
-            factors_name={date: df.columns.tolist() for date, df in collinearity_data.items()},
+            factors_name=selected_factors,
             group_nums=self.model_setting.group_nums,
             group_label=self.group_label,
             group_mode=self.model_setting.group_mode,
@@ -489,7 +490,7 @@ class ModelAnalyzer(BaseService):
         self.logger.info("---------- 结果存储、可视化 ----------")
         self._draw_charts(self.storage_dir, result, self.visual_setting)
         self._store_grouped_data(grouped_data)
-        # self._store_selected_factors([])
+        self._store_selected_factors(selected_factors)
 
     # --------------------------
     # 公开 API 方法
