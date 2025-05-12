@@ -1,5 +1,5 @@
 from analysis.analysis_service import Analyzer
-from constant.analysis_setting import Individual, Normal, Quant, Factor, InventoryCycle
+from constant.analysis_setting import Individual, Normal, Factor, ModelFactor, InventoryCycle
 
 
 # ---------------------------------------------------
@@ -12,14 +12,14 @@ def individual_analysis():
         code_range="Total_A",
         params=Individual(),
 
-        cycle="month",
+        cycle="day",
         financial_cycle="quarter",
-        start_date="2020-03-30",
+        start_date="2000-03-30",
         financial_end_date="2025-03-31",
-        end_date="2025-05-03",
-        storage_dir_name="辉煌科技25Q1",
-        target_info="002296",
-        debug=False
+        end_date="2025-05-12",
+        storage_dir_name="测试25Q1",
+        target_info="600519",
+        debug=True
     )
     analyzer.run()
 
@@ -56,7 +56,7 @@ def factor_analysis():
         quant=True,
         code_range="Total_A",
         trade_status_filter=True,
-        params=Quant(),
+        params=Factor(),
 
         # 运存不足，无法满足 day 的运存消耗
         dimension="micro",
@@ -67,14 +67,14 @@ def factor_analysis():
         financial_cycle="quarter",
         start_date="2000-03-31",
         financial_end_date="2024-09-30",
-        end_date="2025-04-25",
+        end_date="2025-05-09",
 
-        storage_dir_name="202504W",
+        storage_dir_name="日线技术指标测试",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
         processes_nums=10,
-        debug=False
+        debug=True
     )
     analyzer.run()
 
@@ -89,7 +89,8 @@ def model_factor_analysis():
         quant=True,
         code_range="Total_A",
         trade_status_filter=True,
-        params=Factor(),
+        params=ModelFactor(),
+        kline_adjust="backward_adjusted",
 
         # 运存不足，无法满足 day 的运存消耗
         dimension="micro",
@@ -97,13 +98,12 @@ def model_factor_analysis():
         weight_name="市值",
 
         cycle="week",
-        kline_adjust="split_adjusted",
         financial_cycle="quarter",
-        start_date="2022-03-31",
+        start_date="2000-01-31",
         financial_end_date="2025-03-31",
         end_date="2025-05-09",
 
-        storage_dir_name="20250502-WEEK-跟踪",
+        storage_dir_name="20250502-WEEK-混合",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -141,8 +141,11 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
+    # individual_analysis()
     # normal_analysis()
-    # factor_analysis()
+    factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
+
+    # 因子测试
+    # 股价高低效应 分别试试 前复权与后复权的价格

@@ -188,9 +188,83 @@ class KlineDetermination:
         return (df['volume'] < historical_ma * min_change).fillna(False)
 
     # 涨停、跌停
-    # @classmethod
-    # def
+    @classmethod
+    def limit_up(
+            cls,
+            df: pd.DataFrame,
+    ) -> bool:
+        """涨停"""
+        # -------------------------
+        # 涨跌幅度
+        # -------------------------
+        # -1 科创板 20%
+        if df["board"].iloc[-1] == "科创板":
+            df["limit_rate"] = 0.2
+        # -2 创业板
+        # 注册制 10% -> 20% | ST 5% -> 20%
+        elif df["board"].iloc[-1] == "创业板":
+            cond = [
+                (df.index >= "2020-08-24"),
+                (df.index < "2020-08-24") & (df["isST"] == 0),
+                (df.index < "2020-08-24") & (df["isST"] == 1),
+            ]
+            choices = [
+                0.2,
+                0.1,
+                0.05
+            ]
+            df["limit_rate"] = np.select(cond, choices)
+        # -3 主板
+        # 非ST 10% | ST 5%
+        else:
+            df["limit_rate"] = np.where(df["isST"] == 0, 0.1, 0.05)
 
+        # -------------------------
+        # 涨停板判定
+        # -------------------------
+        pre_close = df["preclose"]
+        limit_price = round(pre_close * (1 + df["limit_rate"]), 2).astype("float32")
+
+        return round(df["close"], 2) == limit_price
+
+    @classmethod
+    def limit_down(
+            cls,
+            df: pd.DataFrame,
+    ) -> bool:
+        """跌停"""
+        # -------------------------
+        # 涨跌幅度
+        # -------------------------
+        # -1 科创板 20%
+        if df["board"].iloc[-1] == "科创板":
+            df["limit_rate"] = 0.2
+        # -2 创业板
+        # 注册制 10% -> 20% | ST 5% -> 20%
+        elif df["board"].iloc[-1] == "创业板":
+            cond = [
+                (df.index >= "2020-08-24"),
+                (df.index < "2020-08-24") & (df["isST"] == 0),
+                (df.index < "2020-08-24") & (df["isST"] == 1),
+            ]
+            choices = [
+                0.2,
+                0.1,
+                0.05
+            ]
+            df["limit_rate"] = np.select(cond, choices)
+        # -3 主板
+        # 非ST 10% | ST 5%
+        else:
+            df["limit_rate"] = np.where(df["isST"] == 0, 0.1, 0.05)
+
+        # -------------------------
+        # 跌停板判定
+        # -------------------------
+        pre_close = df["preclose"]
+        limit_price = round(pre_close * (1 - df["limit_rate"]), 2).astype("float32")
+
+        return round(df["close"], 2) == limit_price
 
     @classmethod
     def n_consecutive_mask(
@@ -223,6 +297,7 @@ class KLineMetrics(Metrics, KlineDetermination):
             methods: dict[str, list],
             function_map: dict[str, str],
             index_data: pd.DataFrame | None = None,
+            code: str = ""
     ):
         """
         :param kline_data: K线数据
@@ -230,15 +305,41 @@ class KLineMetrics(Metrics, KlineDetermination):
         :param cycle: 周期
         :param methods: 需要实现的方法
         :param function_map: 已定义的方法对应方法名
+        :param code: 企业代码
         """
         self.metrics = kline_data
         self.index_data = index_data
         self.cycle = cycle
         self.function_map = function_map
         self.methods = methods
+        self.suffix = self.cycle[0]
 
         self.annual_window = self._setup_window(self.cycle)
-        self.suffix = self.cycle[0]
+        self.metrics["board"] = self.set_board(code)
+
+    # --------------------------
+    # 初始 方法
+    # --------------------------
+    @staticmethod
+    def set_board(
+            code: str
+    ) -> str:
+        """
+        根据代码设置标签
+        :param code: 企业代码
+        -1 688 科创板 -2 300/301/303 创业板 -3 其他 主板
+        """
+        conditions = [
+            code[:3] == "688",
+            code[:3] in ["300", "301", "303"],
+            code[:2] == "60"
+        ]
+        choices = [
+            "科创板",
+            "创业板",
+            "沪市主板"
+        ]
+        return str(np.select(conditions, choices, default="深市主板"))
 
     # --------------------------
     # 公开 API 方法
@@ -331,6 +432,22 @@ class KLineMetrics(Metrics, KlineDetermination):
             )
         )
 
+    # def _ma_close(
+    #         self,
+    #         window: int
+    # ) -> None:
+    #     """收盘价均线"""
+    #     # 滚动窗口
+    #     rolling_window = int(window * self.annual_window)
+    #
+    #     self.metrics[f"收盘价均线_{window}"] = (
+    #         self._calc_rolling(
+    #             self.metrics["close"],
+    #             rolling_window,
+    #             rolling_window
+    #         )
+    #     )
+
     def _ma_close(
             self,
             window: int
@@ -339,7 +456,7 @@ class KLineMetrics(Metrics, KlineDetermination):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
 
-        self.metrics[f"收盘价均线_{window}"] = (
+        self.metrics[f"收盘价均线_{self.suffix}_{window}"] = (
             self._calc_rolling(
                 self.metrics["close"],
                 rolling_window,
@@ -468,6 +585,16 @@ class KLineMetrics(Metrics, KlineDetermination):
         ).apply(calculate_slope, raw=False)
 
         self.metrics[f"斜率_{window}"] = slopes
+
+    def _limit_up_number(
+            self
+    ):
+        """涨停次数"""
+
+    def _limit_down_number(
+            self
+    ):
+        """跌停次数"""
 
     """
     涨停次数

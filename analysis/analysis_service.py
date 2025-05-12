@@ -480,13 +480,24 @@ class Analyzer:
         # --------------------------
         # 加载数据
         # --------------------------
-        kline = self._load_kline_data(code)
+        # -1 估值使用后复权数据 -2 技术使用前复权数据
+        backward_adjusted_kline = self._load_kline_data(code, "backward_adjusted")
+        split_adjusted_kline = self._load_kline_data(code, "split_adjusted")
         bonus = self._load_bonus(code)
 
         # --------------------------
         # 指标计算
         # --------------------------
-        kline = self._calculate_kline(kline, self.index_kline)
+        split_adjusted_kline = self._calculate_kline(
+            split_adjusted_kline,
+            code,
+            self.index_kline
+        )
+        backward_adjusted_kline = self._calculate_kline(
+            backward_adjusted_kline,
+            code,
+            self.index_kline
+        )
 
         financial = self._get_financial_data(
             code,
@@ -520,9 +531,17 @@ class Analyzer:
         rolling_financial_to_value = self._fill_financial_data(rolling_financial_to_value)
 
         # 加载总股本
-        shares = self._load_shares(code, financial_date=rolling_financial_to_value.index)
+        shares = self._load_shares(
+            code,
+            financial_date=rolling_financial_to_value.index
+        )
         # 估值
-        value = self._calculate_valuation(rolling_financial_to_value, kline, bonus, shares)
+        value = self._calculate_valuation(
+            rolling_financial_to_value,
+            backward_adjusted_kline,
+            bonus,
+            shares
+        )
 
         # 权重
         if self.dimension == "micro" or self.weight_name == "等权":
@@ -540,7 +559,7 @@ class Analyzer:
             "rolling_financial": rolling_financial,
             "financial": financial if self.mode != "quant" else pd.DataFrame(),
             "valuation": value,
-            "kline": kline,
+            "kline": split_adjusted_kline,
             "weight": weight
         })
 
@@ -556,13 +575,23 @@ class Analyzer:
             # --------------------------
             # 加载数据
             # --------------------------
-            kline = self._load_kline_data(code)
+            backward_adjusted_kline = self._load_kline_data(code, "backward_adjusted")
+            split_adjusted_kline = self._load_kline_data(code, "split_adjusted")
             bonus = self._load_bonus(code)
 
             # --------------------------
             # 指标计算
             # --------------------------
-            kline = self._calculate_kline(kline, self.index_kline)
+            split_adjusted_kline = self._calculate_kline(
+                split_adjusted_kline,
+                code,
+                self.index_kline
+            )
+            backward_adjusted_kline = self._calculate_kline(
+                backward_adjusted_kline,
+                code,
+                self.index_kline
+            )
 
             financial = self._get_financial_data(
                 code,
@@ -594,9 +623,17 @@ class Analyzer:
             rolling_financial_to_value = self._fill_financial_data(rolling_financial_to_value)
 
             # 加载总股本
-            shares = self._load_shares(code, financial_date=rolling_financial_to_value.index)
+            shares = self._load_shares(
+                code,
+                financial_date=rolling_financial_to_value.index
+            )
             # 估值
-            value = self._calculate_valuation(rolling_financial_to_value, kline, bonus, shares)
+            value = self._calculate_valuation(
+                rolling_financial_to_value,
+                backward_adjusted_kline,
+                bonus,
+                shares
+            )
 
             # 权重
             if self.dimension == "micro" or self.weight_name == "等权":
@@ -614,7 +651,7 @@ class Analyzer:
                 "rolling_financial": rolling_financial,
                 "financial": financial if self.mode != "quant" else pd.DataFrame(),
                 "valuation": value,
-                "kline": kline,
+                "kline": split_adjusted_kline,
                 "weight": weight
             })
         except Exception as e:
@@ -641,13 +678,18 @@ class Analyzer:
 
     def _load_kline_data(
             self,
-            code: str
+            code: str,
+            kline_adjust: KLINE_SHEET,
     ) -> pd.DataFrame:
-        """加载k线数据"""
+        """
+        加载k线数据
+        :param code: 代码
+        :param kline_adjust: k线加权
+        """
         df = self.loader.get_kline(
             code=code,
             cycle=self.cycle,
-            adjusted_mode=self.kline_adjust,
+            adjusted_mode=kline_adjust,
             start_date=self.kline_start_date,
             end_date=self.end_date,
             aligned_to_month_end=self.aligned_to_month_end
@@ -769,7 +811,7 @@ class Analyzer:
             cycle=self.cycle,
             methods=sum(self.PARAMS.valuation.__dict__.values(), []),
             function_map=self.MAPPING["VALUATION"],
-            kline_adjust=self.kline_adjust,
+            kline_adjust="backward_adjusted",
         )
         calculator.calculate()
 
@@ -778,6 +820,7 @@ class Analyzer:
     def _calculate_kline(
             self,
             kline: pd.DataFrame,
+            code: str,
             index_kline: pd.DataFrame | None = None
     ) -> pd.DataFrame:
         """计算量价指标"""
@@ -786,7 +829,8 @@ class Analyzer:
             index_data=index_kline,
             cycle=self.cycle,
             methods=self.PARAMS.kline.kline,
-            function_map=self.MAPPING["KLINE"]
+            function_map=self.MAPPING["KLINE"],
+            code=code
         )
         calculator.calculate()
         return calculator.metrics.round(4)

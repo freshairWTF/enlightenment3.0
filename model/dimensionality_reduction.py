@@ -185,9 +185,6 @@ class FactorCollinearityProcessor:
                 result = second_df
             else:
                 result = second_df.merge(result, on=['index', 'date'], how='inner')
-                # 列名重置
-
-
 
         return result
 
