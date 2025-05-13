@@ -1,6 +1,7 @@
 from download.candlestick_service import Downloader, Cleaner
 from constant.path_config import DataPATH
 
+
 # --------------------------------------------------
 def download_kline(flag):
     """k线下载"""

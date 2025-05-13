@@ -60,6 +60,7 @@ def factor_analysis():
 
         # 运存不足，无法满足 day 的运存消耗
         dimension="micro",
+
         class_level="三级行业",
         weight_name="市值",
 
@@ -69,7 +70,7 @@ def factor_analysis():
         financial_end_date="2024-09-30",
         end_date="2025-05-09",
 
-        storage_dir_name="周频技术指标测试",
+        storage_dir_name="前复权价格",
         target_info={"全部": "三级行业"},
 
         index_code="000300",

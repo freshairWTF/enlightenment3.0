@@ -7,7 +7,7 @@ def update_support():
     """更新支持数据"""
     updater = SupportDataUpdater(
         start_date="2000-01-01",
-        end_date="2025-04-25",
+        end_date="2025-05-13",
         get_listed_code=False        # 仅更新交易日历 = False
     )
     updater.run({updater.trading_calendar: True})
@@ -17,17 +17,16 @@ def update_support():
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        # source_dir="斜率",
-        source_dir="日线技术指标测试",
+        source_dir="前复权价格",
         index_code="000300",
         factors_name=[
-            "收盘价均线_w_0.09", "收盘价均线_w_0.17", "收盘价均线_w_0.25",
+            "close"
             # "斜率_0.5", "斜率_1", "斜率_1.5", "斜率_2",
         ],
         cycle="week",
         standardization=True,
-        mv_neutral=True,
-        industry_neutral=True,
+        mv_neutral=False,
+        industry_neutral=False,
         restructure=False,
 
         group_mode="frequency",

@@ -559,4 +559,15 @@ FACTOR_LIBRARY = {
         entire_filter=True,
         overall_filter=True,
     ),
+
+    # 行为金融
+    "close": FactorSetting(
+        factor_name="close",
+        primary_classification="行为金融因子",
+        secondary_classification="流动性风险因子",
+        reverse=True,
+        entire_filter=True,
+        overall_filter=True,
+        small_filter=True
+    ),
 }

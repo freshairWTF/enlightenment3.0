@@ -1548,9 +1548,9 @@ class Factor:
     class Kline:
         def __init__(self):
             self.kline = {
-                "收盘价均线": [
-                    0.09, 0.17, 0.25
-                ],
+                # "收盘价均线": [
+                #     0.09, 0.17, 0.25
+                # ],
             }
 
     class Statistics:

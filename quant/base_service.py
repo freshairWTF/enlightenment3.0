@@ -206,17 +206,20 @@ class BaseService:
         :param cycle: 周期
         :return: ic指标群
         """
+        """
+        模型回测 不要半衰期
+        """
         ic_df = cls.evaluate.ic.calc_ic(
             grouped_data, factor_col, "pctChg"
         )
-        # ic_decay = cls.evaluate.ic.calc_ic_decay(
-        #     grouped_data, factor_col
-        # )
+        ic_decay = cls.evaluate.ic.calc_ic_decay(
+            grouped_data, factor_col
+        )
         ic_mean = ic_df.mean()
 
         return {
             "ic": ic_df,
-            # "ic_decay": ic_decay,
+            "ic_decay": ic_decay,
             "ic_cumsum": ic_df.cumsum(),
             "ic_stats": pd.DataFrame.from_dict(
                 dict(
@@ -226,7 +229,45 @@ class BaseService:
                         ic_df, False if ic_mean.loc["ic"] >= 0 else True
                     ),
                     ic_ir=cls.evaluate.ic.calc_icir(ic_df, cycle),
-                    # half_life=cls.evaluate.ic.get_half_life(ic_mean.loc["ic"], ic_decay["ic"])
+                    half_life=cls.evaluate.ic.get_half_life(ic_mean.loc["ic"], ic_decay["ic"])
+                )
+            )
+        }
+
+    @classmethod
+    @validate_literal_params
+    def calc_model_ic_metrics(
+            cls,
+            grouped_data: dict[str, pd.DataFrame],
+            factor_col: str,
+            cycle: CYCLE
+    ) -> dict[str, pd.DataFrame | pd.Series]:
+        """
+        计算ic指标
+        :param grouped_data: 分组数据
+        :param factor_col: 因子列名
+        :param cycle: 周期
+        :return: ic指标群
+        """
+        """
+        模型回测 不要半衰期
+        """
+        ic_df = cls.evaluate.ic.calc_ic(
+            grouped_data, factor_col, "pctChg"
+        )
+        ic_mean = ic_df.mean()
+
+        return {
+            "ic": ic_df,
+            "ic_cumsum": ic_df.cumsum(),
+            "ic_stats": pd.DataFrame.from_dict(
+                dict(
+                    ic_mean=ic_mean,
+                    ic_significance=cls.evaluate.ic.calc_ic_significance(ic_df),
+                    ic_winning_rate=cls.evaluate.returns.winning_rate(
+                        ic_df, False if ic_mean.loc["ic"] >= 0 else True
+                    ),
+                    ic_ir=cls.evaluate.ic.calc_icir(ic_df, cycle)
                 )
             )
         }
