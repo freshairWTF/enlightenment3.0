@@ -36,7 +36,7 @@ def xgboost_multi_factors_model(cycle_):
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250502-WEEK-混合"
-    storage_dir = "模型回测/linear-20250502W-全部股票-20组-ir衰退加权-滚动12期-等权仓位-混合价格-加入close因子"
+    storage_dir = "模型回测/linear-20250502W-全部股票-20组-ir衰退加权-滚动12期-等权仓位-混合价格-加入close行为金融因子"
 
     # 因子参数设置
     cycle = "week"
