@@ -214,7 +214,8 @@ class KlineDetermination:
         :param df: k线数据
         :param board: 板块
         """
-        df = df[["isST", "preclose", "close"]]
+        df = df[["date", "isST", "preclose", "close"]].copy()
+        df = df.set_index("date")
 
         # -------------------------
         # 涨跌幅度
@@ -260,7 +261,8 @@ class KlineDetermination:
         :param df: k线数据
         :param board: 板块
         """
-        df = df[["isST", "preclose", "close"]]
+        df = df[["date", "isST", "preclose", "close"]].copy()
+        df = df.set_index("date")
 
         # -------------------------
         # 涨跌幅度

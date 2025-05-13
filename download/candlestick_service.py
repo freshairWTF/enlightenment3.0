@@ -367,3 +367,7 @@ class Cleaner:
         finally:
             pool.close()
             pool.join()
+
+    def debug(self) -> None:
+        """debug"""
+        self._clean_task(self.cleaner, self.code_list[0], self.dir_path, self.adjust_mode)

@@ -282,7 +282,7 @@ class ModelAnalyzer(BaseService):
             grouped_data: dict[str, pd.DataFrame]
     ) -> dict:
         """计算模型指标"""
-        ic_stats = self.calc_ic_metrics(
+        ic_stats = self.calc_model_ic_metrics(
             grouped_data, "综合Z值", self.cycle
         )
         ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]

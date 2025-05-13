@@ -25,8 +25,8 @@ def factor_analysis():
         ],
         cycle="week",
         standardization=True,
-        mv_neutral=False,
-        industry_neutral=False,
+        mv_neutral=True,
+        industry_neutral=True,
         restructure=False,
 
         group_mode="frequency",

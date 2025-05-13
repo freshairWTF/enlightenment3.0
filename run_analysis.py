@@ -12,13 +12,13 @@ def individual_analysis():
         code_range="Total_A",
         params=Individual(),
 
-        cycle="day",
+        cycle="month",
         financial_cycle="quarter",
         start_date="2000-03-30",
         financial_end_date="2025-03-31",
         end_date="2025-05-12",
-        storage_dir_name="测试25Q1",
-        target_info="600519",
+        storage_dir_name="英维克25Q1",
+        target_info="002837",
         debug=True
     )
     analyzer.run()
@@ -142,9 +142,9 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    # individual_analysis()
+    individual_analysis()
     # normal_analysis()
-    factor_analysis()
+    # factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
 

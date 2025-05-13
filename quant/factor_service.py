@@ -539,7 +539,7 @@ class FactorAnalyzer(BaseService):
             # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
             # ---------------------------------------
             # ic类统计
-            ic_stats = self.calc_model_ic_metrics(
+            ic_stats = self.calc_ic_metrics(
                 grouped_data,
                 processed_factor_col,
                 self.cycle
