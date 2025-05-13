@@ -9,6 +9,7 @@ from pathlib import Path
 
 from constant.download import TimeDimension, SheetName
 from constant.type_ import KLINE_SHEET, validate_literal_params
+from utils.kline_determination import KlineDetermination
 
 
 ###########################################################################
@@ -237,8 +238,8 @@ class BaoStockCleaner:
         :param adjusted_mode: 复权模式
         """
         file_path = (
-            (dir_ / "original_day" / adjusted_mode / code).with_suffix(".parquet") if adjusted_mode
-            else (dir_ / "original_day" / code).with_suffix(".parquet"))
+            (dir_  / adjusted_mode / code).with_suffix(".parquet") if adjusted_mode
+            else (dir_  / code).with_suffix(".parquet"))
         try:
             return pd.read_parquet(file_path)
         except FileNotFoundError as e:
@@ -301,6 +302,31 @@ class BaoStockCleaner:
         adjust['adjust_factor'] = (adjust['close'] / unadjusted['close']).ffill()
 
         return adjust
+
+    @classmethod
+    def _limit_up_and_down(
+            cls,
+            df: pd.DataFrame,
+            code: str,
+            adjusted_mode: str,
+            dir_: Path
+    ) -> tuple[pd.Series, pd.Series]:
+        """
+        判定当日是否涨跌停
+        """
+        # 前复权计算判定
+        if adjusted_mode == "split_adjusted":
+            kd = KlineDetermination
+            board = kd.set_board(code)
+            return kd.limit_up(df, board), kd.limit_down(df, board)
+        # 后复权直接读取前复权数据
+        else:
+            split_adjusted_day_k = cls._read_day_k(
+                dir_ / "day",
+                code,
+                adjusted_mode='split_adjusted'
+            )
+            return split_adjusted_day_k["limit_up"], split_adjusted_day_k["limit_down"]
 
     @staticmethod
     def _generate_group_keys(
@@ -387,6 +413,8 @@ class BaoStockCleaner:
             # 复权因子，NaN向后填充
             if adjusted_mode in [SheetName.BACKWARD.value, SheetName.FORWARD.value]:
                 synthesis_df["adjust_factor"] = group_df["adjust_factor"].last()
+                synthesis_df["limit_up"] = group_df["limit_up"].sum()
+                synthesis_df["limit_down"] = group_df["limit_down"].sum()
 
         # 重置索引
         synthesis_df.reset_index(drop=True, inplace=True)
@@ -412,23 +440,38 @@ class BaoStockCleaner:
         :param code: 代码（无后缀）
         :param adjusted_mode: 复权模式
         """
+        # ---------------------------------------
+        # 读取模块
+        # ---------------------------------------
         # 读取原始日k数据
         original_day_k = cls._read_day_k(
-            dir_,
+            dir_ / "original_day",
             code,
             adjusted_mode='unadjusted'
         )
-
         # fillna
         original_day_k = cls._data_fill(original_day_k)
 
-        # 计算复权因子：使用sheet_name判定是否为复权数据
+        # ---------------------------------------
+        # 计算模块
+        # ---------------------------------------
+        # 使用sheet_name判定是否为复权数据
         if adjusted_mode in [SheetName.BACKWARD.value, SheetName.FORWARD.value]:
+            # 计算复权因子
             adjust_day_k = cls._process_adjustment(dir_, code, original_day_k, adjusted_mode)
+            # 判定涨跌停板
+            adjust_day_k["limit_up"], adjust_day_k["limit_down"] = cls._limit_up_and_down(
+                adjust_day_k,
+                code,
+                adjusted_mode,
+                dir_
+            )
         else:
             adjust_day_k = original_day_k
 
-        # 数据合成
+        # ---------------------------------------
+        # 数据合成模块
+        # ---------------------------------------
         kline_dict = {
             freq: cls._synthesis_kline(adjust_day_k, freq, adjusted_mode)
             for freq in ["week", "month", "quarter", "half", "year"]
@@ -453,7 +496,7 @@ class BaoStockCleaner:
         """
         # 读取原始日k数据
         original_day_k = cls._read_day_k(
-            dir_,
+            dir_ / "original_day",
             code,
             adjusted_mode
         )

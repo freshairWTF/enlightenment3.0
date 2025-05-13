@@ -490,12 +490,10 @@ class Analyzer:
         # --------------------------
         split_adjusted_kline = self._calculate_kline(
             split_adjusted_kline,
-            code,
             self.index_kline
         )
         backward_adjusted_kline = self._calculate_kline(
             backward_adjusted_kline,
-            code,
             self.index_kline
         )
 
@@ -584,12 +582,10 @@ class Analyzer:
             # --------------------------
             split_adjusted_kline = self._calculate_kline(
                 split_adjusted_kline,
-                code,
                 self.index_kline
             )
             backward_adjusted_kline = self._calculate_kline(
                 backward_adjusted_kline,
-                code,
                 self.index_kline
             )
 
@@ -820,7 +816,6 @@ class Analyzer:
     def _calculate_kline(
             self,
             kline: pd.DataFrame,
-            code: str,
             index_kline: pd.DataFrame | None = None
     ) -> pd.DataFrame:
         """计算量价指标"""
@@ -829,8 +824,7 @@ class Analyzer:
             index_data=index_kline,
             cycle=self.cycle,
             methods=self.PARAMS.kline.kline,
-            function_map=self.MAPPING["KLINE"],
-            code=code
+            function_map=self.MAPPING["KLINE"]
         )
         calculator.calculate()
         return calculator.metrics.round(4)
