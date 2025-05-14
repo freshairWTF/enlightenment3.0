@@ -22,8 +22,8 @@ def update_support():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="前复权价格",
-        storage_dir="前复权价格"
+        source_dir="上下游占款周转天数",
+        storage_dir="上下游占款周转天数"
     )
     convert.run()
 

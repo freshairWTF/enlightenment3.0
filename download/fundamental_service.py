@@ -42,9 +42,11 @@ class Crawler:
     # --------------------------
     ROOT = Path("fundamental_data/raw_data")
     DIR_PATH = {
-        # 东财（分红融资/财务数据）
+        # 东财（分红融资/财务数据/十大股东）
         "bonus_financing": ROOT / "bonus_financing_from_eastmoney",
         "financial_data": ROOT / "financial_data_from_eastmoney",
+        "top_ten_circulating_shareholders": ROOT / "top_ten_circulating_shareholders_from_eastmoney",
+        "top_ten_shareholders": ROOT / "top_ten_shareholders_from_eastmoney",
 
         # 新浪（总股本/公告标题）
         "total_shares": ROOT / "total_shares_from_sina",
@@ -64,10 +66,13 @@ class Crawler:
 
     def __init__(
             self,
-            data_name: Literal["financial_data", "bonus_financing",
-                               "total_shares", "announcement_title",
-                               "annual_report", "semiannual_report",
-                               "firstQuarter_report", "thirdQuarter_report"],
+            data_name: Literal[
+                "financial_data", "bonus_financing",
+                "top_ten_circulating_shareholders", "top_ten_shareholders",
+                "total_shares", "announcement_title",
+                "annual_report", "semiannual_report",
+                "firstQuarter_report", "thirdQuarter_report"
+            ],
             start_date: str,
             end_date: str,
             code: str | None = None,
@@ -106,6 +111,7 @@ class Crawler:
         self.source = BaoStockDownLoader
         # 存储实例
         self.storage = DataStorage(self.DIR_PATH[data_name])
+
         # 行业映射字典
         self.industry_map: pd.DataFrame = self.loader.get_industry_codes(
             sheet_name="Total_A", industry_info={"全部": "二级行业"}
@@ -219,7 +225,7 @@ class Crawler:
         return "4" if df.empty else INDUSTRY_TYPE.get(df["二级行业"].iloc[0], "4")
 
     # --------------------------
-    # 数据下载类
+    # 数据下载方法 东财
     # --------------------------
     def _download_financial(
             self,
@@ -259,6 +265,68 @@ class Crawler:
         except Exception as e:
             self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
 
+    def _download_top_ten_circulating_shareholders(
+            self,
+            code: str
+    ) -> None:
+        """
+        下载十大流通股东数据（东财）
+        :param code: 代码
+        """
+        crawler = CrawlerToEastMoney(
+            code=code,
+            user_agent=self.get_user_agent(),
+            pause_time=self.PAUSE_TIME["east_money"],
+            start_date=self._modify_start_date(code=code),
+            end_date=self.end_date
+        )
+
+        try:
+            df = crawler.get_top_ten_circulating_shareholders()
+            if not df.empty:
+                self._save_data(
+                    df,
+                    code,
+                    subset=["END_DATE", "HOLDER_RANK"],
+                    sort_by=["END_DATE", "HOLDER_RANK"]
+                )
+                self.logger.success(f"下载成功 | Code: {code}")
+            else:
+                self.logger.error(f"下载失败 | Code: {code} | Error: 数据为空值")
+        except Exception as e:
+            self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
+
+    def _download_top_ten_shareholders(
+            self,
+            code: str
+    ) -> None:
+        """
+        下载十大流通股东数据（东财）
+        :param code: 代码
+        """
+        crawler = CrawlerToEastMoney(
+            code=code,
+            user_agent=self.get_user_agent(),
+            pause_time=self.PAUSE_TIME["east_money"],
+            start_date=self._modify_start_date(code=code),
+            end_date=self.end_date
+        )
+
+        try:
+            df = crawler.get_top_ten_shareholders()
+            if not df.empty:
+                self._save_data(
+                    df,
+                    code,
+                    subset=["END_DATE", "HOLDER_RANK"],
+                    sort_by=["END_DATE", "HOLDER_RANK"]
+                )
+                self.logger.success(f"下载成功 | Code: {code}")
+            else:
+                self.logger.error(f"下载失败 | Code: {code} | Error: 数据为空值")
+        except Exception as e:
+            self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
+
     def _download_bonus_financing(
             self,
             code: str
@@ -290,6 +358,9 @@ class Crawler:
         except Exception as e:
             self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
 
+    # --------------------------
+    # 数据下载方法 新浪
+    # --------------------------
     def _download_total_shares(
             self,
             code: str
@@ -350,6 +421,9 @@ class Crawler:
         except Exception as e:
             self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
 
+    # --------------------------
+    # 数据下载方法 巨潮
+    # --------------------------
     def _download_report(
             self,
             code: str
@@ -400,6 +474,10 @@ class Crawler:
 
             if self.data_name == "financial_data":
                 self._download_financial(code)
+            elif self.data_name == "top_ten_circulating_shareholders":
+                self._download_top_ten_circulating_shareholders(code)
+            elif self.data_name == "top_ten_shareholders":
+                self._download_top_ten_shareholders(code)
             elif self.data_name == "bonus_financing":
                 self._download_bonus_financing(code)
             elif self.data_name == "announcement_title":

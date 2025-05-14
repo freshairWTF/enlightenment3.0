@@ -28,6 +28,16 @@ class CrawlerToEastMoney:
     PROFIT_STATEMENT_URL = 'https://emweb.securities.eastmoney.com/PC_HSF10/NewFinanceAnalysis/lrbAjaxNew'
     CASHFLOW_STATEMENT_URL = 'https://emweb.securities.eastmoney.com/PC_HSF10/NewFinanceAnalysis/xjllbAjaxNew'
     BONUS_FINANCING_URL = 'http://emweb.securities.eastmoney.com/PC_HSF10/BonusFinancing/PageAjax?'
+    SHAREHOLDER_RESEARCH_URL = "https://datacenter.eastmoney.com/securities/api/data/v1/get"
+
+    """
+    
+https://datacenter.eastmoney.com/securities/api/data/v1/get
+?reportName=RPT_F10_EH_HOLDERS&columns=ALL&quoteColumns=
+&filter=(SECUCODE%3D%22600019.SH%22)(END_DATE%3D%272025-03-31%27)
+&pageNumber=1&pageSize=&sortTypes=1&sortColumns=HOLDER_RANK&source=
+HSF10&client=PC&v=082972985254534
+    """
 
     def __init__(
             self,
@@ -221,6 +231,69 @@ class CrawlerToEastMoney:
             print(f"获取分红融资数据失败: {e}")
             return {}
 
+    def _get_top_ten_circulating_shareholders(
+            self,
+            date: str
+    ) -> pd.DataFrame:
+        """
+        获取十大流通股东
+        :return: 十大流通股东明细
+        """
+        try:
+            params = {
+                "reportName": "RPT_F10_EH_FREEHOLDERS",
+                "columns": "SECUCODE,SECURITY_CODE,END_DATE,HOLDER_RANK,HOLDER_NEW,HOLDER_NAME,HOLDER_TYPE,SHARES_TYPE,HOLD_NUM,FREE_HOLDNUM_RATIO,HOLD_NUM_CHANGE,CHANGE_RATIO",
+                "filter": f'(SECUCODE="{self.code}")(END_DATE=\'{date}\')',
+                "pageNumber": 1,
+                "pageSize": "",
+                "quoteColumns": "",
+                "sortTypes": 1,
+                "sortColumns": "HOLDER_RANK",
+                "source": "HSF10",
+                "client": "PC",
+            }
+            response = self.session.get(
+                url=self.SHAREHOLDER_RESEARCH_URL,
+                params=params,
+                timeout=self.REQUEST_TIMEOUT
+            )
+            return pd.DataFrame(response.json()["result"]["data"])
+        except Exception as e:
+            print(f"获取十大流通股东数据失败: {e}")
+            return pd.DataFrame()
+
+    def _get_top_ten_shareholders(
+            self,
+            date: str
+    ) -> pd.DataFrame:
+        """
+        获取十大流通股东
+        :return: 十大流通股东明细
+        """
+        try:
+            params = {
+                "reportName": "RPT_F10_EH_HOLDERS",
+                "columns": "ALL",
+                "filter": f'(SECUCODE="{self.code}")(END_DATE=\'{date}\')',
+                "pageNumber": 1,
+                "pageSize": "",
+                "quoteColumns": "",
+                "sortTypes": 1,
+                "sortColumns": "HOLDER_RANK",
+                "source": "HSF10",
+                "client": "PC",
+            }
+            response = self.session.get(
+                url=self.SHAREHOLDER_RESEARCH_URL,
+                params=params,
+                timeout=self.REQUEST_TIMEOUT
+            )
+            print(response.url)
+            return pd.DataFrame(response.json()["result"]["data"])
+        except Exception as e:
+            print(f"获取十大流通股东数据失败: {e}")
+            return pd.DataFrame()
+
     # --------------------------
     # 公开 API 方法
     # --------------------------
@@ -274,6 +347,62 @@ class CrawlerToEastMoney:
         time.sleep(self.pause_time)
 
         return ret
+
+    def get_top_ten_shareholders(
+            self
+    ) -> pd.DataFrame:
+        """
+        获取十大股东数据
+        :return: 十大股东数据
+        """
+        # 例：SH600019 -> 600019.SH
+        self.code = self.code[2:] + "." +self.code[:2]
+
+        result = []
+        # 生成报告日期列表
+        date_list = self._generate_report_dates()
+        # 日期反转，从近期开始爬取
+        date_list.sort(reverse=True)
+        for date in date_list:
+            # 爬取数据
+            ret = self._safe_request(
+                self._get_top_ten_shareholders,
+                date
+            )
+            # 暂停，规避反爬
+            time.sleep(self.pause_time)
+            # 添加数据
+            result.append(ret)
+
+        return pd.concat(result)
+
+    def get_top_ten_circulating_shareholders(
+            self
+    ) -> pd.DataFrame:
+        """
+        获取十大流通股东数据
+        :return: 十大流通股东数据
+        """
+        # 例：SH600019 -> 600019.SH
+        self.code = self.code[2:] + "." +self.code[:2]
+
+        result = []
+        # 生成报告日期列表
+        date_list = self._generate_report_dates()
+        # 日期反转，从近期开始爬取
+        date_list.sort(reverse=True)
+        for date in date_list:
+            # 爬取数据
+            ret = self._safe_request(
+                self._get_top_ten_circulating_shareholders,
+                date
+            )
+            # 暂停，规避反爬
+            time.sleep(self.pause_time)
+            # 添加数据
+            result.append(ret)
+
+        return pd.concat(result)
 
 
 ######################################################
@@ -412,3 +541,16 @@ class CleanerToEastMoney:
                 'TOTAL_RAISE_FUNDS': 'net_raise_funds'
             })
             return df
+
+
+
+"""
+这是流通的！！！
+HOLDER_NAME
+HOLDER_TYPE
+SHARES_TYPE
+HOLD_NUM
+FREE_HOLDNUM_RATIO
+HOLD_NUM_CHANGE
+CHANGE_RATIO
+"""

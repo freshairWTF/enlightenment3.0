@@ -17,16 +17,16 @@ def update_support():
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="前复权价格",
+        source_dir="上下游占款周转天数",
         index_code="000300",
         factors_name=[
-            "close"
+            "上下游占款周转天数"
             # "斜率_0.5", "斜率_1", "斜率_1.5", "斜率_2",
         ],
         cycle="week",
         standardization=True,
-        mv_neutral=True,
-        industry_neutral=True,
+        mv_neutral=False,
+        industry_neutral=False,
         restructure=False,
 
         group_mode="frequency",

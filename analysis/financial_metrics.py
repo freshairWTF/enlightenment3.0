@@ -1035,6 +1035,13 @@ class FinancialMetrics(Metrics):
             self.metrics["应付票据及应付账款"].rolling(min_periods=1, window=2).mean()
         )
 
+    @depends_on("应付票据及应付账款周转天数", "应收票据及应收账款周转天数")
+    def _upstream_and_downstream_turnover_days(self) -> None:
+        """
+        上下游占款周转天数 = 应付票据及应付账款周转天数 - 应收票据及应收账款周转天数
+        """
+        self.metrics["上下游占款周转天数"] = self.metrics["应付票据及应付账款周转天数"] - self.metrics["应收票据及应收账款周转天数"]
+
     def _fixed_assets_turnover_days(self) -> None:
         """
         固定资产周转天数 = 360 / （营业收入 / 固定资产均值）

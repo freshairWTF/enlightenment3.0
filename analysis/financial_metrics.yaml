@@ -233,6 +233,7 @@ PARAMETERS_OF_EASTMONEY:
               衍生金融资产, 应收利息, 应收股利, 金融性货币资金, 金融性长期资产, 所有者权益]
 
     # 营运类
+    上下游占款周转天数: [应付票据及应付账款周转天数, 应收票据及应收账款周转天数]
     营业周期: [应收票据及应收账款周转天数, 存货周转天数]
     现金转换周期: [应收票据及应收账款周转天数, 存货周转天数, 应付票据及应付账款周转天数]
     营运资本周转率: [经营性货币资金, 应收票据, 应收账款, 应收款项融资, 预付款项, 存货, 其他流动资产, 其他应收款,
@@ -394,6 +395,7 @@ FUNCTION_OF_FINANCIAL:
     杠杆贡献率: _leverage_contribution_rate
 
     # 营运类
+    上下游占款周转天数: _upstream_and_downstream_turnover_days
     存货周转天数: _inventory_turnover_days
     应收票据及应收账款周转天数: _receivable_and_bills_turnover_days
     应付票据及应付账款周转天数: _payable_and_bills_turnover_days

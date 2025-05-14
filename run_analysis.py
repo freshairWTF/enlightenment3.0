@@ -70,7 +70,7 @@ def factor_analysis():
         financial_end_date="2024-09-30",
         end_date="2025-05-09",
 
-        storage_dir_name="前复权价格",
+        storage_dir_name="上下游占款周转天数",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -142,9 +142,9 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
+    # individual_analysis()
     # normal_analysis()
-    # factor_analysis()
+    factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
 

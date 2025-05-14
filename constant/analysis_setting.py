@@ -1514,6 +1514,7 @@ class Factor:
             # 财务分析
             self.financial_analysis = {
                 "盈利能力": [
+                    "上下游占款周转天数"
                 ],
                 "运营能力": [
                 ],
@@ -1555,7 +1556,6 @@ class Factor:
 
     class Statistics:
         def __init__(self):
-            # "同比", "滚动归一化"
             self.stats = []
 
     class Visualization:
