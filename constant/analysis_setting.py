@@ -1514,7 +1514,6 @@ class Factor:
             # 财务分析
             self.financial_analysis = {
                 "盈利能力": [
-                    "上下游占款周转天数"
                 ],
                 "运营能力": [
                 ],
@@ -1549,9 +1548,12 @@ class Factor:
     class Kline:
         def __init__(self):
             self.kline = {
-                # "收盘价均线": [
-                #     0.09, 0.17, 0.25
-                # ],
+                "涨停次数": [
+                    0.09, 0.17, 0.25
+                ],
+                "跌停次数": [
+                    0.09, 0.17, 0.25
+                ],
             }
 
     class Statistics:

@@ -286,14 +286,35 @@ class KLineMetrics(Metrics, KlineDetermination):
         self.metrics[f"斜率_{window}"] = slopes
 
     def _limit_up_number(
-            self
-    ):
+            self,
+            window: int
+    ) -> None:
         """涨停次数"""
+        # 滚动窗口
+        rolling_window = int(window * self.annual_window)
+
+        print(window)
+        print(self.annual_window)
+        print(rolling_window)
+        print(self.metrics["limit_up"])
+
+        limit_up_number = self.metrics["limit_up"].rolling(
+            window=rolling_window,
+            min_periods=1
+        ).sum()
+        print(limit_up_number)
+
+        print(dd)
 
     def _limit_down_number(
-            self
-    ):
+            self,
+            window: int
+    ) -> None:
         """跌停次数"""
+        print(self.metrics)
+        print(self.metrics["limit_down"])
+
+        print(dd)
 
     """
     涨停次数

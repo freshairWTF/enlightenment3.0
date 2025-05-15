@@ -259,7 +259,7 @@ HSF10&client=PC&v=082972985254534
             )
             return pd.DataFrame(response.json()["result"]["data"])
         except Exception as e:
-            print(f"获取十大流通股东数据失败: {e}")
+            print(f"获取十大流通股东数据失败: {date} | {e}")
             return pd.DataFrame()
 
     def _get_top_ten_shareholders(
@@ -288,10 +288,9 @@ HSF10&client=PC&v=082972985254534
                 params=params,
                 timeout=self.REQUEST_TIMEOUT
             )
-            print(response.url)
             return pd.DataFrame(response.json()["result"]["data"])
         except Exception as e:
-            print(f"获取十大流通股东数据失败: {e}")
+            print(f"获取十大股东数据失败: {date} | {e}")
             return pd.DataFrame()
 
     # --------------------------
@@ -369,6 +368,8 @@ HSF10&client=PC&v=082972985254534
                 self._get_top_ten_shareholders,
                 date
             )
+            if ret.empty:
+                break
             # 暂停，规避反爬
             time.sleep(self.pause_time)
             # 添加数据
@@ -397,6 +398,8 @@ HSF10&client=PC&v=082972985254534
                 self._get_top_ten_circulating_shareholders,
                 date
             )
+            if ret.empty:
+                break
             # 暂停，规避反爬
             time.sleep(self.pause_time)
             # 添加数据
@@ -542,15 +545,55 @@ class CleanerToEastMoney:
             })
             return df
 
+    @staticmethod
+    def clean_ten_circulating_shareholders(
+            raw_data: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        清洗前十大流通股东
+        :param raw_data: 原始数据
+        :return: 清洗后的数据
+        """
+        # 修改列名、去除无效信息列
+        rename_dict = {
+            'END_DATE': 'date',
+            'HOLDER_RANK': '名次',
+            'HOLDER_NAME': '股东名称',
+            'HOLDER_TYPE': '股东性质',
+            'SHARES_TYPE': '股份类型',
+            'HOLD_NUM': '持股数',
+            'FREE_HOLDNUM_RATIO': '占流通股本持股比例',
+            'HOLD_NUM_CHANGE': '增减',
+            'CHANGE_RATIO': '变动比例',
+        }
+        df = raw_data.rename(columns=rename_dict)[list(rename_dict.values())]
+        # 修改日期数据类型
+        df["date"] = pd.to_datetime(df["date"]).dt.date
 
+        return df
 
-"""
-这是流通的！！！
-HOLDER_NAME
-HOLDER_TYPE
-SHARES_TYPE
-HOLD_NUM
-FREE_HOLDNUM_RATIO
-HOLD_NUM_CHANGE
-CHANGE_RATIO
-"""
+    @staticmethod
+    def clean_ten_shareholders(
+            raw_data: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        清洗前十大股东
+        :param raw_data: 原始数据
+        :return: 清洗后的数据
+        """
+        # 修改列名、去除无效信息列
+        rename_dict = {
+                'END_DATE': 'date',
+                'HOLDER_RANK': '名次',
+                'HOLDER_NAME': '股东名称',
+                'SHARES_TYPE': '股份类型',
+                'HOLD_NUM': '持股数',
+                'HOLD_NUM_RATIO': '占总股本持股比例',
+                'HOLD_NUM_CHANGE': '增减',
+                'CHANGE_RATIO': '变动比例',
+            }
+        df = raw_data.rename(columns=rename_dict)[list(rename_dict.values())]
+        # 修改日期数据类型
+        df["date"] = pd.to_datetime(df["date"]).dt.date
+
+        return df

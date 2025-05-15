@@ -310,7 +310,7 @@ class BaoStockCleaner:
             code: str,
             adjusted_mode: str,
             dir_: Path
-    ) -> tuple[pd.Series, pd.Series]:
+    ) -> tuple[pd.Series | pd.DataFrame, pd.Series | pd.DataFrame]:
         """
         判定当日是否涨跌停
         """
@@ -326,7 +326,7 @@ class BaoStockCleaner:
                 code,
                 adjusted_mode='split_adjusted'
             )
-            return split_adjusted_day_k["limit_up"], split_adjusted_day_k["limit_down"]
+            return split_adjusted_day_k[["date", "limit_up"]], split_adjusted_day_k[["date", "limit_down"]]
 
     @staticmethod
     def _generate_group_keys(
@@ -455,19 +455,24 @@ class BaoStockCleaner:
         # ---------------------------------------
         # 计算模块
         # ---------------------------------------
-        # 使用sheet_name判定是否为复权数据
-        if adjusted_mode in [SheetName.BACKWARD.value, SheetName.FORWARD.value]:
-            # 计算复权因子
-            adjust_day_k = cls._process_adjustment(dir_, code, original_day_k, adjusted_mode)
-            # 判定涨跌停板
-            adjust_day_k["limit_up"], adjust_day_k["limit_down"] = cls._limit_up_and_down(
-                adjust_day_k,
-                code,
-                adjusted_mode,
-                dir_
-            )
-        else:
-            adjust_day_k = original_day_k
+        # 计算复权因子
+        adjust_day_k = (
+            cls._process_adjustment(dir_, code, original_day_k, adjusted_mode)
+            if adjusted_mode in [SheetName.BACKWARD.value, SheetName.FORWARD.value]
+            else original_day_k
+        )
+
+        # 判定涨跌停板
+        limit_up, limit_down = cls._limit_up_and_down(
+            adjust_day_k,
+            code,
+            adjusted_mode,
+            dir_
+        )
+        if adjusted_mode == SheetName.FORWARD.value:
+            adjust_day_k["limit_up"], adjust_day_k["limit_down"] = limit_up.values, limit_down.values
+        elif adjusted_mode == SheetName.BACKWARD.value:
+            adjust_day_k = pd.merge(adjust_day_k, limit_up.merge(limit_down, on='date'), on='date', how='inner')
 
         # ---------------------------------------
         # 数据合成模块

@@ -1,10 +1,16 @@
 import numpy as np
 import pandas as pd
 
+from decimal import Decimal, ROUND_HALF_UP
+
 
 ###############################################################
 class KlineDetermination:
     """k线形态判定"""
+
+    @staticmethod
+    def decimal_round(x):
+        return Decimal(str(x)).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
 
     @staticmethod
     def set_board(
@@ -246,7 +252,12 @@ class KlineDetermination:
         # 涨停板判定
         # -------------------------
         pre_close = df["preclose"]
-        limit_price = round(pre_close * (1 + df["limit_rate"]), 2).astype(df["close"].dtype)
+
+        limit_price = (pre_close * (1 + df["limit_rate"]))
+        # 将浮点数格式化为足够小数位的字符串，消除中间误差
+        limit_price = limit_price.map(lambda x: f"{x:.6f}").astype(str)
+        # 采用Decimal，消除银行家舍入规则的偏差
+        limit_price = limit_price.apply(cls.decimal_round).astype(df["close"].dtype)
 
         return (round(df["close"], 2) == limit_price).astype(int)
 
@@ -293,7 +304,12 @@ class KlineDetermination:
         # 跌停板判定
         # -------------------------
         pre_close = df["preclose"]
-        limit_price = round(pre_close * (1 - df["limit_rate"]), 2).astype(df["close"].dtype)
+
+        limit_price = (pre_close * (1 - df["limit_rate"]))
+        # 将浮点数格式化为足够小数位的字符串，消除中间误差
+        limit_price = limit_price.map(lambda x: f"{x:.6f}").astype(str)
+        # 采用Decimal，消除银行家舍入规则的偏差
+        limit_price = limit_price.apply(cls.decimal_round).astype(df["close"].dtype)
 
         return (round(df["close"], 2) == limit_price).astype(int)
 

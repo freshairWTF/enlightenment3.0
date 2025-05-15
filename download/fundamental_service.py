@@ -509,14 +509,24 @@ class Cleaner:
     # --------------------------
     RAW_ROOT = Path("fundamental_data/raw_data")
     RAW_DIR_PATH = {
-        # 东财（分红融资/财务数据）
         "bonus_financing": RAW_ROOT / "bonus_financing_from_eastmoney",
         "financial_data": RAW_ROOT / "financial_data_from_eastmoney",
+        "top_ten_circulating_shareholders": RAW_ROOT / "top_ten_circulating_shareholders_from_eastmoney",
+        "top_ten_shareholders": RAW_ROOT / "top_ten_shareholders_from_eastmoney",
+    }
+    STORAGE_DRI_PATH = {
+        "bonus_financing": DataPATH.BONUS_FINANCING_DATA,
+        "financial_data": DataPATH.FINANCIAL_DATA,
+        "top_ten_circulating_shareholders": DataPATH.TOP_TEN_CIRCULATING_SHAREHOLDERS,
+        "top_ten_shareholders": DataPATH.TOP_TEN_SHAREHOLDERS,
     }
 
     def __init__(
             self,
-            data_name: Literal["financial_data", "bonus_financing"],
+            data_name: Literal[
+                "financial_data", "bonus_financing",
+                "top_ten_circulating_shareholders", "top_ten_shareholders"
+            ],
             num_processes: int,
             code: str | None = None,
             filter_mode: Literal["all", "from_code", None] = None,
@@ -536,7 +546,7 @@ class Cleaner:
         self.industry_info = industry_info
         self.num_processes = num_processes
         self.source_dir = self.RAW_DIR_PATH[self.data_name]
-        self.storage_dir = DataPATH.FINANCIAL_DATA if data_name == "financial_data" else DataPATH.BONUS_FINANCING_DATA
+        self.storage_dir = self.STORAGE_DRI_PATH[self.data_name]
 
         # 日志
         self.logger = self.setup_logger()
@@ -643,7 +653,7 @@ class Cleaner:
             code: str
     ) -> None:
         """
-        下载财务数据（东财）
+        清洗财务数据（东财）
         :param code: 代码
 
              date   SECUCODE SECURITY_CODE SECURITY_NAME_ABBR  ORG_CODE ORG_TYPE  \
@@ -678,7 +688,7 @@ class Cleaner:
             code: str
     ) -> None:
         """
-        下载分红融资（东财）
+        清洗分红融资（东财）
         :param code: 代码
 
             SECUCODE SECURITY_CODE SECURITY_NAME_ABBR          NOTICE_DATE  \
@@ -706,6 +716,156 @@ class Cleaner:
         except Exception as e:
             self.logger.error(f"清洗失败 | Code: {code} | Error: {str(e)}")
 
+    def _clean_top_ten_circulating_shareholders(
+            self,
+            code: str
+    ) -> None:
+        """
+        清洗前十流通股东（东财）
+        :param code: 代码
+        """
+        try:
+            # 读取原始数据
+            raw_df = pd.read_parquet((self.source_dir / code).with_suffix(".parquet"))
+            # 清洗原始数据
+            cleaner = CleanerToEastMoney(
+                code=code
+            )
+            cleaned_df = cleaner.clean_ten_circulating_shareholders(raw_df)
+
+            # 存储清洗后的数据
+            if cleaned_df.empty:
+                self.logger.error(f"下载失败 | Code: {code} | Error: 数据为空值")
+            else:
+                self._save_data(
+                    self.storage_dir,
+                    cleaned_df,
+                    code,
+                    sort_by=["date", "名次"],
+                    subset=["date", "名次"]
+                )
+                self.logger.success(f"清洗成功 | Code: {code}")
+        except Exception as e:
+            self.logger.error(f"清洗失败 | Code: {code} | Error: {str(e)}")
+
+    def _clean_top_ten_shareholders(
+            self,
+            code: str
+    ) -> None:
+        """
+        清洗前十股东（东财）
+        :param code: 代码
+        """
+        try:
+            # 读取原始数据
+            raw_df = pd.read_parquet((self.source_dir / code).with_suffix(".parquet"))
+            # 清洗原始数据
+            cleaner = CleanerToEastMoney(
+                code=code
+            )
+            cleaned_df = cleaner.clean_ten_shareholders(raw_df)
+
+            # 存储清洗后的数据
+            if cleaned_df.empty:
+                self.logger.error(f"下载失败 | Code: {code} | Error: 数据为空值")
+            else:
+                self._save_data(
+                    self.storage_dir,
+                    cleaned_df,
+                    code,
+                    sort_by=["date", "名次"],
+                    subset=["date", "名次"]
+                )
+                self.logger.success(f"清洗成功 | Code: {code}")
+        except Exception as e:
+            self.logger.error(f"清洗失败 | Code: {code} | Error: {str(e)}")
+
+    # --------------------------
+    # 多进程方法
+    # --------------------------
+    @staticmethod
+    def _dispatch_task(task: CleanTask) -> None:
+        """任务分发入口"""
+        if task.task_type == "financial":
+            Cleaner._multi_clean_financial(task)
+        elif task.task_type == "bonus_financing":
+            Cleaner._multi_clean_bonus_financing(task)
+        else:
+            raise ValueError(f"未知任务类型: {task.task_type}")
+
+    @staticmethod
+    def _multi_clean_financial(
+            task: CleanTask
+    ) -> None:
+        """
+        清洗财务数据（东财）
+             date   SECUCODE SECURITY_CODE SECURITY_NAME_ABBR  ORG_CODE ORG_TYPE  \
+        0  2002-03-31  600001.SH        600001               邯郸钢铁  10002253       通用
+        1  2001-12-31  600001.SH        600001               邯郸钢铁  10002253       通用
+        2  2001-06-30  600001.SH        600001               邯郸钢铁  10002253       通用
+        """
+        # 暂不支持金融类企业清洗
+        if Cleaner._is_financial_company(task.code, task.industry_map):
+            return
+
+        try:
+            for data_type in task.data_types:
+                file_name = f"{task.code}_{data_type}"
+                path = (task.source_dir / file_name).with_suffix(".parquet")
+                # 读取原始数据
+                raw_df = pd.read_parquet(path)
+                # 清洗原始数据
+                cleaner = CleanerToEastMoney(
+                    code=task.code,
+                    is_financial=Cleaner._is_financial_company(task.code, task.industry_map)
+                )
+                cleaned_df = cleaner.clean_financial_data(raw_df, data_type)
+                # 存储清洗后的数据
+                Cleaner._save_data(task.storage_dir, cleaned_df, file_name, sort_by=["date"])
+        except Exception as e:
+            print(f"清洗失败 | Code: {task.code} | Error: {str(e)}")
+
+    @staticmethod
+    def _multi_clean_bonus_financing(
+            task: CleanTask
+    ) -> None:
+        """
+        清洗分红融资（东财）
+            SECUCODE SECURITY_CODE SECURITY_NAME_ABBR          NOTICE_DATE  \
+        0  002167.SZ        002167               东方锆业  2024-08-22 00:00:00
+        1  002167.SZ        002167               东方锆业  2024-04-19 00:00:00
+        """
+        for data_type in task.data_types:
+            file_name = f"{task.code}_{data_type}"
+            path = (task.source_dir / file_name).with_suffix(".parquet")
+            try:
+                # 读取原始数据
+                raw_df = pd.read_parquet(path)
+                # 清洗原始数据
+                cleaner = CleanerToEastMoney(
+                    code=task.code,
+                    is_financial=Cleaner._is_financial_company(task.code, task.industry_map)
+                )
+                cleaned_df = cleaner.clean_bonus_financing(raw_df, data_type)
+                # 存储清洗后的数据
+                if not cleaned_df.empty:
+                    Cleaner._save_data(task.storage_dir, cleaned_df, file_name, sort_by=["date"], subset=["date"])
+            except FileNotFoundError:
+                continue
+            except Exception as e:
+                print(f"清洗失败 | Code: {task.code} | Error: {str(e)}")
+
+    @staticmethod
+    def _multi_clean_top_ten_circulating_shareholders(
+            task: CleanTask
+    ) -> None:
+        """清洗前十流通股东（东财）"""
+
+    @staticmethod
+    def _multi_clean_top_ten_shareholders(
+            task: CleanTask
+    ) -> None:
+        """清洗前十股东（东财）"""
 
     # --------------------------
     # 公开 API 方法
@@ -724,6 +884,10 @@ class Cleaner:
                 self._clean_financial(code)
             elif self.data_name == "bonus_financing":
                 self._clean_bonus_financing(code)
+            elif self.data_name == "top_ten_circulating_shareholders":
+                self._clean_top_ten_circulating_shareholders(code)
+            elif self.data_name == "top_ten_shareholders":
+                self._clean_top_ten_shareholders(code)
 
     def multi_run(
             self
@@ -771,78 +935,3 @@ class Cleaner:
         finally:
             pool.close()
             pool.join()
-
-    # --------------------------
-    # 多进程方法
-    # --------------------------
-    @staticmethod
-    def _dispatch_task(task: CleanTask) -> None:
-        """任务分发入口"""
-        if task.task_type == "financial":
-            Cleaner._multi_clean_financial(task)
-        elif task.task_type == "bonus_financing":
-            Cleaner._multi_clean_bonus_financing(task)
-        else:
-            raise ValueError(f"未知任务类型: {task.task_type}")
-
-    @staticmethod
-    def _multi_clean_financial(
-            task: CleanTask
-    ) -> None:
-        """
-        下载财务数据（东财）
-             date   SECUCODE SECURITY_CODE SECURITY_NAME_ABBR  ORG_CODE ORG_TYPE  \
-        0  2002-03-31  600001.SH        600001               邯郸钢铁  10002253       通用
-        1  2001-12-31  600001.SH        600001               邯郸钢铁  10002253       通用
-        2  2001-06-30  600001.SH        600001               邯郸钢铁  10002253       通用
-        """
-        # 暂不支持金融类企业清洗
-        if Cleaner._is_financial_company(task.code, task.industry_map):
-            return
-
-        try:
-            for data_type in task.data_types:
-                file_name = f"{task.code}_{data_type}"
-                path = (task.source_dir / file_name).with_suffix(".parquet")
-                # 读取原始数据
-                raw_df = pd.read_parquet(path)
-                # 清洗原始数据
-                cleaner = CleanerToEastMoney(
-                    code=task.code,
-                    is_financial=Cleaner._is_financial_company(task.code, task.industry_map)
-                )
-                cleaned_df = cleaner.clean_financial_data(raw_df, data_type)
-                # 存储清洗后的数据
-                Cleaner._save_data(task.storage_dir, cleaned_df, file_name, sort_by=["date"])
-        except Exception as e:
-            print(f"清洗失败 | Code: {task.code} | Error: {str(e)}")
-
-    @staticmethod
-    def _multi_clean_bonus_financing(
-            task: CleanTask
-    ) -> None:
-        """
-        下载分红融资（东财）
-            SECUCODE SECURITY_CODE SECURITY_NAME_ABBR          NOTICE_DATE  \
-        0  002167.SZ        002167               东方锆业  2024-08-22 00:00:00
-        1  002167.SZ        002167               东方锆业  2024-04-19 00:00:00
-        """
-        for data_type in task.data_types:
-            file_name = f"{task.code}_{data_type}"
-            path = (task.source_dir / file_name).with_suffix(".parquet")
-            try:
-                # 读取原始数据
-                raw_df = pd.read_parquet(path)
-                # 清洗原始数据
-                cleaner = CleanerToEastMoney(
-                    code=task.code,
-                    is_financial=Cleaner._is_financial_company(task.code, task.industry_map)
-                )
-                cleaned_df = cleaner.clean_bonus_financing(raw_df, data_type)
-                # 存储清洗后的数据
-                if not cleaned_df.empty:
-                    Cleaner._save_data(task.storage_dir, cleaned_df, file_name, sort_by=["date"], subset=["date"])
-            except FileNotFoundError:
-                continue
-            except Exception as e:
-                print(f"清洗失败 | Code: {task.code} | Error: {str(e)}")

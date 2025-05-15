@@ -179,7 +179,6 @@ class Downloader:
                     exit(0)
 
 
-
 #############################################################
 class Cleaner:
     """数据清洗（支持股票/指数数据多进程清洗）"""
@@ -370,4 +369,13 @@ class Cleaner:
 
     def debug(self) -> None:
         """debug"""
-        self._clean_task(self.cleaner, self.code_list[0], self.dir_path, self.adjust_mode)
+        kline_dict = self.cleaner(
+            dir_=self.dir_path,
+            code=self.code_list[0],
+            adjusted_mode=self.adjust_mode
+        )
+        for dir_name, df in kline_dict.items():
+            path = (
+                self.dir_path / dir_name / self.adjust_mode if self.adjust_mode
+                else self.dir_path / dir_name)
+            Cleaner._save_data(path, df, self.code_list[0])
