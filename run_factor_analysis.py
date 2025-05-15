@@ -17,11 +17,11 @@ def update_support():
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="上下游占款周转天数",
+        source_dir="涨跌停次数",
         index_code="000300",
         factors_name=[
-            "上下游占款周转天数"
-            # "斜率_0.5", "斜率_1", "斜率_1.5", "斜率_2",
+            "涨停次数_0.09", "涨停次数_0.17", "涨停次数_0.25", "涨停次数_0.5", "涨停次数_1", "涨停次数_1.5", "涨停次数_2",
+            "跌停次数_0.09", "跌停次数_0.17", "跌停次数_0.25", "跌停次数_0.5", "跌停次数_1", "跌停次数_1.5", "跌停次数_2",
         ],
         cycle="week",
         standardization=True,
@@ -29,7 +29,7 @@ def factor_analysis():
         industry_neutral=False,
         restructure=False,
 
-        group_mode="frequency",
+        group_mode="distant",
         group_nums=10,
 
         # ！！！# 若大于1，则在因子端需要计算连续n日的收益率

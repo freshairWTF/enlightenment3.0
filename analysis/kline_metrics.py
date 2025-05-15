@@ -293,31 +293,29 @@ class KLineMetrics(Metrics, KlineDetermination):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
 
-        print(window)
-        print(self.annual_window)
-        print(rolling_window)
-        print(self.metrics["limit_up"])
-
         limit_up_number = self.metrics["limit_up"].rolling(
             window=rolling_window,
             min_periods=1
         ).sum()
-        print(limit_up_number)
 
-        print(dd)
+        self.metrics[f"涨停次数_{window}"] = limit_up_number
 
     def _limit_down_number(
             self,
             window: int
     ) -> None:
         """跌停次数"""
-        print(self.metrics)
-        print(self.metrics["limit_down"])
+        # 滚动窗口
+        rolling_window = int(window * self.annual_window)
 
-        print(dd)
+        limit_down_number = self.metrics["limit_down"].rolling(
+            window=rolling_window,
+            min_periods=1
+        ).sum()
+
+        self.metrics[f"跌停次数_{window}"] = limit_down_number
 
     """
-    涨停次数
     波动率
     资金流入
     """

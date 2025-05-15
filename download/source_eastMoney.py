@@ -30,15 +30,6 @@ class CrawlerToEastMoney:
     BONUS_FINANCING_URL = 'http://emweb.securities.eastmoney.com/PC_HSF10/BonusFinancing/PageAjax?'
     SHAREHOLDER_RESEARCH_URL = "https://datacenter.eastmoney.com/securities/api/data/v1/get"
 
-    """
-    
-https://datacenter.eastmoney.com/securities/api/data/v1/get
-?reportName=RPT_F10_EH_HOLDERS&columns=ALL&quoteColumns=
-&filter=(SECUCODE%3D%22600019.SH%22)(END_DATE%3D%272025-03-31%27)
-&pageNumber=1&pageSize=&sortTypes=1&sortColumns=HOLDER_RANK&source=
-HSF10&client=PC&v=082972985254534
-    """
-
     def __init__(
             self,
             code: str,
@@ -356,12 +347,15 @@ HSF10&client=PC&v=082972985254534
         """
         # 例：SH600019 -> 600019.SH
         self.code = self.code[2:] + "." +self.code[:2]
+        # 允许空值次数
+        empty_time = 3
 
         result = []
         # 生成报告日期列表
         date_list = self._generate_report_dates()
         # 日期反转，从近期开始爬取
         date_list.sort(reverse=True)
+
         for date in date_list:
             # 爬取数据
             ret = self._safe_request(
@@ -369,7 +363,10 @@ HSF10&client=PC&v=082972985254534
                 date
             )
             if ret.empty:
-                break
+                if empty_time == 0:
+                    break
+                else:
+                    empty_time -= 1
             # 暂停，规避反爬
             time.sleep(self.pause_time)
             # 添加数据
@@ -386,12 +383,15 @@ HSF10&client=PC&v=082972985254534
         """
         # 例：SH600019 -> 600019.SH
         self.code = self.code[2:] + "." +self.code[:2]
+        # 允许空值次数
+        empty_time = 3
 
         result = []
         # 生成报告日期列表
         date_list = self._generate_report_dates()
         # 日期反转，从近期开始爬取
         date_list.sort(reverse=True)
+
         for date in date_list:
             # 爬取数据
             ret = self._safe_request(
@@ -399,7 +399,10 @@ HSF10&client=PC&v=082972985254534
                 date
             )
             if ret.empty:
-                break
+                if empty_time == 0:
+                    break
+                else:
+                    empty_time -= 1
             # 暂停，规避反爬
             time.sleep(self.pause_time)
             # 添加数据

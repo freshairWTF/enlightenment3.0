@@ -71,12 +71,11 @@ def factor_analysis():
         end_date="2025-05-09",
 
         storage_dir_name="涨跌停次数",
-        # target_info={"全部": "三级行业"},
-        target_info=["000576"],
+        target_info={"全部": "三级行业"},
 
         index_code="000300",
         processes_nums=10,
-        debug=True
+        debug=False
     )
     analyzer.run()
 
@@ -148,6 +147,3 @@ if __name__ == "__main__":
     factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
-
-    # 因子测试
-    # 股价高低效应 分别试试 前复权与后复权的价格

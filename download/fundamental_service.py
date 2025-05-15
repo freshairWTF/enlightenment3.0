@@ -150,15 +150,34 @@ class Crawler:
                 cycle="original_day",
                 adjusted_mode="backward_adjusted"
             )
+
             # k线起始时间
             start_date = df.index[0]
-
             if financial:
                 start_date -= pd.DateOffset(years=1)
 
             return start_date if start_date > self.start_date else self.start_date
         except FileNotFoundError:
             return self.start_date
+
+    def _modify_end_date(self,
+            code: str
+    ) -> pd.Timestamp:
+        """
+        修正结束时间，以k线作为判定依据
+        部分退市股没有最新的数据，需要调整结束时间
+        :return: 修正后的结束时间
+        """
+        try:
+            df = self.loader.get_kline(
+                code=code,
+                cycle="original_day",
+                adjusted_mode="backward_adjusted"
+            )
+            end_date = df[df["tradestatus"] == 1].index[-1]
+            return end_date if end_date < self.end_date else self.end_date
+        except FileNotFoundError:
+            return self.end_date
 
     def _get_code_list(
             self
@@ -278,9 +297,8 @@ class Crawler:
             user_agent=self.get_user_agent(),
             pause_time=self.PAUSE_TIME["east_money"],
             start_date=self._modify_start_date(code=code),
-            end_date=self.end_date
+            end_date=self._modify_end_date(code=code)
         )
-
         try:
             df = crawler.get_top_ten_circulating_shareholders()
             if not df.empty:
@@ -309,9 +327,8 @@ class Crawler:
             user_agent=self.get_user_agent(),
             pause_time=self.PAUSE_TIME["east_money"],
             start_date=self._modify_start_date(code=code),
-            end_date=self.end_date
+            end_date=self._modify_end_date(code=code)
         )
-
         try:
             df = crawler.get_top_ten_shareholders()
             if not df.empty:
@@ -467,6 +484,77 @@ class Crawler:
     ) -> None:
         """执行爬取任务"""
         codes = self._get_code_list()
+        codes = [
+            "000013",
+            "000015",
+            "000023",
+            "000024",
+            "000033",
+            "000038",
+            "000040",
+            "000046",
+            "000150",
+            "000405",
+            "000406",
+            "000412",
+            "000413",
+            "000416",
+            "000418",
+            "000502",
+            "000508",
+            "000511",
+            "000515",
+            "000522",
+            "000527",
+            "000535",
+            "000540",
+            "000542",
+            "000549",
+            "000556",
+            "000562",
+            "000569",
+            "000578",
+            "000585",
+            "000587",
+            "000588",
+            "000594",
+            "000602",
+            "000606",
+            "000611",
+            "000613",
+            "000616",
+            "000618",
+            "000621",
+            "000622",
+            "000627",
+            "000653",
+            "000658",
+            "000660",
+            "000662",
+            "000666",
+            "000667",
+            "000671",
+            "000673",
+            "000675",
+            "000687",
+            "000689",
+            "000693",
+            "000699",
+            "000730",
+            "000732",
+            "000748",
+            "000760",
+            "000763",
+            "000769",
+            "000780",
+            "000805",
+            "000806",
+        ]
+
+
+
+
+
 
         self.logger.info(f"待处理股票数量：{len(codes)}")
         for idx, code in enumerate(codes, 1):

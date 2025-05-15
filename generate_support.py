@@ -22,8 +22,8 @@ def update_support():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="上下游占款周转天数",
-        storage_dir="上下游占款周转天数"
+        source_dir="涨跌停次数",
+        storage_dir="涨跌停次数"
     )
     convert.run()
 

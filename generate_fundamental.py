@@ -4,16 +4,13 @@ from download.fundamental_service import Crawler, Cleaner
 # --------------------------------------------------
 def download_fundamental():
     """下载基本面数据"""
-    """
-    已退市的个股拿最新的日期找不到数据，需要根据k线找到退市前的最后一根k线日期，然后推它的最新股东数据时间
-    """
     downloader = Crawler(
         data_name="top_ten_shareholders",
         start_date="2000-03-31",            # 起始时间
         end_date="2025-03-31",              # 结束时间
 
-        code="603896",                      # 代码：无需sh/sz前缀
-        filter_mode="all",                  # 可选：None/all/from_code
+        code="000810",                      # 代码：无需sh/sz前缀
+        filter_mode="from_code",                  # 可选：None/all/from_code
         industry_info=None,                 # 指定行业
 
         announcement_max_page=1000          # 公告标题最大页数
