@@ -11,6 +11,7 @@ class FactorSetting:
     factor_name: str                            # 因子名
     primary_classification: str                 # 一级分类
     secondary_classification: str               # 二级分类
+    half_life: int                              # 半衰期
 
     reverse: bool = False                       # 方向反转
     standardization: bool = True                # 标准化

@@ -1,0 +1,7 @@
+# ========== 公司治理指标映射文件 ==========
+
+PARAMETERS_OF_GOVERNANCE:
+    总股本CR10: [占总股本持股比例]
+
+FUNCTION_OF_GOVERNANCE:
+    总股本CR10: _shareholders_cr10

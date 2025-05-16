@@ -418,6 +418,32 @@ class DataLoader:
         return df.sort_index()
 
     @classmethod
+    def get_top_ten_shareholders(
+            cls,
+            code: str
+    ) -> pd.DataFrame:
+        """
+        获取前十大股东
+        :param code: 代码
+        :return: 清洗过的前十大股东
+        """
+        path = (DataPATH.TOP_TEN_SHAREHOLDERS / code).with_suffix(".parquet")
+        return cls._read_parquet(path)
+
+    @classmethod
+    def get_top_ten_circulating_shareholders(
+            cls,
+            code: str
+    ) -> pd.DataFrame:
+        """
+        获取前十大流通股东
+        :param code: 代码
+        :return: 清洗过的前十大流通股东
+        """
+        path = (DataPATH.TOP_TEN_CIRCULATING_SHAREHOLDERS / code).with_suffix(".parquet")
+        return cls._read_parquet(path)
+
+    @classmethod
     @validate_literal_params
     def get_index_kline(
             cls,

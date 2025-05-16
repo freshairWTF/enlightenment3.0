@@ -28,6 +28,7 @@ class DataPATH:
     FINANCIAL_METRICS = BASE_DIR / "analysis" / "financial_metrics"
     KLINE_METRICS = BASE_DIR / "analysis" / "kline_metrics"
     VALUATION_METRICS = BASE_DIR / "analysis" / "valuation_metrics"
+    GOVERNANCE_METRICS = BASE_DIR / "analysis" / "governance_metrics"
     STATISTICS_METRICS = BASE_DIR / "analysis" / "statistics_metrics"
 
     MAC_ANALYSIS_RESULT = BASE_DIR / "result_data" / "分析宏观"

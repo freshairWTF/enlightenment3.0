@@ -34,5 +34,5 @@ def clean_fundamental():
 
 # ------------------------- 执行入口 -------------------------
 if __name__ == "__main__":
-    download_fundamental()
-    # clean_fundamental()
+    # download_fundamental()
+    clean_fundamental()

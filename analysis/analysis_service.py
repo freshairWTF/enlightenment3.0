@@ -21,6 +21,7 @@ from stats_metrics import StatisticsMetrics, IndividualStatisticsMetrics
 from kline_metrics import KLineMetrics
 from valuation_metrics import ValuationMetrics
 from financial_metrics import FinancialMetrics
+from governance_metrics import GovernanceMetrics
 
 import warnings
 warnings.filterwarnings(
@@ -417,10 +418,26 @@ class Analyzer:
     ) -> dict:
         """获取指标方法名（财务、估值、k线、统计）"""
         return {
-            "FINANCIAL": self.loader.load_yaml_file(DataPATH.FINANCIAL_METRICS, "FUNCTION_OF_FINANCIAL"),
-            "KLINE": self.loader.load_yaml_file(DataPATH.KLINE_METRICS, "FUNCTION_OF_KLINE"),
-            "VALUATION": self.loader.load_yaml_file(DataPATH.VALUATION_METRICS, "FUNCTION_OF_VALUATION"),
-            "STATISTICS": self.loader.load_yaml_file(DataPATH.STATISTICS_METRICS, "FUNCTION_OF_STATISTICS"),
+            "FINANCIAL": self.loader.load_yaml_file(
+                DataPATH.FINANCIAL_METRICS,
+                "FUNCTION_OF_FINANCIAL"
+            ),
+            "KLINE": self.loader.load_yaml_file(
+                DataPATH.KLINE_METRICS,
+                "FUNCTION_OF_KLINE"
+            ),
+            "VALUATION": self.loader.load_yaml_file(
+                DataPATH.VALUATION_METRICS,
+                "FUNCTION_OF_VALUATION"
+            ),
+            "GOVERNANCE": self.loader.load_yaml_file(
+                DataPATH.GOVERNANCE_METRICS,
+                "FUNCTION_OF_GOVERNANCE"
+            ),
+            "STATISTICS": self.loader.load_yaml_file(
+                DataPATH.STATISTICS_METRICS,
+                "FUNCTION_OF_STATISTICS"
+            ),
         }
 
     # --------------------------
@@ -483,8 +500,10 @@ class Analyzer:
         # -1 估值使用后复权数据 -2 技术使用前复权数据
         backward_adjusted_kline = self._load_kline_data(code, "backward_adjusted")
         split_adjusted_kline = self._load_kline_data(code, "split_adjusted")
+        
         bonus = self._load_bonus(code)
-
+        top_ten_shareholders = self._get_top_ten_shareholders(code)
+        
         # --------------------------
         # 指标计算
         # --------------------------
@@ -734,21 +753,52 @@ class Analyzer:
 
         return calculator.metrics.round(4)
 
+    def _get_top_ten_shareholders(
+            self,
+            code: str
+    ) -> pd.DataFrame:
+        """
+        加载股东数据
+        :param code: 企业代码
+        """
+        governance = GovernanceMetrics(
+            shareholders=self.loader.get_top_ten_shareholders(code),
+            circulating_shareholders=self.loader.get_top_ten_circulating_shareholders(code),
+            methods=sum(self.PARAMS.governance.__dict__.values(), []),
+            function_map=self.MAPPING["GOVERNANCE"],
+        )
+        governance.calculate()
+        # print(df)
+        # print(df.columns)
+        # """
+        # Index(['名次', '股东名称', '股份类型', '持股数', '占总股本持股比例', '增减', '变动比例'], dtype='object')
+        # Index(['名次', '股东名称', '股东性质', '股份类型', '持股数', '占流通股本持股比例', '增减', '变动比例'], dtype='object')
+        # """
+        # df = self.loader.get_top_ten_circulating_shareholders(code)
+        # print(df)
+        # print(df.columns)
+        print(dd)
+
     def _load_bonus(
             self,
             code: str
     ) -> pd.DataFrame:
-        """加载分红数据"""
-        return self.loader.get_bonus(
-            code=code
-        )
-
+        """
+        加载分红数据
+        :param code: 企业代码
+        """
+        return self.loader.get_bonus(code=code)
+        
     def _load_shares(
             self,
             code: str,
             financial_date: pd.DatetimeIndex
     ) -> pd.DataFrame:
-        """加载总股本数据"""
+        """
+        加载总股本数据
+        :param code: 企业代码
+        :param financial_date:
+        """
         return self.loader.get_total_shares(
             code=code,
             financial_date=financial_date

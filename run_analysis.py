@@ -17,8 +17,8 @@ def individual_analysis():
         start_date="2000-03-30",
         financial_end_date="2025-03-31",
         end_date="2025-05-12",
-        storage_dir_name="英维克25Q1",
-        target_info="002837",
+        storage_dir_name="十大股东数据测试25Q1",
+        target_info="603896",
         debug=True
     )
     analyzer.run()
@@ -142,8 +142,8 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    # individual_analysis()
+    individual_analysis()
     # normal_analysis()
-    factor_analysis()
+    # factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()

@@ -13,6 +13,8 @@ class Individual:
         self.valuation = self.Valuation()
         # 量价模块
         self.kline = self.Kline()
+        # 公司治理模块
+        self.governance = self.Governance()
         # 统计模块
         self.stat = self.Statistics()
         # 可视化模块
@@ -124,6 +126,12 @@ class Individual:
             self.kline = {
                 "市场贝塔": [1]
             }
+
+    class Governance:
+        def __init__(self):
+            self.governance = [
+                "总股本CR10"
+            ]
 
     class Statistics:
         def __init__(self):

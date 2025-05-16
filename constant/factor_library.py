@@ -1,3 +1,4 @@
+"""因子库"""
 from constant.quant_setting import FactorSetting
 
 
@@ -62,6 +63,7 @@ FACTOR_LIBRARY = {
         factor_name="对数市值",
         primary_classification="基本面因子",
         secondary_classification="估值因子",
+        # half_life=1,
         market_value_neutral=False,
         reverse=True,
         entire_filter=True,
@@ -71,6 +73,7 @@ FACTOR_LIBRARY = {
         factor_name="对数市值_rolling_normalized",
         primary_classification="基本面因子",
         secondary_classification="估值因子",
+        # half_life=1,
         market_value_neutral=False,
         reverse=True,
         small_filter=True
