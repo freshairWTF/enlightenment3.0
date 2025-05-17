@@ -497,13 +497,16 @@ class Analyzer:
         # --------------------------
         # 加载数据
         # --------------------------
+        governance = self._calc_governance(code)
+        print(governance)
+        print(dd)
+
         # -1 估值使用后复权数据 -2 技术使用前复权数据
         backward_adjusted_kline = self._load_kline_data(code, "backward_adjusted")
         split_adjusted_kline = self._load_kline_data(code, "split_adjusted")
         
         bonus = self._load_bonus(code)
-        top_ten_shareholders = self._get_top_ten_shareholders(code)
-        
+
         # --------------------------
         # 指标计算
         # --------------------------
@@ -537,6 +540,9 @@ class Analyzer:
                 True
             )
         )
+
+        governance = self._calc_governance(code)
+        print(dd)
 
         # 财务（时间索引转变为披露时间、填充数据）
         if self.mode == "quant":
@@ -753,32 +759,6 @@ class Analyzer:
 
         return calculator.metrics.round(4)
 
-    def _get_top_ten_shareholders(
-            self,
-            code: str
-    ) -> pd.DataFrame:
-        """
-        加载股东数据
-        :param code: 企业代码
-        """
-        governance = GovernanceMetrics(
-            shareholders=self.loader.get_top_ten_shareholders(code),
-            circulating_shareholders=self.loader.get_top_ten_circulating_shareholders(code),
-            methods=sum(self.PARAMS.governance.__dict__.values(), []),
-            function_map=self.MAPPING["GOVERNANCE"],
-        )
-        governance.calculate()
-        # print(df)
-        # print(df.columns)
-        # """
-        # Index(['名次', '股东名称', '股份类型', '持股数', '占总股本持股比例', '增减', '变动比例'], dtype='object')
-        # Index(['名次', '股东名称', '股东性质', '股份类型', '持股数', '占流通股本持股比例', '增减', '变动比例'], dtype='object')
-        # """
-        # df = self.loader.get_top_ten_circulating_shareholders(code)
-        # print(df)
-        # print(df.columns)
-        print(dd)
-
     def _load_bonus(
             self,
             code: str
@@ -878,6 +858,23 @@ class Analyzer:
         )
         calculator.calculate()
         return calculator.metrics.round(4)
+
+    def _calc_governance(
+            self,
+            code: str
+    ) -> pd.DataFrame:
+        """
+        加载股东数据
+        :param code: 企业代码
+        """
+        governance = GovernanceMetrics(
+            shareholders=self.loader.get_top_ten_shareholders(code),
+            circulating_shareholders=self.loader.get_top_ten_circulating_shareholders(code),
+            methods=sum(self.PARAMS.governance.__dict__.values(), []),
+            function_map=self.MAPPING["GOVERNANCE"],
+        )
+        governance.calculate()
+        return governance.metrics.round(2)
 
     # --------------------------
     # 聚合、合成、统计方法

@@ -18,18 +18,8 @@ from utils.data_processor import DataProcessor
 
 """
 一、股权集中度类因子
-
 二、股东行为动态因子
- 股东增减持强度 
- 计算 ：单季度股东持股数量变动比例
-。
- 策略 ：控股股东增持>5%可能释放积极信号（如海量数据案例中端木潇漪增持111.97%）
-。
- 新进/退出股东占比 
- 定义 ：新进或退出十大股东名单的持股比例变化
-。
- 案例 ：魏国强等新股东进入可能预示资金关注度提升，而华商基金退出可能引发流动性担忧
-。
+
 三、机构参与度因子
  机构持股集中度 
  计算 ：机构投资者（公募、私募、外资）合计持股比例
@@ -104,17 +94,8 @@ class GovernanceMetrics(Metrics, KlineDetermination):
         :param methods: 需要实现的方法
         :param function_map: 已定义的方法对应方法名
         """
-
-        """
-        不能分开计算，不然setting需要多写，很麻烦
-        """
         self.shareholders_data = self._merger_data(shareholders, circulating_shareholders)
-        print(self.shareholders_data.columns)
-        print(function_map)
-        print(methods)
-        # print(dd)
         self.metrics = pd.DataFrame()
-
         self.function_map = function_map
         self.methods = methods
 
@@ -163,30 +144,37 @@ class GovernanceMetrics(Metrics, KlineDetermination):
     # --------------------------
     # 量价 私有方法
     # --------------------------
-    def _shareholders_cr10(self) -> None:
+    def _shareholding_cr10(self) -> None:
         """前十大股东合计占比"""
         self.metrics["CR10"] = self.shareholders_data.groupby(level=0)["占总股本持股比例"].sum()
 
-    def _circulating_shareholders_cr10(self) -> None:
+    def _circulating_shareholding_cr10(self) -> None:
         """前十大流通股东合计占比"""
         self.metrics["流通CR10"] = self.shareholders_data.groupby(level=0)["占流通股本持股比例"].sum()
 
-    def _shareholders_cr10_hhi(self) -> None:
+    def _major_shareholding(self) -> None:
+        """大股东合计占比"""
+        self.metrics["大股东合计占比"] = (
+            self.shareholders_data.groupby(level=0)["占总股本持股比例"]
+            .agg(lambda x: x[x>=5].sum())
+        )
+
+    def _shareholding_cr10_hhi(self) -> None:
         """
         ‌赫芬达尔指数 = 前10大股东持股比例的平方和
         """
         self.metrics["赫芬达尔指数"] = (
             self.shareholders_data.groupby(level=0)["占总股本持股比例"]
-            .agg(lambda x: (x**2).sum())
+            .agg(lambda x: ((x/100)**2).sum())
         )
 
-    def _circulating_shareholders_cr10_hhi(self) -> None:
+    def _circulating_shareholding_cr10_hhi(self) -> None:
         """
         ‌赫芬达尔指数 = 前10大流通股东持股比例的平方和
         """
         self.metrics["流通赫芬达尔指数"] = (
             self.shareholders_data.groupby(level=0)["占流通股本持股比例"]
-            .agg(lambda x: (x**2).sum())
+            .agg(lambda x: ((x/100)**2).sum())
         )
 
     def _shareholders_z_index(self) -> None:
@@ -210,3 +198,53 @@ class GovernanceMetrics(Metrics, KlineDetermination):
                           x[x["名次"] == 2]["占流通股本持股比例"].values[0]
             )
         )
+
+    @depends_on("CR10")
+    def _top_ten_shareholding_change_rate(self) -> None:
+        """
+        前十大股东持股变化率 = 前十大股东持股总额变化率
+        """
+        self.metrics["前十大股东持股变化率"] = self.metrics["CR10"].diff(1)
+
+    @depends_on("大股东合计占比")
+    def _major_shareholding_change_rate(self) -> None:
+        """
+        大股东持股变化率 = 大股东持股总额变化率
+        """
+        self.metrics["大股东持股变化率"] = self.metrics["大股东合计占比"].diff(1)
+
+    def _institutional_shareholding(self) -> None:
+        """
+        机构持股比例
+        流通股东性质：证券公司、私募基金、社保基金、保险产品、信托计划、集合理财计划、
+                   全国社保基金、证券投资基金、基本养老基金、其他理财产品、QFII
+        流通股东名称：中央汇金资产管理有限责任公司、中国证券金融股份有限公司
+        """
+        nature = [
+            "证券公司", "私募基金", "社保基金", "保险产品", "信托计划", "集合理财计划",
+            "全国社保基金", "证券投资基金", "基本养老基金", "其他理财产品", "QFII"
+        ]
+        name = [
+            "中央汇金资产管理有限责任公司", "中国证券金融股份有限公司"
+        ]
+        filtered = self.shareholders_data[
+            self.shareholders_data["流通股东性质"].isin(nature) |
+            self.shareholders_data["流通股东名称"].isin(name)
+        ]
+
+        self.metrics["机构持股比例"] = filtered.groupby("date")["占流通股本持股比例"].sum()
+
+    def _foreign_shareholding(self) -> None:
+        """
+        外资持股比例
+        流通股东性质：QFII
+        流通股东名称：香港中央结算有限公司
+        """
+        nature = ["QFII"]
+        name = ["香港中央结算有限公司"]
+        filtered = self.shareholders_data[
+            self.shareholders_data["流通股东性质"].isin(nature) |
+            self.shareholders_data["流通股东名称"].isin(name)
+        ]
+
+        self.metrics["外资持股比例"] = filtered.groupby("date")["占流通股本持股比例"].sum()

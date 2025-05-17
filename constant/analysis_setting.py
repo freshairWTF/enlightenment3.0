@@ -130,7 +130,8 @@ class Individual:
     class Governance:
         def __init__(self):
             self.governance = [
-                "CR10", "赫芬达尔指数", "Z指数"
+                "CR10", "大股东合计占比", "赫芬达尔指数", "Z指数", "前十大股东持股变化率",
+                "大股东持股变化率", "机构持股比例"
             ]
 
     class Statistics:

@@ -4,18 +4,34 @@ PARAMETERS_OF_GOVERNANCE:
     CR10: [占总股本持股比例]
     流通CR10: [占流通股本持股比例]
 
+    大股东合计占比: [占总股本持股比例]
+
     赫芬达尔指数: [占总股本持股比例]
     流通‌赫芬达尔指数: [占流通股本持股比例]
 
     Z指数: [占总股本持股比例, 名次]
     流通Z指数: [占流通股本持股比例, 名次]
 
-FUNCTION_OF_GOVERNANCE:
-    CR10: _shareholders_cr10
-    流通CR10: _circulating_shareholders_cr10
+    前十大股东持股变化率: [CR10]
 
-    赫芬达尔指数: _shareholders_cr10_hhi
-    ‌流通‌赫芬达尔指数: _circulating_shareholders_cr10_hhi
+    大股东持股变化率: [大股东合计占比]
+
+    机构持股比例: [占流通股本持股比例, 流通股东性质]
+
+FUNCTION_OF_GOVERNANCE:
+    CR10: _shareholding_cr10
+    流通CR10: _circulating_shareholding_cr10
+
+    大股东合计占比: _major_shareholding
+
+    赫芬达尔指数: _shareholding_cr10_hhi
+    ‌流通‌赫芬达尔指数: _circulating_shareholding_cr10_hhi
 
     Z指数: _shareholders_z_index
     流通Z指数: _circulating_shareholders_z_index
+
+    前十大股东持股变化率: _top_ten_shareholding_change_rate
+
+    大股东持股变化率: _major_shareholding_change_rate
+
+    机构持股比例: _institutional_shareholding
