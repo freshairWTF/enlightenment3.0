@@ -1,37 +1,46 @@
 # ========== 公司治理指标映射文件 ==========
 
 PARAMETERS_OF_GOVERNANCE:
-    CR10: [占总股本持股比例]
-    流通CR10: [占流通股本持股比例]
+    前十大股东持股比例: [占总股本持股比例]
+    前十大股东持股变化率: [占总股本持股比例]
 
-    大股东合计占比: [占总股本持股比例]
+    流通前十大股东持股比例: [占流通股本持股比例]
+    流通前十大股东持股变化率: [占流通股本持股比例]
+
+    大股东持股比例: [占总股本持股比例]
+    大股东持股变化率: [占总股本持股比例]
+
+    机构持股比例: [流通股东性质, 流通股东名称, 占流通股本持股比例]
+    机构持股变化率: [流通股东性质, 流通股东名称, 占流通股本持股比例]
+
+    外资持股比例: [流通股东性质, 流通股东名称, 占流通股本持股比例]
+    外资持股变化率: [流通股东性质, 流通股东名称, 占流通股本持股比例]
 
     赫芬达尔指数: [占总股本持股比例]
-    流通‌赫芬达尔指数: [占流通股本持股比例]
+    ‌流通‌赫芬达尔指数: [占总股本持股比例]
 
-    Z指数: [占总股本持股比例, 名次]
-    流通Z指数: [占流通股本持股比例, 名次]
+    z指数: [占总股本持股比例]
+    流通z指数: [占总股本持股比例]
 
-    前十大股东持股变化率: [CR10]
-
-    大股东持股变化率: [大股东合计占比]
-
-    机构持股比例: [占流通股本持股比例, 流通股东性质]
 
 FUNCTION_OF_GOVERNANCE:
-    CR10: _shareholding_cr10
-    流通CR10: _circulating_shareholding_cr10
-
-    大股东合计占比: _major_shareholding
-
-    赫芬达尔指数: _shareholding_cr10_hhi
-    ‌流通‌赫芬达尔指数: _circulating_shareholding_cr10_hhi
-
-    Z指数: _shareholders_z_index
-    流通Z指数: _circulating_shareholders_z_index
-
+    前十大股东持股比例: _top_ten_shareholding
     前十大股东持股变化率: _top_ten_shareholding_change_rate
 
+    流通前十大股东持股比例: _circulating_top_ten_shareholding
+    流通前十大股东持股变化率: _circulating_top_ten_shareholding_change_rate
+
+    大股东持股比例: _major_shareholding
     大股东持股变化率: _major_shareholding_change_rate
 
     机构持股比例: _institutional_shareholding
+    机构持股变化率: _institutional_shareholding_change_rate
+
+    外资持股比例: _foreign_shareholding
+    外资持股变化率: _foreign_shareholding_change_rate
+
+    赫芬达尔指数: _top_ten_shareholding_hhi
+    ‌流通‌赫芬达尔指数: _circulating_top_ten_shareholding_hhi
+
+    z指数: _z_index
+    流通z指数: _circulating_z_index

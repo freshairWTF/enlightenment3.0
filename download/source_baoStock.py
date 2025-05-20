@@ -463,16 +463,17 @@ class BaoStockCleaner:
         )
 
         # 判定涨跌停板
-        limit_up, limit_down = cls._limit_up_and_down(
-            adjust_day_k,
-            code,
-            adjusted_mode,
-            dir_
-        )
-        if adjusted_mode == SheetName.FORWARD.value:
-            adjust_day_k["limit_up"], adjust_day_k["limit_down"] = limit_up.values, limit_down.values
-        elif adjusted_mode == SheetName.BACKWARD.value:
-            adjust_day_k = pd.merge(adjust_day_k, limit_up.merge(limit_down, on='date'), on='date', how='inner')
+        if adjusted_mode in [SheetName.BACKWARD.value, SheetName.FORWARD.value]:
+            limit_up, limit_down = cls._limit_up_and_down(
+                adjust_day_k,
+                code,
+                adjusted_mode,
+                dir_
+            )
+            if adjusted_mode == SheetName.FORWARD.value:
+                adjust_day_k["limit_up"], adjust_day_k["limit_down"] = limit_up.values, limit_down.values
+            elif adjusted_mode == SheetName.BACKWARD.value:
+                adjust_day_k = pd.merge(adjust_day_k, limit_up.merge(limit_down, on='date'), on='date', how='inner')
 
         # ---------------------------------------
         # 数据合成模块
