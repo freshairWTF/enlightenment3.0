@@ -1,10 +1,15 @@
-import numpy as np
+"""
+公司治理指标
+一、股权集中度类因子
+二、股东行为动态因子
+三、机构参与度因子
+四、风险预警类因子
+五、股东类型多样性因子
+"""
 import pandas as pd
 
-from base_metrics import Metrics, depends_on
-from constant.type_ import CYCLE, validate_literal_params
-from kline_determination import KlineDetermination
-from utils.data_processor import DataProcessor
+from base_metrics import depends_on
+from constant.type_ import validate_literal_params
 
 """
 标记半衰期
@@ -16,30 +21,11 @@ from utils.data_processor import DataProcessor
 赫芬达尔指数：测算行业集中度
 """
 
-"""
-一、股权集中度类因子
-二、股东行为动态因子
-三、机构参与度因子
 
-四、风险预警类因子
- 股东质押比例 
- 股权冻结/受限比例 
-五、股东类型多样性因子
- 股东性质分布熵值 
- 定义 ：计算个人、机构、外资等股东类型的分布离散度
-。
- 逻辑 ：熵值越高表明股东背景越多元，治理结构更平衡（如外资+机构+个人组合优于单一类型）
-。
- 实际控制人持股稳定性 
- 指标 ：实控人连续3年持股比例波动率
-。
- 案例 ：实控人持股比例从57.77%降至40%可能预示控制权争夺风险
-"""
 ###############################################################
-class GovernanceMetrics(Metrics, KlineDetermination):
+class GovernanceMetrics:
     """
     公司治理指标
-    指标命名规则：指标名_计算窗口
     """
 
     @validate_literal_params

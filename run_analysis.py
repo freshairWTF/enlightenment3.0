@@ -17,7 +17,7 @@ def individual_analysis():
         start_date="2000-03-30",
         financial_end_date="2025-03-31",
         end_date="2025-05-12",
-        storage_dir_name="十大股东数据测试25Q1",
+        storage_dir_name="公司治理指标测试25Q1",
         target_info="603896",
         debug=True
     )

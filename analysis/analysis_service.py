@@ -289,6 +289,7 @@ class Analyzer:
         return {
             "financial": {},            # 财务
             "rolling_financial": {},    # 滚动财务
+            "governance": {},           # 公司治理
             "kline": {},                # 量价
             "valuation": {},            # 估值
             "stat": {},                 # 统计
@@ -497,10 +498,6 @@ class Analyzer:
         # --------------------------
         # 加载数据
         # --------------------------
-        governance = self._calc_governance(code)
-        print(governance)
-        print(dd)
-
         # -1 估值使用后复权数据 -2 技术使用前复权数据
         backward_adjusted_kline = self._load_kline_data(code, "backward_adjusted")
         split_adjusted_kline = self._load_kline_data(code, "split_adjusted")
@@ -508,7 +505,7 @@ class Analyzer:
         bonus = self._load_bonus(code)
 
         # --------------------------
-        # 指标计算
+        # 指标计算（技术指标/基本面指标/公司治理指标）
         # --------------------------
         split_adjusted_kline = self._calculate_kline(
             split_adjusted_kline,
@@ -542,17 +539,23 @@ class Analyzer:
         )
 
         governance = self._calc_governance(code)
-        print(dd)
 
-        # 财务（时间索引转变为披露时间、填充数据）
+        # --------------------------
+        # 时间索引转变为披露时间、填充数据(财务/公司治理）
+        # --------------------------
         if self.mode == "quant":
             rolling_financial.index = self._convert_to_disclose_date(rolling_financial.index)
             rolling_financial_to_value.index = self._convert_to_disclose_date(rolling_financial_to_value.index)
+            governance.index = self._convert_to_disclose_date(governance.index)
             rolling_financial = self._fill_financial_data(rolling_financial)
+            governance = self._fill_financial_data(governance)
 
         # 任意模式，均需填充
         rolling_financial_to_value = self._fill_financial_data(rolling_financial_to_value)
 
+        # --------------------------
+        # 估值指标计算
+        # --------------------------
         # 加载总股本
         shares = self._load_shares(
             code,
@@ -566,7 +569,9 @@ class Analyzer:
             shares
         )
 
-        # 权重
+        # --------------------------
+        # 权重计算
+        # --------------------------
         if self.dimension == "micro" or self.weight_name == "等权":
             weight = pd.DataFrame()
         else:
@@ -582,6 +587,7 @@ class Analyzer:
             "rolling_financial": rolling_financial,
             "financial": financial if self.mode != "quant" else pd.DataFrame(),
             "valuation": value,
+            "governance": governance,
             "kline": split_adjusted_kline,
             "weight": weight
         })
@@ -603,7 +609,7 @@ class Analyzer:
             bonus = self._load_bonus(code)
 
             # --------------------------
-            # 指标计算
+            # 指标计算（技术指标/基本面指标/公司治理指标）
             # --------------------------
             split_adjusted_kline = self._calculate_kline(
                 split_adjusted_kline,
@@ -635,14 +641,23 @@ class Analyzer:
                 )
             )
 
-            # 财务（时间索引转变为披露时间、填充数据）
+            governance = self._calc_governance(code)
+
+            # --------------------------
+            # 时间索引转变为披露时间、填充数据(财务/公司治理）
+            # --------------------------
             if self.mode == "quant":
                 rolling_financial.index = self._convert_to_disclose_date(rolling_financial.index)
                 rolling_financial_to_value.index = self._convert_to_disclose_date(rolling_financial_to_value.index)
+                governance.index = self._convert_to_disclose_date(governance.index)
                 rolling_financial = self._fill_financial_data(rolling_financial)
+                governance = self._fill_financial_data(governance)
             # 任意模式，均需填充
             rolling_financial_to_value = self._fill_financial_data(rolling_financial_to_value)
 
+            # --------------------------
+            # 估值指标计算
+            # --------------------------
             # 加载总股本
             shares = self._load_shares(
                 code,
@@ -656,7 +671,9 @@ class Analyzer:
                 shares
             )
 
-            # 权重
+            # --------------------------
+            # 权重计算
+            # --------------------------
             if self.dimension == "micro" or self.weight_name == "等权":
                 weight = pd.DataFrame()
             else:
@@ -672,6 +689,7 @@ class Analyzer:
                 "rolling_financial": rolling_financial,
                 "financial": financial if self.mode != "quant" else pd.DataFrame(),
                 "valuation": value,
+                "governance": governance,
                 "kline": split_adjusted_kline,
                 "weight": weight
             })
