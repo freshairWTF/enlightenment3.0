@@ -35,13 +35,16 @@ def xgboost_multi_factors_model(cycle_):
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250503-WEEK"
-    storage_dir = "模型跟踪/linear-20250503W-全部股票-20组-ir衰退加权-滚动12期-等权仓位"
+    source_dir = "20250502-WEEK-混合"
+    storage_dir = "模型回测/linear-20250503W-全部股票-20组-ir衰退加权-滚动12期-等权仓位-entire-新因子集"
 
     # 因子参数设置
     cycle = "week"
-    factors_setting = list(FACTOR_LIBRARY.values())
+    factors_setting = list(FACTOR_LIBRARY_1.values())
 
+    """
+    核心因子长期用 + 动态因子 看市场用
+    """
     # 模型参数设置
     model_setting = ModelSetting(
         industry_info={"全部": "三级行业"},
@@ -58,7 +61,13 @@ if __name__ == "__main__":
         factor_weight_window=12,
 
         position_weight_method="group_equal",
-        position_distribution=(1, 1)
+        position_distribution=(1, 1),
+
+        factor_filter=True,
+        # factor_primary_classification=["基本面因子"],
+        # factor_secondary_classification=["估值因子"],
+        factor_filter_mode=["_entire_filter"]
+        # factor_half_life=(3, 6),
     )
 
     # 回测

@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from constant.type_ import CLASS_LEVEL, GROUP_MODE, FACTOR_WEIGHT, FILTER_MODE, POSITION_WEIGHT
+from constant.type_ import (
+    CLASS_LEVEL, GROUP_MODE, FACTOR_WEIGHT,
+    FILTER_MODE, POSITION_WEIGHT, CYCLE
+)
 
 
 #####################################################
@@ -11,6 +14,9 @@ class FactorSetting:
     factor_name: str                            # 因子名
     primary_classification: str                 # 一级分类
     secondary_classification: str               # 二级分类
+    filter_mode: FILTER_MODE                    # 过滤模式
+
+    cycle: CYCLE = "week"                       # 周期
     half_life: int = 100                        # 半衰期，默认100期
 
     reverse: bool = False                       # 方向反转
@@ -27,26 +33,37 @@ class FactorSetting:
     small_filter: bool = False                  # 小市值
     mega_filter: bool = False                   # 超大市值
 
+    bull_market: bool = False                   # 牛市
+    bear_market: bool = False                   # 熊市
+    shocking_market: bool = False               # 震荡市
+
 
 #####################################################
 @dataclass
 class ModelSetting:
     """模型配置信息"""
-    industry_info: dict[str, str]                       # 行业信息
-    filter_mode: FILTER_MODE                            # 过滤模式
+    industry_info: dict[str, str]                                   # 行业信息
+    filter_mode: FILTER_MODE                                        # 过滤模式
 
-    position_weight_method: POSITION_WEIGHT             # 仓位权重方法
-    position_distribution: tuple[float, float]          # 仓位集中度
+    position_weight_method: POSITION_WEIGHT                         # 仓位权重方法
+    position_distribution: tuple[float, float]                      # 仓位集中度
 
-    factors_setting: list[FactorSetting]                # 因子设置
-    class_level: CLASS_LEVEL = "一级行业"                 # 中性化行业
-    lag_period: int = 1                                 # 滞后周期
+    factors_setting: list[FactorSetting]                            # 因子设置
+    class_level: CLASS_LEVEL = "一级行业"                             # 中性化行业
+    lag_period: int = 1                                             # 滞后周期
 
-    group_nums: int = 10                                # 分组数
-    group_mode: GROUP_MODE = "frequency"                # 分组方法
+    group_nums: int = 10                                            # 分组数
+    group_mode: GROUP_MODE = "frequency"                            # 分组方法
 
-    factor_weight_method: FACTOR_WEIGHT = "equal"       # 因子权重方法
-    factor_weight_window: int = 12                      # 因子权重窗口数
+    factor_weight_method: FACTOR_WEIGHT = "equal"                   # 因子权重方法
+    factor_weight_window: int = 12                                  # 因子权重窗口数
+
+    factor_filter: bool = False                                     # 因子过滤
+    factor_primary_classification: list[str] | None = None          # 因子一级分类
+    factor_secondary_classification: list[str] | None = None        # 因子二级分类
+    factor_half_life: tuple[int, int] | None = None                 # 因子半衰期区间
+    factor_market: list[str] | None = None                          # 因子市场
+    factor_filter_mode: list[FILTER_MODE] | None = None             # 因子过滤模式
 
 
 #####################################################

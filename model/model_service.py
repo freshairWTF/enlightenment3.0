@@ -33,6 +33,7 @@ class ModelAnalyzer(BaseService):
     DESCRIPTIVE_FACTOR = [
         "市值", "市净率"
     ]
+    predict_date = "2100-01-01"
 
     def __init__(
             self,
@@ -57,8 +58,6 @@ class ModelAnalyzer(BaseService):
         self.cycle = cycle
         self.benchmark_code = benchmark_code
         self.filter_mode = self.model_setting.filter_mode
-
-        self.predict_date = "2100-01-01"
 
         # --------------------------
         # 初始化配置参数
@@ -90,6 +89,11 @@ class ModelAnalyzer(BaseService):
         self.listed_nums = self.load_listed_nums()
         self.raw_data = self.load_factor_data(self.source_dir)
         self.target_codes = self._get_target_codes()
+
+        # --------------------------
+        # 过滤因子
+        # --------------------------
+        self.model_setting.factors_setting = self._factor_filter()
 
         # --------------------------
         # 因子名
@@ -128,6 +132,38 @@ class ModelAnalyzer(BaseService):
         for setting in self.model_setting.factors_setting:
             result[setting.secondary_classification].append(f"processed_{setting.factor_name}")
         return {k: list(dict.fromkeys(v)) for k, v in result.items()}
+
+    def _factor_filter(
+            self
+    ) -> list:
+        """因子过滤"""
+        if not self.model_setting.factor_filter:
+            return self.model_setting.factors_setting
+
+        result = []
+        primary_cats = self.model_setting.factor_primary_classification or []
+        secondary_cats = self.model_setting.factor_secondary_classification or []
+        half_life_range = self.model_setting.factor_half_life or (0, float('inf'))
+        filter_modes = self.model_setting.factor_filter_mode or set()
+
+        for setting in self.model_setting.factors_setting:
+            # 检查因子类型
+            classification_ok = (
+                    setting.primary_classification in primary_cats or
+                    setting.secondary_classification in secondary_cats
+            ) if primary_cats or secondary_cats else True
+
+            # 检查半衰期是否在有效范围内
+            half_life_ok = (half_life_range[0] <= setting.half_life <= half_life_range[1])
+
+            # 检查过滤模式匹配性
+            filter_mode_ok = setting.filter_mode in filter_modes if filter_modes else True
+
+            # 组合条件（分类满足 AND 半衰期 AND 过滤模式）
+            if classification_ok and half_life_ok and filter_mode_ok:
+                result.append(setting)
+
+        return result
 
     # --------------------------
     # 数据类 方法

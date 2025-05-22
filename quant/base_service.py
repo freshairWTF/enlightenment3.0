@@ -206,9 +206,6 @@ class BaseService:
         :param cycle: 周期
         :return: ic指标群
         """
-        """
-        模型回测 不要半衰期
-        """
         ic_df = cls.evaluate.ic.calc_ic(
             grouped_data, factor_col, "pctChg"
         )
@@ -248,9 +245,6 @@ class BaseService:
         :param factor_col: 因子列名
         :param cycle: 周期
         :return: ic指标群
-        """
-        """
-        模型回测 不要半衰期
         """
         ic_df = cls.evaluate.ic.calc_ic(
             grouped_data, factor_col, "pctChg"

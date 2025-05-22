@@ -90,6 +90,7 @@ class ReturnMetrics:
             result[date] = returns - trade_cost
 
         result = pd.DataFrame.from_dict(result, orient="index").sort_index(axis=1).fillna(0)
+        result = result[sorted(result.columns)]
 
         # 对冲收益率
         result["hedge"] = (
@@ -357,7 +358,7 @@ class ICMetrics:
             pnl_col: str
     ) -> pd.DataFrame:
         """
-        IC值
+        IC值（排序）
         :param data: 面板数据
         :param factor_col: 因子列名
         :param pnl_col: 收益率列名
