@@ -14,7 +14,6 @@ class FactorSetting:
     factor_name: str                            # 因子名
     primary_classification: str                 # 一级分类
     secondary_classification: str               # 二级分类
-    filter_mode: FILTER_MODE                    # 过滤模式
 
     cycle: CYCLE = "week"                       # 周期
     half_life: int = 100                        # 半衰期，默认100期
@@ -27,6 +26,7 @@ class FactorSetting:
     restructure: bool = False                   # 因子重构
     restructure_denominator: str = ""           # 因子重构分母
 
+    filter_mode: FILTER_MODE | None = None      # 过滤模式
     entire_filter: bool = False                 # 全部股票
     overall_filter: bool = False                # 整体股票
     large_filter: bool = False                  # 大市值

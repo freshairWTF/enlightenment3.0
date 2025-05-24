@@ -270,11 +270,8 @@ class FactorCollinearityProcessor:
         :param processed_data: 输入数据 {date: df}
         :return: 降维后的数据
         """
-        # T期滚动 全部
-        # 单次 多次
-
         # -1 三级底层因子正交
-        # processed_data = self._bottom_factors_orthogonal(processed_data)
+        processed_data = self._bottom_factors_orthogonal(processed_data)
 
         # -2 二级因子合成
         secondary_factors_df = self._synthesis_secondary_factor(
