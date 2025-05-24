@@ -167,6 +167,44 @@ class FactorWeight:
 
         return weights
 
+    @classmethod
+    def _get_ir_decay_weight_by_halflife(
+            cls,
+            factors_data: dict[str, pd.DataFrame],
+            factors_name: dict[str, list[str]],
+            half_life: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        ir自适应衰减加权权重
+        :param factors_data: 因子数据
+        :param factors_name: T期因子名
+        :param half_life: 因子半衰期
+        :return 因子权重
+        """
+        # -1 计算 rank ic
+        rank_ic = cls._calc_rank_ics(factors_data, factors_name)
+
+        # -2 平移 rank ic
+        rank_ic_shifted = rank_ic.shift(1)
+
+        # 逐列计算指数加权指标
+        def ewm_calculator(col, func):
+            factor = col.name
+            return col.ewm(
+                halflife=half_life.loc["half_life", factor],
+                min_periods=1
+            ).agg(func)
+
+        # -3 计算自适应衰减ir
+        ic_ewm_mean = rank_ic_shifted.apply(lambda x: ewm_calculator(x, 'mean'))
+        ic_ewm_std = rank_ic_shifted.apply(lambda x: ewm_calculator(x, 'std'))
+        rolling_ir = (ic_ewm_mean / ic_ewm_std).abs().replace(np.inf, 0).fillna(0)
+
+        # -4 计算权重
+        weights = rolling_ir.div(rolling_ir.sum(axis=1), axis="index")
+
+        return weights
+
     # --------------------------
     # 公开 API
     # --------------------------
@@ -178,6 +216,7 @@ class FactorWeight:
             factors_name: dict[str, list[str]],
             method: FACTOR_WEIGHT,
             window: int,
+            half_life: pd.DataFrame | None = None,
     ) -> pd.DataFrame:
         """
         获取因子权重
@@ -185,13 +224,19 @@ class FactorWeight:
         :param factors_name: T期因子名
         :param method: 权重方法
         :param window: 因子滚动均值窗口数
+        :param half_life: 因子半衰期
         :return 因子权重
         """
         handlers = {
             "equal": lambda: cls._get_equal_weight(factors_name),
             "ic_weight": lambda: cls._get_ic_weight(factors_data, factors_name, window),
             "ir_weight": lambda: cls._get_ir_weight(factors_data, factors_name, window),
-            "ir_decay_weight": lambda: cls._get_ir_decay_weight(factors_data, factors_name, window)
+            "ir_decay_weight": lambda: cls._get_ir_decay_weight(factors_data, factors_name, window),
+            "ir_decay_weight_by_halflife": lambda: cls._get_ir_decay_weight_by_halflife(
+                factors_data,
+                factors_name,
+                half_life
+            )
         }
 
         return handlers[method]()

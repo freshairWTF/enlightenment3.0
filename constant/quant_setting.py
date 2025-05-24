@@ -55,7 +55,8 @@ class ModelSetting:
     group_nums: int = 10                                            # 分组数
     group_mode: GROUP_MODE = "frequency"                            # 分组方法
 
-    factor_weight_method: FACTOR_WEIGHT = "equal"                   # 因子权重方法
+    secondary_factor_weight_method: FACTOR_WEIGHT = "equal"         # 二级分类因子权重方法
+    bottom_factor_weight_method: FACTOR_WEIGHT = "equal"            # 底层因子权重方法
     factor_weight_window: int = 12                                  # 因子权重窗口数
 
     factor_filter: bool = False                                     # 因子过滤

@@ -3,7 +3,6 @@
 """
 
 from dataclasses import asdict, dataclass
-from collections import defaultdict
 from pathlib import Path
 
 import yaml
@@ -104,34 +103,10 @@ class ModelAnalyzer(BaseService):
         self.valid_factors_name = self._get_valid_factor()
 
         # --------------------------
-        # 因子大类
-        # --------------------------
-        self.primary_factors = self._get_primary_factors()
-        self.secondary_factors = self._get_secondary_factors()
-
-        # --------------------------
         # 其他参数
         # --------------------------
         self.visual_setting = ModelVisualization()
         self.group_label = self.setup_group_label(self.model_setting.group_nums)
-
-    def _get_primary_factors(
-            self
-    ) -> dict[str, list[str]]:
-        """获取一级分类因子"""
-        result = defaultdict(list)
-        for setting in self.model_setting.factors_setting:
-            result[setting.primary_classification].append(setting.secondary_classification)
-        return {k: list(dict.fromkeys(v)) for k, v in result.items()}
-
-    def _get_secondary_factors(
-            self
-    ) -> dict[str, list[str]]:
-        """获取二级分类因子"""
-        result = defaultdict(list)
-        for setting in self.model_setting.factors_setting:
-            result[setting.secondary_classification].append(f"processed_{setting.factor_name}")
-        return {k: list(dict.fromkeys(v)) for k, v in result.items()}
 
     def _factor_filter(
             self
@@ -467,12 +442,7 @@ class ModelAnalyzer(BaseService):
         # ---------------------------------------
         self.logger.info("---------- 因子降维 ----------")
         # 因子降维
-        collinearity = FactorCollinearityProcessor(
-            self.primary_factors,
-            self.secondary_factors,
-            self.model_setting.factor_weight_method,
-            self.model_setting.factor_weight_window
-        )
+        collinearity = FactorCollinearityProcessor(self.model_setting)
         collinearity_data = collinearity.fit_transform(
             processed_data
         )
@@ -499,7 +469,7 @@ class ModelAnalyzer(BaseService):
             group_nums=self.model_setting.group_nums,
             group_label=self.group_label,
             group_mode=self.model_setting.group_mode,
-            factor_weight_method=self.model_setting.factor_weight_method,
+            factor_weight_method=self.model_setting.secondary_factor_weight_method,
             factor_weight_window=self.model_setting.factor_weight_window,
             position_weight_method=self.model_setting.position_weight_method,
             position_distribution=self.model_setting.position_distribution

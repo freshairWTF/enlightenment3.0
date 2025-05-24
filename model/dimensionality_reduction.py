@@ -1,5 +1,6 @@
 """因子降维"""
 
+from collections import defaultdict
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.decomposition import PCA
 
@@ -7,7 +8,7 @@ import pandas as pd
 import statsmodels.api as sm
 import scipy.cluster.hierarchy as sch
 
-from constant.type_ import FACTOR_WEIGHT
+from quant_setting import ModelSetting
 from data_processor import DataProcessor
 from factor_weight import FactorWeight
 
@@ -20,29 +21,54 @@ class FactorCollinearityProcessor:
 
     def __init__(
             self,
-            primary_factors: dict[str, list[str]],
-            secondary_factors: dict[str, list[str]],
-            weight_method: FACTOR_WEIGHT,
-            window: int,
+            model_setting: ModelSetting,
             vif_threshold: float = 10,
             cluster_threshold: float = 0.7
     ):
         """
-        :param primary_factors: 一级行业分类
-        :param secondary_factors: 二级行业分类
-        :param weight_method: 加权方法
-        :param window: 窗口数
         :param vif_threshold: VIF筛选阈值，高于此值的因子被剔除
         :param cluster_threshold: 聚类距离阈值（0-1之间，值越小聚类越细）
         """
-        self.primary_factors = primary_factors
-        self.secondary_factors = secondary_factors
-
-        self.weight_method = weight_method
-        self.window = window
+        self.model_setting = model_setting
         self.vif_threshold = vif_threshold
         self.cluster_threshold = cluster_threshold
 
+        self.primary_factors = self._get_primary_factors()              # 一级行业分类
+        self.secondary_factors = self._get_secondary_factors()          # 二级行业分类
+
+    # ------------------------------------------
+    # 初始化方法
+    # ------------------------------------------
+    def _get_primary_factors(
+            self
+    ) -> dict[str, list[str]]:
+        """获取一级分类因子"""
+        result = defaultdict(list)
+        for setting in self.model_setting.factors_setting:
+            result[setting.primary_classification].append(setting.secondary_classification)
+        return {k: list(dict.fromkeys(v)) for k, v in result.items()}
+
+    def _get_secondary_factors(
+            self
+    ) -> dict[str, list[str]]:
+        """获取二级分类因子"""
+        result = defaultdict(list)
+        for setting in self.model_setting.factors_setting:
+            result[setting.secondary_classification].append(f"processed_{setting.factor_name}")
+        return {k: list(dict.fromkeys(v)) for k, v in result.items()}
+
+    def _get_half_life(
+            self
+    ) -> pd.DataFrame:
+        """获取因子半衰期"""
+        result = {}
+        for setting in self.model_setting.factors_setting:
+            result[setting.factor_name]= [setting.half_life]
+        return pd.DataFrame(result, index=["half_life"]).add_prefix("processed_")
+
+    # ------------------------------------------
+    # 降维方法
+    # ------------------------------------------
     def _auto_vif_reduction(
             self,
             df: pd.DataFrame
@@ -162,14 +188,17 @@ class FactorCollinearityProcessor:
         """
         result = pd.DataFrame()
         fw = FactorWeight
+        weight_method = self.model_setting.bottom_factor_weight_method
+
         for second, secondary_factors in self.secondary_factors.items():
 
             # -1 因子权重
             factors_weights = fw.get_factors_weights(
                 processed_data,
                 {date: secondary_factors for date in processed_data.keys()},
-                self.weight_method,
-                self.window
+                weight_method,
+                self.model_setting.factor_weight_window,
+                self._get_half_life()
             )
 
             # -2 合成综合因子
@@ -229,7 +258,9 @@ class FactorCollinearityProcessor:
             axis=0,
             ignore_index=True
         )
-
+    # ------------------------------------------
+    # 公开 API方法
+    # ------------------------------------------
     def fit_transform(
             self,
             processed_data: dict[str, pd.DataFrame],
@@ -243,7 +274,7 @@ class FactorCollinearityProcessor:
         # 单次 多次
 
         # -1 三级底层因子正交
-        processed_data = self._bottom_factors_orthogonal(processed_data)
+        # processed_data = self._bottom_factors_orthogonal(processed_data)
 
         # -2 二级因子合成
         secondary_factors_df = self._synthesis_secondary_factor(
