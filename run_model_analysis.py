@@ -36,11 +36,11 @@ def xgboost_multi_factors_model(cycle_):
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250502-WEEK-混合"
-    storage_dir = "模型回测/linear-20250503W-全部股票-20组-ir衰退加权-滚动12期-等权仓位-半衰期加权-alpha因子库"
+    storage_dir = "模型回测/linear-20250503W-ir衰退加权-滚动12期-旧因子库"
 
     # 因子参数设置
     cycle = "week"
-    factors_setting = list(ALPHA_FACTOR_LIBRARY.values())
+    factors_setting = list(FACTOR_LIBRARY.values())
 
     # 模型参数设置
     model_setting = ModelSetting(
@@ -54,16 +54,16 @@ if __name__ == "__main__":
         group_nums=20,
         group_mode="frequency",
 
-        secondary_factor_weight_method="ir_decay_weight",
         bottom_factor_weight_method="ir_decay_weight",
+        secondary_factor_weight_method="ir_decay_weight",
         factor_weight_window=12,
 
-        position_weight_method="group_equal",
-        position_distribution=(1, 1),
+        position_weight_method="group_long_only",
+        position_distribution=(3, 1),
 
-        factor_filter=True,
+        factor_filter=False,
         # factor_primary_classification=["基本面因子"],
-        # factor_secondary_classification=["估值因子"],
+        # factor_secondary_classification=["行为金融因子"],
         factor_filter_mode=["_entire_filter"]
         # factor_half_life=(3, 6),
     )

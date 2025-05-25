@@ -73,9 +73,6 @@ class XGBoostMultiFactors(MultiFactorsModel):
             factors_name=self.factors_name,
             weights=factor_weights
         )
-        print(factor_weights)
-        print(self.raw_data["2025-03-21"])
-        print(self.factors_name["2025-03-21"])
 
         # -3 加权因子
         weight_factors = self.calc_weight_factors(
@@ -83,7 +80,6 @@ class XGBoostMultiFactors(MultiFactorsModel):
             factors_name=self.factors_name,
             weights=factor_weights
         )
-        print(weight_factors)
 
         # -4 预期收益率
         predict_return = self.calc_predict_return_by_xgboost(

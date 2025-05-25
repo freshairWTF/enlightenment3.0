@@ -298,7 +298,6 @@ class ModelAnalyzer(BaseService):
         )
         ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
         reverse = True if ic_mean < 0 else False
-
         return {
             **{
                 "coverage": self.calc_coverage(grouped_data, self.listed_nums),

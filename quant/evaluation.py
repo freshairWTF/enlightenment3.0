@@ -90,7 +90,7 @@ class ReturnMetrics:
             result[date] = returns - trade_cost
 
         result = pd.DataFrame.from_dict(result, orient="index").sort_index(axis=1).fillna(0)
-        result = result[sorted(result.columns)]
+        result = result[sorted(result.columns, key=lambda x: int(x))]
 
         # 对冲收益率
         result["hedge"] = (

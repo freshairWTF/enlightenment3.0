@@ -102,9 +102,9 @@ def model_factor_analysis():
         financial_cycle="quarter",
         start_date="2015-01-31",
         financial_end_date="2025-03-31",
-        end_date="2025-05-16",
+        end_date="2025-05-23",
 
-        storage_dir_name="20250503-WEEK",
+        storage_dir_name="20250504-WEEK",
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -142,15 +142,13 @@ def inventory_cycle_analysis():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
+    # individual_analysis()
     # normal_analysis()
     # factor_analysis()
-    # model_factor_analysis()
+    model_factor_analysis()
     # inventory_cycle_analysis()
 
     """
-    1年1年回测，可以回测day级别吗？
-    
     行尾金融因子  阳线天数、阴线天数
     技术面因子  真实波幅的波动率
     市场情绪因子  市场最高连扳数

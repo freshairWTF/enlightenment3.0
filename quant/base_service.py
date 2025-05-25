@@ -304,6 +304,7 @@ class BaseService:
             reverse,
             trade_cost
         )
+
         cum_return = cls.evaluate.returns.cum_return(grouped_return)
         wtl_ratio = cls.evaluate.returns.win_to_loss_ratio(grouped_return)
         winning_rate = cls.evaluate.returns.winning_rate(grouped_return)
