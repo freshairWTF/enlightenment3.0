@@ -42,6 +42,9 @@ class FactorSetting:
 @dataclass
 class ModelSetting:
     """模型配置信息"""
+    model: str                                                      # 模型
+    cycle: CYCLE                                                    # 周期
+
     industry_info: dict[str, str]                                   # 行业信息
     filter_mode: FILTER_MODE                                        # 过滤模式
 

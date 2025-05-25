@@ -6,28 +6,24 @@ from model.linear_multi_factors_model import LinearMultiFactors
 from model.xgboost_multi_factors_model import XGBoostMultiFactors
 
 
-# --------------------------------------------
-def linear_multi_factors_model(cycle_):
-    """线性多因子模型"""
-    analyzer = ModelAnalyzer(
-        model=LinearMultiFactors,
-        model_setting=model_setting,
-        source_dir=source_dir,
-        storage_dir=storage_dir,
-        cycle=cycle_,
-    )
-    analyzer.run()
+# -----------------------------
+# 模型
+# -----------------------------
+MODEL = {
+    "linear": LinearMultiFactors,
+    "xgboost": XGBoostMultiFactors
+}
 
 
 # --------------------------------------------
-def xgboost_multi_factors_model(cycle_):
-    """xgboost多因子模型"""
+def model_backtest():
+    """模型回测"""
     analyzer = ModelAnalyzer(
-        model=XGBoostMultiFactors,
+        model=MODEL[model_setting.model],
         model_setting=model_setting,
         source_dir=source_dir,
         storage_dir=storage_dir,
-        cycle=cycle_,
+        cycle=model_setting.cycle,
     )
     analyzer.run()
 
@@ -38,36 +34,36 @@ if __name__ == "__main__":
     source_dir = "20250502-WEEK-混合"
     storage_dir = "模型回测/linear-20250503W-ir衰退加权-滚动12期-旧因子库"
 
-    # 因子参数设置
-    cycle = "week"
-    factors_setting = list(FACTOR_LIBRARY.values())
-
     # 模型参数设置
     model_setting = ModelSetting(
+        # 模型/周期/因子
+        model="linear",
+        cycle="week",
+        factors_setting=list(FACTOR_LIBRARY.values()),
+
+        # 目标股票池
         industry_info={"全部": "三级行业"},
         filter_mode="_entire_filter",
+        factor_filter=False,
+        # factor_primary_classification=["基本面因子"],
+        # factor_secondary_classification=["行为金融因子"],
+        factor_filter_mode=["_entire_filter"],
+        # factor_half_life=(3, 6),
 
-        factors_setting=factors_setting,
+        # 因子处理方法
         class_level="三级行业",
-        lag_period=1,
-
-        group_nums=20,
-        group_mode="frequency",
-
         bottom_factor_weight_method="ir_decay_weight",
         secondary_factor_weight_method="ir_decay_weight",
         factor_weight_window=12,
 
+        # 分组
+        group_nums=20,
+        group_mode="frequency",
+
+        # 仓位
         position_weight_method="group_long_only",
         position_distribution=(3, 1),
-
-        factor_filter=False,
-        # factor_primary_classification=["基本面因子"],
-        # factor_secondary_classification=["行为金融因子"],
-        factor_filter_mode=["_entire_filter"]
-        # factor_half_life=(3, 6),
     )
 
     # 回测
-    # xgboost_multi_factors_model(cycle)
-    linear_multi_factors_model(cycle)
+    model_backtest()
