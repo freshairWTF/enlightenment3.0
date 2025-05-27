@@ -59,6 +59,9 @@ class XGBoostMultiFactors(MultiFactorsModel):
             3）分组；
             4）仓位权重；
         """
+        # print(self.raw_data.keys())
+        # print(len(self.raw_data.keys()))
+        print(self.raw_data["2015-01-09"])
         # -1 因子权重
         factor_weights = self.factor_weight.get_factors_weights(
             factors_data=self.raw_data,
@@ -66,6 +69,8 @@ class XGBoostMultiFactors(MultiFactorsModel):
             method=self.factor_weight_method,
             window=self.factor_weight_window
         )
+        print(factor_weights)
+        print(factor_weights.loc["2015-01-09"])
 
         # -2 综合Z值
         z_score = self.calc_z_scores(
@@ -80,14 +85,15 @@ class XGBoostMultiFactors(MultiFactorsModel):
             factors_name=self.factors_name,
             weights=factor_weights
         )
-
+        # print(dd)
         # -4 预期收益率
         predict_return = self.calc_predict_return_by_xgboost(
             x_value=weight_factors,
             y_value={date: df["pctChg"] for date, df in self.raw_data.items()},
             window=self.factor_weight_window
         )
-
+        print(predict_return.keys())
+        print(len(predict_return.keys()))
         # -4 分组
         grouped_data = QuantProcessor.divide_into_group(
             predict_return,
@@ -97,7 +103,8 @@ class XGBoostMultiFactors(MultiFactorsModel):
             group_nums=self.group_nums,
             group_label=self.group_label,
         )
-
+        print(grouped_data.keys())
+        print(len(grouped_data.keys()))
         # -5 仓位权重
         position_weight = self.position_weight.get_weights(
             grouped_data,
@@ -110,5 +117,8 @@ class XGBoostMultiFactors(MultiFactorsModel):
         result = self.join_data(grouped_data, position_weight)
         result = self.join_data(result, z_score)
         result = self.join_data(result, self.raw_data)
+
+        print(result.keys())
+        print(len(result.keys()))
 
         return result

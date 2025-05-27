@@ -165,9 +165,10 @@ class MultiFactorsModel(ABC):
                 filtered_df := (
                         df[factors_name[date]] * weights.loc[date]
                 )
-            ).dropna().empty
+            ).dropna(axis=1, how="all").dropna(how="any").empty
         }
-
+        print(weight_factors.keys())
+        print(len(weight_factors.keys()))
         # -2 标准化
         return {
             date: cls.processor.standardization(df, error="ignore")

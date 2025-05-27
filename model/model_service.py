@@ -445,8 +445,8 @@ class ModelAnalyzer(BaseService):
         collinearity_data = collinearity.fit_transform(
             processed_data
         )
-
         selected_factors = {date: df.columns.tolist() for date, df in collinearity_data.items()}
+
         # 预拟合
         beta_feature = self.evaluate.test.calc_beta_feature(
             processed_data, processed_factors_name, "pctChg"

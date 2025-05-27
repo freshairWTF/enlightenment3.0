@@ -32,19 +32,31 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250502-WEEK-混合"
-    storage_dir = "模型回测/linear-20250503W-ir衰退加权-滚动12期-旧因子库"
+    storage_dir = "模型debug/xgboost-20250503W-ir衰退加权-滚动12期-alpha因子库"
 
+    """
+    linear-传统-ir_decay_weight
+    linear-阿尔法-ir_decay_weight
+    linear-阿尔法-半衰期
+    
+    xgboost-传统-ir_decay_weight
+    xgboost-阿尔法-ir_decay_weight
+    xgboost-阿尔法-半衰期
+    xgboost模型有问题
+    """
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="linear",
+        model="xgboost",
         cycle="week",
-        factors_setting=list(FACTOR_LIBRARY.values()),
+        factors_setting=list(ALPHA_FACTOR_LIBRARY.values()),
 
         # 目标股票池
         industry_info={"全部": "三级行业"},
         filter_mode="_entire_filter",
-        factor_filter=False,
+
+        # 目标因子
+        factor_filter=True,
         # factor_primary_classification=["基本面因子"],
         # factor_secondary_classification=["行为金融因子"],
         factor_filter_mode=["_entire_filter"],
