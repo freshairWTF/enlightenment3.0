@@ -193,9 +193,9 @@ class GovernanceMetrics:
 
     def _z_index(self) -> None:
         """
-        Z指数 = 第一大股东持股比例 / 第二大股东持股比例
+        z指数 = 第一大股东持股比例 / 第二大股东持股比例
         """
-        self.metrics["Z指数"] = (
+        self.metrics["z指数"] = (
             self.shareholders_data.groupby(level=0).apply(
                 lambda x: x[x["名次"] == 1]["占总股本持股比例"].values[0] /
                           x[x["名次"] == 2]["占总股本持股比例"].values[0]
@@ -204,9 +204,9 @@ class GovernanceMetrics:
 
     def _circulating_z_index(self) -> None:
         """
-        流通Z指数 = 第一大股东持股比例 / 第二大股东持股比例
+        流通z指数 = 第一大股东持股比例 / 第二大股东持股比例
         """
-        self.metrics["流通Z指数"] = (
+        self.metrics["流通z指数"] = (
             self.shareholders_data.groupby(level=0).apply(
                 lambda x: x[x["名次"] == 1]["占流通股本持股比例"].values[0] /
                           x[x["名次"] == 2]["占流通股本持股比例"].values[0]

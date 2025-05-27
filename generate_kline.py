@@ -9,8 +9,8 @@ def download_kline():
         download_object="stock",            # 可选：stock/index
         category="day",                     # 指数仅支持 day
         adjust_flag="2",                    # 复权模式
-        start_date="2025-05-26",            # 起始时间
-        end_date="2025-05-26",              # 结束时间
+        start_date="2025-05-27",            # 起始时间
+        end_date="2025-05-27",              # 结束时间
         code="sz.301626",                   # 代码：需要sh/sz前缀
         filter_mode="all",                  # 可选：None/all/from_code
         industry_info=None,                 # 指定行业

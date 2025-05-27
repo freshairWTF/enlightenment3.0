@@ -58,6 +58,7 @@ def factor_analysis():
         quant=True,
         code_range="Total_A",
         trade_status_filter=True,
+        storage_dir_name=storage_dir_name,
         params=Factor(),
 
         # 运存不足，无法满足 day 的运存消耗
@@ -72,10 +73,9 @@ def factor_analysis():
         financial_end_date="2024-09-30",
         end_date="2025-05-09",
 
-        storage_dir_name=storage_dir_name,
         target_info={"全部": "三级行业"},
-
         index_code="000300",
+
         processes_nums=10,
         debug=False
     )
@@ -99,6 +99,7 @@ def model_factor_analysis():
         code_range="Total_A",
         trade_status_filter=True,
         params=ModelFactor(),
+        storage_dir_name=storage_dir_name,
         kline_adjust="backward_adjusted",
 
         # 运存不足，无法满足 day 的运存消耗
@@ -112,10 +113,9 @@ def model_factor_analysis():
         financial_end_date="2025-03-31",
         end_date="2025-05-23",
 
-        storage_dir_name=storage_dir_name,
         target_info={"全部": "三级行业"},
-
         index_code="000300",
+
         processes_nums=10,
         debug=False
     )
