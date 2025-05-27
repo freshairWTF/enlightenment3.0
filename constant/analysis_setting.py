@@ -129,11 +129,7 @@ class Individual:
 
     class Governance:
         def __init__(self):
-            self.governance = [
-                "前十大股东持股比例", "前十大股东持股变化率", "流通前十大股东持股比例", "流通前十大股东持股变化率", "大股东持股比例",
-                "大股东持股变化率", "机构持股比例", "机构持股变化率", "外资持股比例", "外资持股变化率", "赫芬达尔指数",
-                "‌流通‌赫芬达尔指数", "z指数", "流通z指数",
-            ]
+            self.governance = []
 
     class Statistics:
         def __init__(self):
@@ -1492,6 +1488,8 @@ class Factor:
         self.valuation = self.Valuation()
         # 量价模块
         self.kline = self.Kline()
+        # 公司治理模块
+        self.governance = self.Governance()
         # 统计模块
         self.stat = self.Statistics()
         # 可视化模块
@@ -1558,13 +1556,20 @@ class Factor:
     class Kline:
         def __init__(self):
             self.kline = {
-                "涨停次数": [
-                    0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
-                ],
-                "跌停次数": [
-                    0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
-                ],
+                # "涨停次数": [
+                #     0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
+                # ],
+                # "跌停次数": [
+                #     0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
+                # ],
             }
+
+    class Governance:
+        def __init__(self):
+            self.governance = [
+                "前十大股东持股比例", "前十大股东持股变化率", "大股东持股比例",
+                "大股东持股变化率", "赫芬达尔指数", "z指数",
+            ]
 
     class Statistics:
         def __init__(self):

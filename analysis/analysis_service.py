@@ -487,6 +487,7 @@ class Analyzer:
                 self.data_container["financial"][code] = result["financial"]
             self.data_container["valuation"][code] = result["valuation"]
             self.data_container["kline"][code] = result["kline"]
+            self.data_container["governance"][code] = result["governance"]
             self.data_container["weight"][code] = result["weight"]
 
     def _process_single_company_debug(
@@ -641,7 +642,7 @@ class Analyzer:
                 )
             )
 
-            # governance = self._calc_governance(code)
+            governance = self._calc_governance(code)
 
             # --------------------------
             # 时间索引转变为披露时间、填充数据(财务/公司治理）
@@ -649,9 +650,9 @@ class Analyzer:
             if self.mode == "quant":
                 rolling_financial.index = self._convert_to_disclose_date(rolling_financial.index)
                 rolling_financial_to_value.index = self._convert_to_disclose_date(rolling_financial_to_value.index)
-                # governance.index = self._convert_to_disclose_date(governance.index)
+                governance.index = self._convert_to_disclose_date(governance.index)
                 rolling_financial = self._fill_financial_data(rolling_financial)
-                # governance = self._fill_financial_data(governance)
+                governance = self._fill_financial_data(governance)
             # 任意模式，均需填充
             rolling_financial_to_value = self._fill_financial_data(rolling_financial_to_value)
 
@@ -689,7 +690,7 @@ class Analyzer:
                 "rolling_financial": rolling_financial,
                 "financial": financial if self.mode != "quant" else pd.DataFrame(),
                 "valuation": value,
-                # "governance": governance,
+                "governance": governance,
                 "kline": split_adjusted_kline,
                 "weight": weight
             })
@@ -887,7 +888,7 @@ class Analyzer:
         """
         governance = GovernanceMetrics(
             shareholders=self.loader.get_top_ten_shareholders(code),
-            circulating_shareholders=self.loader.get_top_ten_circulating_shareholders(code),
+            # circulating_shareholders=self.loader.get_top_ten_circulating_shareholders(code),
             methods=sum(self.PARAMS.governance.__dict__.values(), []),
             function_map=self.MAPPING["GOVERNANCE"],
         )
@@ -908,6 +909,7 @@ class Analyzer:
             + sum(self.PARAMS.finance.basic_reports.values(), []),
             "kline": None,
             "valuation": sum(self.PARAMS.valuation.__dict__.values(), []),
+            "governance": sum(self.PARAMS.governance.__dict__.values(), []),
             "weight": None,
         }
         return {

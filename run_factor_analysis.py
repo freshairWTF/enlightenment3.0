@@ -1,29 +1,17 @@
 from quant.factor_service import FactorAnalyzer
 
-from download.support_service import SupportDataUpdater
-
-# --------------------------------------------------
-def update_support():
-    """更新支持数据"""
-    updater = SupportDataUpdater(
-        start_date="2000-01-01",
-        end_date="2025-05-13",
-        get_listed_code=False        # 仅更新交易日历 = False
-    )
-    updater.run({updater.trading_calendar: True})
-
 
 # --------------------------------------------
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="20250502-WEEK-混合",
+        source_dir="公司治理指标",
         index_code="000300",
         factors_name=[
             # "对数市值","累加收益率_0.17","累加收益率_0.25",
             # "换手率均线_0.25","换手率均线_0.5","换手率均线_1","换手率均线_1.5",
             # "换手率标准差_0.25","换手率标准差_0.5","换手率标准差_1","换手率标准差_1.5","换手率标准差_2",
-            "close",
+            "大股东持股比例",
         ],
         cycle="week",
         standardization=True,
@@ -41,6 +29,6 @@ def factor_analysis():
     analyzer.run()
 
 
+# --------------------------------------------
 if __name__ == "__main__":
-    # update_support()
     factor_analysis()

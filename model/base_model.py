@@ -167,8 +167,7 @@ class MultiFactorsModel(ABC):
                 )
             ).dropna(axis=1, how="all").dropna(how="any").empty
         }
-        print(weight_factors.keys())
-        print(len(weight_factors.keys()))
+
         # -2 标准化
         return {
             date: cls.processor.standardization(df, error="ignore")

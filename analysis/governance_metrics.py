@@ -32,17 +32,18 @@ class GovernanceMetrics:
     def __init__(
             self,
             shareholders: pd.DataFrame,
-            circulating_shareholders: pd.DataFrame,
+            # circulating_shareholders: pd.DataFrame,
             methods: list[str],
             function_map: dict[str, str]
     ):
         """
         :param shareholders: 股东数据
-        :param circulating_shareholders: 流通股东数据
+        # :param circulating_shareholders: 流通股东数据
         :param methods: 需要实现的方法
         :param function_map: 已定义的方法对应方法名
         """
-        self.shareholders_data = self._merger_data(shareholders, circulating_shareholders)
+        self.shareholders_data = shareholders
+        # self.shareholders_data = self._merger_data(shareholders, circulating_shareholders)
         self.metrics = pd.DataFrame()
         self.function_map = function_map
         self.methods = methods

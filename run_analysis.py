@@ -1,5 +1,6 @@
 from analysis.analysis_service import Analyzer
 from constant.analysis_setting import Individual, Normal, Factor, ModelFactor, InventoryCycle
+from quant.data_convert import DataConvert
 
 
 # ---------------------------------------------------
@@ -52,6 +53,7 @@ def normal_analysis():
 # ---------------------------------------------------
 def factor_analysis():
     """单因子分析 -> 生成分析因子"""
+    storage_dir_name = "公司治理指标"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -70,7 +72,7 @@ def factor_analysis():
         financial_end_date="2024-09-30",
         end_date="2025-05-09",
 
-        storage_dir_name="涨跌停次数",
+        storage_dir_name=storage_dir_name,
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -79,6 +81,11 @@ def factor_analysis():
     )
     analyzer.run()
 
+    convert = DataConvert(
+        source_dir=storage_dir_name,
+        storage_dir=storage_dir_name
+    )
+    convert.run()
 
 # ---------------------------------------------------
 def model_factor_analysis():
@@ -86,6 +93,7 @@ def model_factor_analysis():
     模型分析 -> 生成因子库中的因子
     注：更新指数数据 -> 更新交易日历 -> 最新数据
     """
+    storage_dir_name = "20250504-WEEK"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -104,7 +112,7 @@ def model_factor_analysis():
         financial_end_date="2025-03-31",
         end_date="2025-05-23",
 
-        storage_dir_name="20250504-WEEK",
+        storage_dir_name=storage_dir_name,
         target_info={"全部": "三级行业"},
 
         index_code="000300",
@@ -113,6 +121,11 @@ def model_factor_analysis():
     )
     analyzer.run()
 
+    convert = DataConvert(
+        source_dir=storage_dir_name,
+        storage_dir=storage_dir_name
+    )
+    convert.run()
 
 # ---------------------------------------------------
 def inventory_cycle_analysis():
@@ -144,8 +157,8 @@ def inventory_cycle_analysis():
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    # factor_analysis()
-    model_factor_analysis()
+    factor_analysis()
+    # model_factor_analysis()
     # inventory_cycle_analysis()
 
     """
