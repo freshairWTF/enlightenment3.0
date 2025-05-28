@@ -19,7 +19,7 @@ def factor_analysis():
         industry_neutral=False,
         restructure=False,
 
-        group_mode="frequency",
+        group_mode="distant",
         group_nums=10,
 
         # ！！！# 若大于1，则在因子端需要计算连续n日的收益率

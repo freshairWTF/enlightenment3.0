@@ -264,6 +264,8 @@ class FactorAnalyzer(BaseService):
             self.industry_neutral,
             self.restructure
         )
+        if not processed_data:
+            raise ValueError("数据处理异常")
 
         grouped_data = self.processor.divide_into_group(
             data=processed_data,
@@ -274,6 +276,8 @@ class FactorAnalyzer(BaseService):
             group_label=self.group_label,
             negative=True if factor_name in NEGATIVE_SINGLE_COLUMN else False
         )
+        if not grouped_data:
+            raise ValueError("数据分组异常")
 
         return grouped_data
 
@@ -532,8 +536,6 @@ class FactorAnalyzer(BaseService):
                 factor_name,
                 processed_factor_col
             )
-            if not grouped_data:
-                raise ValueError("分组数据为空值")
 
             # ---------------------------------------
             # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
