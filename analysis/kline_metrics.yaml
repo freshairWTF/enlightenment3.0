@@ -18,6 +18,9 @@ FUNCTION_OF_KLINE:
     斜率: _slope
     涨停次数: _limit_up_number
     跌停次数: _limit_down_number
+    阳线次数: _positive_line_number
+    阴线次数: _negative_line_number
+
     k线中继形态: _ch_relay_form
 
 FUNCTION_OF_SPECIAL:

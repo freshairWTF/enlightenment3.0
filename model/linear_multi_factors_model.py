@@ -60,10 +60,6 @@ class LinearMultiFactors(MultiFactorsModel):
             4）分组；
             5）仓位权重；
         """
-
-        """
-        ir衰减 是不是要加个ir的
-        """
         # -1 因子权重
         factor_weights = self.factor_weight.get_factors_weights(
             factors_data=self.raw_data,

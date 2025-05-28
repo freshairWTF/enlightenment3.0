@@ -87,6 +87,7 @@ class XGBoostMultiFactors(MultiFactorsModel):
             y_value={date: df["pctChg"] for date, df in self.raw_data.items()},
             window=self.factor_weight_window
         )
+        print(predict_return.keys())
 
         # -4 分组
         grouped_data = QuantProcessor.divide_into_group(

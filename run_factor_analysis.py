@@ -5,10 +5,13 @@ from quant.factor_service import FactorAnalyzer
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="公司治理指标",
+        source_dir="阳线阴线次数",
         index_code="000300",
         factors_name=[
-            "前十大股东持股比例", "大股东持股变化率", "z指数",
+            "阳线次数_0.09", "阳线次数_0.17", "阳线次数_0.09", "阳线次数_0.25", "阳线次数_0.5", "阳线次数_1",
+            "阳线次数_1.5", "阳线次数_2",
+            "阴线次数_0.09", "阴线次数_0.17", "阴线次数_0.09", "阴线次数_0.25", "阴线次数_0.5", "阴线次数_1",
+            "阴线次数_1.5", "阴线次数_2",
         ],
         cycle="week",
         standardization=True,

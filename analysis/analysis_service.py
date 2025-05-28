@@ -461,6 +461,7 @@ class Analyzer:
         """加载数据"""
         results = []
         for code in self.load_data_codes[: 20]:
+            self.logger.info(f"{code}: 加载/计算指标")
             results.append(
                 self._process_single_company_debug(code)
             )
@@ -547,9 +548,11 @@ class Analyzer:
         if self.mode == "quant":
             rolling_financial.index = self._convert_to_disclose_date(rolling_financial.index)
             rolling_financial_to_value.index = self._convert_to_disclose_date(rolling_financial_to_value.index)
-            governance.index = self._convert_to_disclose_date(governance.index)
             rolling_financial = self._fill_financial_data(rolling_financial)
-            governance = self._fill_financial_data(governance)
+
+            if not governance.empty:
+                governance.index = self._convert_to_disclose_date(governance.index)
+                governance = self._fill_financial_data(governance)
 
         # 任意模式，均需填充
         rolling_financial_to_value = self._fill_financial_data(rolling_financial_to_value)
@@ -650,9 +653,12 @@ class Analyzer:
             if self.mode == "quant":
                 rolling_financial.index = self._convert_to_disclose_date(rolling_financial.index)
                 rolling_financial_to_value.index = self._convert_to_disclose_date(rolling_financial_to_value.index)
-                governance.index = self._convert_to_disclose_date(governance.index)
                 rolling_financial = self._fill_financial_data(rolling_financial)
-                governance = self._fill_financial_data(governance)
+
+                if not governance.empty:
+                    governance.index = self._convert_to_disclose_date(governance.index)
+                    governance = self._fill_financial_data(governance)
+
             # 任意模式，均需填充
             rolling_financial_to_value = self._fill_financial_data(rolling_financial_to_value)
 

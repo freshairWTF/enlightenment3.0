@@ -196,6 +196,10 @@ class MultiFactorsModel(ABC):
             'subsample': 0.8,
             'colsample_bytree': 0.8,
             'n_estimators': 1000,
+
+            'reg_alpha': 0.5,  # 控制稀疏性
+            'reg_lambda': 1.0,  # 抑制过拟合
+            'gamma': 0.1  # 节点分裂最小增益阈值
         }
 
         # 按日期排序并转换为列表

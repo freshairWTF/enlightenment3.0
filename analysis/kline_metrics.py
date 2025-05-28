@@ -131,22 +131,6 @@ class KLineMetrics(Metrics, KlineDetermination):
             )
         )
 
-    # def _ma_close(
-    #         self,
-    #         window: int
-    # ) -> None:
-    #     """收盘价均线"""
-    #     # 滚动窗口
-    #     rolling_window = int(window * self.annual_window)
-    #
-    #     self.metrics[f"收盘价均线_{window}"] = (
-    #         self._calc_rolling(
-    #             self.metrics["close"],
-    #             rolling_window,
-    #             rolling_window
-    #         )
-    #     )
-
     def _ma_close(
             self,
             window: int
@@ -315,10 +299,31 @@ class KLineMetrics(Metrics, KlineDetermination):
 
         self.metrics[f"跌停次数_{window}"] = limit_down_number
 
-    """
-    波动率
-    资金流入
-    """
+    def _positive_line_number(
+            self,
+            window: int
+    ) -> None:
+        """阳线次数"""
+        # 滚动窗口
+        rolling_window = int(window * self.annual_window)
+
+        self.metrics[f"阳线次数_{window}"] = self.metrics["positive_line"].rolling(
+            window=rolling_window,
+            min_periods=1
+        ).sum()
+
+    def _negative_line_number(
+            self,
+            window: int
+    ) -> None:
+        """阴线次数"""
+        # 滚动窗口
+        rolling_window = int(window * self.annual_window)
+
+        self.metrics[f"阴线次数_{window}"] = self.metrics["negative_line"].rolling(
+            window=rolling_window,
+            min_periods=1
+        ).sum()
 
     def _ch_relay_form(
             self,

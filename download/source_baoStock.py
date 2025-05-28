@@ -221,6 +221,8 @@ class BaoStockDownLoader:
 class BaoStockCleaner:
     """baostock数据清洗类"""
 
+    kd = KlineDetermination
+
     # --------------------------
     # 数据处理方法
     # --------------------------
@@ -316,9 +318,8 @@ class BaoStockCleaner:
         """
         # 前复权计算判定
         if adjusted_mode == "split_adjusted":
-            kd = KlineDetermination
-            board = kd.set_board(code)
-            return kd.limit_up(df, board), kd.limit_down(df, board)
+            board = cls.kd.set_board(code)
+            return cls.kd.limit_up(df, board), cls.kd.limit_down(df, board)
         # 后复权直接读取前复权数据
         else:
             split_adjusted_day_k = cls._read_day_k(
@@ -388,6 +389,8 @@ class BaoStockCleaner:
             "preclose": "first",
             "volume": "sum",
             "amount": "sum",
+            "positive_line": "sum",
+            "negative_line": "sum",
             **({"adjust_factor": "last"} if "adjust_factor" in df.columns else {})
         })
 
@@ -475,6 +478,10 @@ class BaoStockCleaner:
             elif adjusted_mode == SheetName.BACKWARD.value:
                 adjust_day_k = pd.merge(adjust_day_k, limit_up.merge(limit_down, on='date'), on='date', how='inner')
 
+        # 判断阳线/阴线
+        adjust_day_k["positive_line"] = cls.kd.positive_line(adjust_day_k).astype("int")
+        adjust_day_k["negative_line"] = cls.kd.negative_line(adjust_day_k).astype("int")
+
         # ---------------------------------------
         # 数据合成模块
         # ---------------------------------------
@@ -506,6 +513,10 @@ class BaoStockCleaner:
             code,
             adjusted_mode
         )
+
+        # 判断阳线/阴线
+        original_day_k["positive_line"] = cls.kd.positive_line(original_day_k).astype("int")
+        original_day_k["negative_line"] = cls.kd.negative_line(original_day_k).astype("int")
 
         # 数据合成
         kline_dict = {

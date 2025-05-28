@@ -51,13 +51,13 @@ class KlineDetermination:
         :param lower_shadow_bounds: 下影线区间控制
         """
         # 参数检验
-        required_columns = {'open', 'close', 'high', 'low', 'pctChg'}
+        required_columns = {'open', 'close', 'high', 'low', 'pctChg', 'preclose'}
         if not required_columns.issubset(df.columns):
             missing = required_columns - set(df.columns)
             raise ValueError(f"缺少必要字段: {missing}")
 
         # k线判定
-        is_positive = pd.Series(df['close'] > df['open'], index=df.index)
+        is_positive = pd.Series(df['close'] > df['preclose'], index=df.index)
         entity = df['close'] - df['open']
 
         # 上影线控制
@@ -86,7 +86,7 @@ class KlineDetermination:
 
         # 涨幅控制
         if min_change:
-            is_positive &= (df["pctChg"] >= min_change)
+            is_positive &= (df["pctChg"] > min_change)
 
         return is_positive
 
@@ -107,13 +107,13 @@ class KlineDetermination:
         :param lower_shadow_bounds: 下影线区间控制
         """
         # 参数检验
-        required_columns = {'open', 'close', 'high', 'low', 'pctChg'}
+        required_columns = {'open', 'close', 'high', 'low', 'pctChg', 'preclose'}
         if not required_columns.issubset(df.columns):
             missing = required_columns - set(df.columns)
             raise ValueError(f"缺少必要字段: {missing}")
 
         # k线判定
-        is_negative = pd.Series(df['close'] < df['open'], index=df.index)
+        is_negative = pd.Series(df['close'] < df['preclose'], index=df.index)
         entity = df['open'] - df['close']
 
         # 上影线控制
@@ -142,7 +142,7 @@ class KlineDetermination:
 
         # 跌幅控制
         if min_change > 0:
-            is_negative &= (df['pctChg'] <= -min_change)
+            is_negative &= (df['pctChg'] < -min_change)
 
         return is_negative
 
@@ -185,7 +185,7 @@ class KlineDetermination:
             min_change: float = 0.999
     ) -> pd.Series:
         """
-        成交量爆量
+        成交量缩量
         :param df: 必须包含volume列的DataFrame
         :param window: 比对均值窗口数
         :param min_change: 最小变动幅度

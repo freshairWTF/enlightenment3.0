@@ -24,7 +24,6 @@ def individual_analysis():
     )
     analyzer.run()
 
-
 # ---------------------------------------------------
 def normal_analysis():
     """分析（宏观、中观、微观）"""
@@ -49,11 +48,10 @@ def normal_analysis():
     )
     analyzer.run()
 
-
 # ---------------------------------------------------
 def factor_analysis():
     """单因子分析 -> 生成分析因子"""
-    storage_dir_name = "公司治理指标"
+    storage_dir_name = "阳线阴线次数"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -162,7 +160,6 @@ if __name__ == "__main__":
     # inventory_cycle_analysis()
 
     """
-    行尾金融因子  阳线天数、阴线天数
     技术面因子  真实波幅的波动率
     市场情绪因子  市场最高连扳数
     """

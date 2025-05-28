@@ -342,9 +342,9 @@ class FactorAnalyzer(BaseService):
         ):
             metrics["judgment"] = "alpha"
         elif (
-                abs(metrics["牛市IC"]) > 0.03 and abs(metrics["牛市IR"]) > 0.05 and abs(metrics["牛市t值"]) >= 2
-                or abs(metrics["熊市IC"]) > 0.03 and abs(metrics["熊市IR"]) > 0.05 and abs(metrics["熊市t值"]) >= 2
-                or abs(metrics["震荡市IC"]) > 0.03 and abs(metrics["震荡市IR"]) > 0.05 and abs(metrics["震荡市t值"]) >= 2
+                abs(metrics["牛市IC"]) > 0.03 and abs(metrics["牛市IR"]) > 0.5 and abs(metrics["牛市t值"]) >= 2
+                or abs(metrics["熊市IC"]) > 0.03 and abs(metrics["熊市IR"]) > 0.5 and abs(metrics["熊市t值"]) >= 2
+                or abs(metrics["震荡市IC"]) > 0.03 and abs(metrics["震荡市IR"]) > 0.5 and abs(metrics["震荡市t值"]) >= 2
         ):
             metrics["judgment"] = "dynamic"
         else:

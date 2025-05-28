@@ -34,5 +34,5 @@ def clean_kline():
 
 # ------------------------- 执行入口 -------------------------
 if __name__ == "__main__":
-    download_kline()
+    # download_kline()
     clean_kline()
