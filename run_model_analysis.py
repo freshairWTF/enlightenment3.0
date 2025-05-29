@@ -4,6 +4,7 @@ from constant.quant_setting import ModelSetting
 from model.model_service import ModelAnalyzer
 from model.linear_multi_factors_model import LinearMultiFactors
 from model.xgboost_multi_factors_model import XGBoostMultiFactors
+from model.randomforest_multi_factors_model import RandomForestMultiFactors
 
 
 # -----------------------------
@@ -11,7 +12,8 @@ from model.xgboost_multi_factors_model import XGBoostMultiFactors
 # -----------------------------
 MODEL = {
     "linear": LinearMultiFactors,
-    "xgboost": XGBoostMultiFactors
+    "xgboost": XGBoostMultiFactors,
+    "randomforest": RandomForestMultiFactors
 }
 
 
@@ -32,7 +34,7 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250502-WEEK-混合"
-    storage_dir = "模型debug/xgboost-20250503W-质量因子-改进1"
+    storage_dir = "模型debug/randomforest-20250503W"
 
     """
     linear-传统-ir_decay_weight
@@ -42,17 +44,17 @@ if __name__ == "__main__":
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="xgboost",
+        model="randomforest",
         cycle="week",
-        factors_setting=list(RISK_FACTOR_LIBRARY.values()),
+        factors_setting=list(ALPHA_FACTOR_LIBRARY.values()),
 
         # 目标股票池
         industry_info={"全部": "三级行业"},
         filter_mode="_entire_filter",
 
         # 目标因子
-        factor_filter=False,
-        # factor_primary_classification=["基本面因子"],
+        factor_filter=True,
+        factor_primary_classification=["基本面因子"],
         # factor_secondary_classification=["行为金融因子"],
         factor_filter_mode=["_entire_filter"],
         # factor_half_life=(3, 6),
@@ -68,7 +70,7 @@ if __name__ == "__main__":
         group_mode="frequency",
 
         # 仓位
-        position_weight_method="group_long_only",
+        position_weight_method="group_equal",
         position_distribution=(3, 1),
     )
 

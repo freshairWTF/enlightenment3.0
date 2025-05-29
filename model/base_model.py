@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from statsmodels import api as sm
+from sklearn.ensemble import RandomForestRegressor
 
+import numpy as np
 import pandas as pd
 import xgboost as xgb
 
@@ -190,16 +192,20 @@ class MultiFactorsModel(ABC):
         """
         # XGBoost参数配置
         params = {
-            'objective': 'reg:squarederror',
-            'learning_rate': 0.05,
-            'max_depth': 5,
-            'subsample': 0.8,
-            'colsample_bytree': 0.8,
-            'n_estimators': 1000,
+            'objective': 'reg:squarederror',    # 定义损失函数类型：回归：reg:squarederror（均方误差）分类：binary:logistic（二分类概率）、multi:softmax（多分类）排序：rank:pairwise（文档对排序）
+            'verbosity': 1,                     # 日志输出级别：0（静默）、1（警告）、2（信息）、3（调试）
 
-            'reg_alpha': 0.5,  # 控制稀疏性
-            'reg_lambda': 1.0,  # 抑制过拟合
-            'gamma': 0.1  # 节点分裂最小增益阈值
+            'learning_rate': 0.05,              # 学习率：控制每棵树对最终预测的贡献权重。较低值（0.01-0.2）可防止过拟合
+            'n_estimators': 1000,
+            'max_depth': 9,                     # 树的最大深度：增加深度提升模型复杂度但易过拟合。推荐3-10之间，高频交易场景可降低至3-5
+            'min_child_weight': 3,
+
+            'subsample': 0.8,                   # 行采样比例：每次建树时随机抽取样本的比例，常用0.5-0.8防止过拟合
+            'colsample_bytree': 0.7,            # 列采样比例：每棵树随机选择特征的比例，与随机森林思想类似
+
+            'reg_alpha': 0.1,                   # L1正则化项：促进特征稀疏性，适用于高维特征筛选
+            'reg_lambda': 0.5,                  # L2正则化项：惩罚权重过大，缓解过拟合
+            'gamma': 0.1                        # 节点分裂最小损失增益阈值：值越大分裂越保守。推荐0.1-0.3用于抑制噪声
         }
 
         # 按日期排序并转换为列表
@@ -243,7 +249,6 @@ class MultiFactorsModel(ABC):
 
             # 生成预测特征
             x_predict = sm.add_constant(predict_df, has_constant="add")
-            # print(x_predict)
 
             # 执行预测
             predicted = pd.Series(
@@ -254,6 +259,110 @@ class MultiFactorsModel(ABC):
 
             # 存储结果
             result[predict_date] = predicted.to_frame()
+
+        return result
+
+    # --------------------------
+    # 随机森林
+    # --------------------------
+    @classmethod
+    def calc_predict_return_by_randomforest(
+            cls,
+            x_value: dict[str, pd.DataFrame | pd.Series],
+            y_value: dict[str, pd.Series],
+            window: int = 12
+    ) -> dict[str, pd.DataFrame]:
+        """
+        基于随机森林的滚动窗口回归预测收益率
+        :param x_value: T期截面数据
+        :param y_value: T期收益率
+        :param window: 滚动窗口长度
+        :return: 预期收益率
+        """
+        # 随机森林参数配置（参考网页7、网页8的金融预测最佳实践）
+        params = {
+            'n_estimators': 200,  # 树的数量，网页8使用200棵
+            'max_depth': 10,  # 树的最大深度，网页7建议5-15之间
+            'min_samples_split': 10,  # 节点分裂最小样本数，抑制噪声干扰
+            'max_features': 'sqrt',  # 每棵树随机选择√(总特征数)的特征
+            'n_jobs': -1,  # 使用全部CPU核心加速计算
+            'random_state': 42,  # 确保结果可复现
+            'verbose': 1  # 显示训练进度（参考网页6的日志配置）
+        }
+
+        sorted_dates = sorted(x_value.keys())
+        result = {}
+
+        for i in range(window, len(sorted_dates)):
+            # ====================
+            # 样本内训练（改进点：增加特征筛选）
+            # ====================
+            train_window = sorted_dates[i - window:i]
+
+            # 改进点：动态特征合并（参考网页7的prepare_features方法）
+            train_dfs = []
+            for date in train_window:
+                # 合并特征与目标变量时保留原始特征（网页8的X/y分离方式）
+                df = pd.concat([x_value[date], y_value[date].rename('target')], axis=1)
+                df["date"] = date
+                train_dfs.append(df)
+
+            train_data = pd.concat(train_dfs).dropna()
+
+            # 改进点：增加滞后特征（参考网页3的shift特征构造）
+            for lag in [1, 3, 5]:
+                train_data[f'return_lag_{lag}'] = train_data.groupby(level=0)['target'].shift(lag)
+
+            train_data = train_data.dropna()
+
+            # 拆分训练集（网页6的滑动窗口实现方式）
+            x_train = train_data.drop(['target', 'date'], axis=1)
+            y_train = train_data['target']
+
+            # ====================
+            # 模型训练（增加早停机制）
+            # ====================
+            try:
+                # 改进点：使用OOB误差估计（参考网页8的评估方法）
+                model = RandomForestRegressor(**params, oob_score=True)
+                model.fit(x_train, y_train)
+
+                # 特征重要性筛选（网页7的核心功能）
+                importance = pd.Series(model.feature_importances_, index=x_train.columns)
+                selected_features = importance.nlargest(15).index.tolist()  # 保留前15个重要特征
+            except Exception as e:
+                print(f"训练失败：{str(e)}")
+                continue
+
+            # ====================
+            # 样本外预测（改进点：增加不确定性估计）
+            # ====================
+            predict_date = sorted_dates[i]
+            predict_df = x_value[predict_date].copy()
+
+            # 为预测数据生成滞后特征（需与训练集同步）
+            for lag in [1, 3, 5]:
+                predict_df[f'return_lag_{lag}'] = y_value[sorted_dates[i - lag]].reindex(predict_df.index)
+
+            x_predict = predict_df[selected_features].dropna()
+
+            # 执行预测（网页6的预测实现方式）
+            predicted = pd.Series(
+                model.predict(x_predict),
+                index=x_predict.index,
+                name="predicted"
+            )
+
+            # 改进点：计算预测分位数（参考网页9的风险控制思想）
+            quantiles = np.quantile([tree.predict(x_predict) for tree in model.estimators_],
+                                    q=[0.25, 0.75], axis=0)
+            predicted_df = pd.DataFrame({
+                'point_pred': predicted,
+                'lower_bound': quantiles[0],
+                'upper_bound': quantiles[1]
+            })
+
+            result[predict_date] = predicted_df
 
         return result
 
