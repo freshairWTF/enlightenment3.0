@@ -34,7 +34,7 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250502-WEEK-混合"
-    storage_dir = "模型debug/randomforest-20250503W"
+    storage_dir = "模型debug/linear-20250503W-营业利润u型因子测试-加入二项式"
 
     """
     linear-传统-ir_decay_weight
@@ -44,18 +44,18 @@ if __name__ == "__main__":
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="randomforest",
+        model="linear",
         cycle="week",
-        factors_setting=list(ALPHA_FACTOR_LIBRARY.values()),
+        factors_setting=list(RISK_FACTOR_LIBRARY.values()),
 
         # 目标股票池
         industry_info={"全部": "三级行业"},
         filter_mode="_entire_filter",
 
         # 目标因子
-        factor_filter=True,
-        factor_primary_classification=["基本面因子"],
-        # factor_secondary_classification=["行为金融因子"],
+        factor_filter=False,
+        # factor_primary_classification=["基本面因子"],
+        factor_secondary_classification=["质量因子"],
         factor_filter_mode=["_entire_filter"],
         # factor_half_life=(3, 6),
 

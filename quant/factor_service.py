@@ -15,7 +15,7 @@ import pandas as pd
 
 from base_service import BaseService
 from range_filter import RangeFilter
-from markov_chain import DifferentMarketAnalyzer
+from check_factor_feature import DifferentMarketAnalyzer, check_u_shaped_feature
 from constant.quant import (
                             Factor, RESTRUCTURE_FACTOR,
                             NEGATIVE_SINGLE_COLUMN
@@ -516,111 +516,115 @@ class FactorAnalyzer(BaseService):
         :param factor_name: 因子名
         :param filter_mode: 过滤模式
         """
-        try:
-            self.logger.info(f"start: {factor_name} - {self.group_mode} - {filter_mode}")
-            # --------------------------
-            # 初始化
-            # --------------------------
-            storage_dir = self._get_storage_dir(factor_name, filter_mode)
-            processed_factor_col = f"processed_{factor_name}"
-            valid_factors = self._get_valid_factor(factor_name)
+        # try:
+        self.logger.info(f"start: {factor_name} - {self.group_mode} - {filter_mode}")
+        # --------------------------
+        # 初始化
+        # --------------------------
+        storage_dir = self._get_storage_dir(factor_name, filter_mode)
+        processed_factor_col = f"processed_{factor_name}"
+        valid_factors = self._get_valid_factor(factor_name)
 
-            # --------------------------
-            # 数据处理
-            # --------------------------
-            grouped_data = self._data_process(
-                raw_data,
-                valid_factors,
-                filter_mode,
-                self.group_mode,
-                factor_name,
-                processed_factor_col
-            )
+        # --------------------------
+        # 数据处理
+        # --------------------------
+        grouped_data = self._data_process(
+            raw_data,
+            valid_factors,
+            filter_mode,
+            self.group_mode,
+            factor_name,
+            processed_factor_col
+        )
 
-            # ---------------------------------------
-            # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
-            # ---------------------------------------
-            # ic类统计
-            ic_stats = self.calc_ic_metrics(
-                grouped_data,
-                processed_factor_col,
-                self.cycle
-            )
-            # ic均值
-            ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
-            # 是否为反转因子
-            reverse = True if ic_mean < 0 else False
+        # ---------------------------------------
+        # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
+        # ---------------------------------------
+        ratio = check_u_shaped_feature(grouped_data, f"processed_{factor_name}")
 
-            result = {
-                **{
-                    "coverage": self.calc_coverage(grouped_data, self.listed_nums),
-                    "desc_stats": self.get_desc_stats(
-                        grouped_data,
-                        list(set([factor_name, processed_factor_col] + self.DESCRIPTIVE_FACTOR))
-                    )
-                },
-                **ic_stats,
-                **self.calc_return_metrics(
+        print(ratio)
+        print(dd)
+        # ic类统计
+        ic_stats = self.calc_ic_metrics(
+            grouped_data,
+            processed_factor_col,
+            self.cycle
+        )
+        # ic均值
+        ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
+        # 是否为反转因子
+        reverse = True if ic_mean < 0 else False
+
+        result = {
+            **{
+                "coverage": self.calc_coverage(grouped_data, self.listed_nums),
+                "desc_stats": self.get_desc_stats(
                     grouped_data,
-                    self.cycle,
-                    self.group_label,
-                    reverse=reverse
-                ),
-                **self.calc_return_metrics(
-                    grouped_data,
-                    self.cycle,
-                    self.group_label,
-                    mode="mv_weight", reverse=reverse, prefix="mw"
-                ),
-            }
-
-            # 识别不同市场下的因子表现
-            dm_result = DifferentMarketAnalyzer(
-                factor_ic=result["ic"]["ic"],
-                month_market_metrics=self.index_month_data,
-                day_market_metrics=self.index_day_data,
-                cycle=self.cycle
-            ).run()
-            result.update(
-                {"different_market_result": dm_result}
-            )
-
-            # 因子综合评价
-            measure_metrics = self._get_measure_indicator(
-                factor_name,
-                filter_mode,
-                self.group_mode,
-                self.group_label[0] if ic_mean < 0 else self.group_label[-1],
-                result
-            )
-
-            # ---------------------------------------
-            # 存储、可视化
-            # ---------------------------------------
-            # excel 因子判断
-            self._save_measure_indicator(
-                measure_metrics,
-                lock
-            )
-            # pycharts IC 收益率
-            self._draw_charts(
-                storage_dir,
-                result,
-                self.setting.visualization
-            )
-            # png 因子分布
-            self._calc_and_save_pdf(
+                    list(set([factor_name, processed_factor_col] + self.DESCRIPTIVE_FACTOR))
+                )
+            },
+            **ic_stats,
+            **self.calc_return_metrics(
                 grouped_data,
-                factor_name,
-                storage_dir
-            )
-            # parquet 分组数据
-            # self._store_results(grouped_data, storage_dir)
-        except Exception as e:
-            self.logger.error(
-                f"错误信息: {factor_name} {self.group_mode} {filter_mode}|"
-                f"异常类型: {type(e).__name__}, 错误详情: {str(e)}, 堆栈跟踪:\n{traceback.format_exc()}"
-            )
+                self.cycle,
+                self.group_label,
+                reverse=reverse
+            ),
+            **self.calc_return_metrics(
+                grouped_data,
+                self.cycle,
+                self.group_label,
+                mode="mv_weight", reverse=reverse, prefix="mw"
+            ),
+        }
+
+        # 识别不同市场下的因子表现
+        dm_result = DifferentMarketAnalyzer(
+            factor_ic=result["ic"]["ic"],
+            month_market_metrics=self.index_month_data,
+            day_market_metrics=self.index_day_data,
+            cycle=self.cycle
+        ).run()
+        result.update(
+            {"different_market_result": dm_result}
+        )
+
+        # 因子综合评价
+        measure_metrics = self._get_measure_indicator(
+            factor_name,
+            filter_mode,
+            self.group_mode,
+            self.group_label[0] if ic_mean < 0 else self.group_label[-1],
+            result
+        )
+
+        # ---------------------------------------
+        # 存储、可视化
+        # ---------------------------------------
+        # excel 因子判断
+        self._save_measure_indicator(
+            measure_metrics,
+            lock
+        )
+        # pycharts IC 收益率
+        self._draw_charts(
+            storage_dir,
+            result,
+            self.setting.visualization
+        )
+        # png 因子分布
+        self._calc_and_save_pdf(
+            grouped_data,
+            factor_name,
+            storage_dir
+        )
+        # parquet 分组数据
+        # self._store_results(grouped_data, storage_dir)
+        # except Exception as e:
+        #     self.logger.error(
+        #         f"错误信息: {factor_name} {self.group_mode} {filter_mode}|"
+        #         f"异常类型: {type(e).__name__}, 错误详情: {str(e)}, 堆栈跟踪:\n{traceback.format_exc()}"
+        #     )
 
     # --------------------------
     # 多进程方法

@@ -184,42 +184,63 @@ class MultiFactorsModel(ABC):
             window: int = 12
     ) -> dict[str, pd.DataFrame]:
         """
-        滚动窗口回归预测收益率
+        滚动窗口回归预测收益率（集成Hyperopt自动调参）
         :param x_value: T期截面数据
         :param y_value: T期收益率
         :param window: 滚动窗口长度
         :return: 预期收益率
         """
-        # XGBoost参数配置
-        params = {
-            'objective': 'reg:squarederror',    # 定义损失函数类型：回归：reg:squarederror（均方误差）分类：binary:logistic（二分类概率）、multi:softmax（多分类）排序：rank:pairwise（文档对排序）
-            'verbosity': 1,                     # 日志输出级别：0（静默）、1（警告）、2（信息）、3（调试）
+        from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
+        from sklearn.metrics import mean_squared_error
+        from sklearn.model_selection import TimeSeriesSplit
 
-            'learning_rate': 0.05,              # 学习率：控制每棵树对最终预测的贡献权重。较低值（0.01-0.2）可防止过拟合
-            'n_estimators': 1000,
-            'max_depth': 9,                     # 树的最大深度：增加深度提升模型复杂度但易过拟合。推荐3-10之间，高频交易场景可降低至3-5
-            'min_child_weight': 3,
+        # 定义XGBoost参数搜索空间 [1,6](@ref)
+        def get_param_space():
+            return {
+                'learning_rate': hp.loguniform('learning_rate', np.log(0.01), np.log(0.2)),
+                'max_depth': hp.quniform('max_depth', 3, 10, 1),
+                'subsample': hp.uniform('subsample', 0.5, 0.95),
+                'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 0.95),
+                'reg_alpha': hp.uniform('reg_alpha', 0, 1),
+                'reg_lambda': hp.uniform('reg_lambda', 0, 1),
+                'gamma': hp.uniform('gamma', 0, 0.5)
+            }
 
-            'subsample': 0.8,                   # 行采样比例：每次建树时随机抽取样本的比例，常用0.5-0.8防止过拟合
-            'colsample_bytree': 0.7,            # 列采样比例：每棵树随机选择特征的比例，与随机森林思想类似
+        # 目标函数（含时间序列验证）[2,7](@ref)
+        def objective(params, X_train, y_train):
 
-            'reg_alpha': 0.1,                   # L1正则化项：促进特征稀疏性，适用于高维特征筛选
-            'reg_lambda': 0.5,                  # L2正则化项：惩罚权重过大，缓解过拟合
-            'gamma': 0.1                        # 节点分裂最小损失增益阈值：值越大分裂越保守。推荐0.1-0.3用于抑制噪声
-        }
+            tscv = TimeSeriesSplit(n_splits=3)
+            losses = []
 
-        # 按日期排序并转换为列表
+            # 时间序列交叉验证
+            for train_idx, val_idx in tscv.split(X_train):
+                X_tr, X_val = X_train.iloc[train_idx], X_train.iloc[val_idx]
+                y_tr, y_val = y_train.iloc[train_idx], y_train.iloc[val_idx]
+
+                try:
+                    model = xgb.XGBRegressor(
+                        objective='reg:squarederror',
+                        ** {k: int(v) if k in ['max_depth'] else v for k, v in params.items()}
+                    ).fit(X_tr, y_tr)
+                    pred = model.predict(X_val)
+                    losses.append(mean_squared_error(y_val, pred))
+                except:
+                    return {'loss': np.inf, 'status': STATUS_OK}
+
+            return {'loss': np.mean(losses), 'status': STATUS_OK}
+
+        # 主流程
         sorted_dates = sorted(x_value.keys())
         result = {}
+        trials_cache = None  # 用于增量调参的缓存
 
-        # 滚动窗口遍历
         for i in range(window, len(sorted_dates)):
             # ====================
-            # 样本内训练
+            # 样本内数据准备
             # ====================
-            # 获取训练窗口数据
             train_window = sorted_dates[i - window:i]
 
+            # 拼接训练数据（保持原有逻辑）
             train_dfs = []
             for date in train_window:
                 df = pd.concat([x_value[date], y_value[date]], axis=1, join="inner")
@@ -227,40 +248,140 @@ class MultiFactorsModel(ABC):
                 train_dfs.append(df)
             train_data = pd.concat(train_dfs).dropna()
 
-            # 准备训练数据
+            # 准备特征矩阵（添加常数项）
             y_train = train_data["pctChg"]
             x_train = sm.add_constant(train_data.drop(["pctChg", "date"], axis=1), has_constant="add")
 
-            try:
-                model = xgb.XGBRegressor(**params).fit(
-                    x_train,
-                    y_train
-                )
-            except Exception as e:
-                print(str(e))
-                continue
+            # ====================
+            # Hyperopt参数优化 [3,8](@ref)
+            # ====================
+            trials = Trials()
+
+            best_params = fmin(
+                fn=lambda p: objective(p, x_train, y_train),
+                space=get_param_space(),
+                algo=tpe.suggest,
+                max_evals=50,  # 每期评估次数
+                trials=trials,
+                rstate=np.random.default_rng(seed=42) ,
+                verbose=False
+            )
+
+            # 参数类型转换
+            best_params = {
+                'objective': 'reg:squarederror',
+                'learning_rate': best_params['learning_rate'],
+                'max_depth': int(best_params['max_depth']),
+                'subsample': best_params['subsample'],
+                'colsample_bytree': best_params['colsample_bytree'],
+                'reg_alpha': best_params['reg_alpha'],
+                'reg_lambda': best_params['reg_lambda'],
+                'gamma': best_params['gamma']
+            }
 
             # ====================
-            # 样本外预测
+            # 模型训练与预测
             # ====================
-            # 获取预测日数据
+            model = xgb.XGBRegressor(**best_params).fit(x_train, y_train)
+
+            # 预测处理（保持原有逻辑）
             predict_date = sorted_dates[i]
             predict_df = x_value[predict_date]
-
-            # 生成预测特征
             x_predict = sm.add_constant(predict_df, has_constant="add")
-
-            # 执行预测
             predicted = pd.Series(
                 model.predict(x_predict),
-                index=x_predict.index
+                index=x_predict.index,
+                name="predicted"
             )
-            predicted.name = "predicted"
-
-            # 存储结果
             result[predict_date] = predicted.to_frame()
 
         return result
+
+    # @classmethod
+    # def calc_predict_return_by_xgboost(
+    #         cls,
+    #         x_value: dict[str, pd.DataFrame | pd.Series],
+    #         y_value: dict[str, pd.Series],
+    #         window: int = 12
+    # ) -> dict[str, pd.DataFrame]:
+    #     """
+    #     滚动窗口回归预测收益率
+    #     :param x_value: T期截面数据
+    #     :param y_value: T期收益率
+    #     :param window: 滚动窗口长度
+    #     :return: 预期收益率
+    #     """
+    #     # XGBoost参数配置
+    #     params = {
+    #         'objective': 'reg:squarederror',    # 定义损失函数类型：回归：reg:squarederror（均方误差）分类：binary:logistic（二分类概率）、multi:softmax（多分类）排序：rank:pairwise（文档对排序）
+    #         'verbosity': 1,                     # 日志输出级别：0（静默）、1（警告）、2（信息）、3（调试）
+    #
+    #         'learning_rate': 0.05,              # 学习率：控制每棵树对最终预测的贡献权重。较低值（0.01-0.2）可防止过拟合
+    #         'n_estimators': 1000,
+    #         'max_depth': 9,                     # 树的最大深度：增加深度提升模型复杂度但易过拟合。推荐3-10之间，高频交易场景可降低至3-5
+    #         'min_child_weight': 3,
+    #
+    #         'subsample': 0.8,                   # 行采样比例：每次建树时随机抽取样本的比例，常用0.5-0.8防止过拟合
+    #         'colsample_bytree': 0.7,            # 列采样比例：每棵树随机选择特征的比例，与随机森林思想类似
+    #
+    #         'reg_alpha': 0.1,                   # L1正则化项：促进特征稀疏性，适用于高维特征筛选
+    #         'reg_lambda': 0.5,                  # L2正则化项：惩罚权重过大，缓解过拟合
+    #         'gamma': 0.1                        # 节点分裂最小损失增益阈值：值越大分裂越保守。推荐0.1-0.3用于抑制噪声
+    #     }
+    #
+    #     # 按日期排序并转换为列表
+    #     sorted_dates = sorted(x_value.keys())
+    #     result = {}
+    #
+    #     # 滚动窗口遍历
+    #     for i in range(window, len(sorted_dates)):
+    #         # ====================
+    #         # 样本内训练
+    #         # ====================
+    #         # 获取训练窗口数据
+    #         train_window = sorted_dates[i - window:i]
+    #
+    #         train_dfs = []
+    #         for date in train_window:
+    #             df = pd.concat([x_value[date], y_value[date]], axis=1, join="inner")
+    #             df["date"] = date
+    #             train_dfs.append(df)
+    #         train_data = pd.concat(train_dfs).dropna()
+    #
+    #         # 准备训练数据
+    #         y_train = train_data["pctChg"]
+    #         x_train = sm.add_constant(train_data.drop(["pctChg", "date"], axis=1), has_constant="add")
+    #
+    #         try:
+    #             model = xgb.XGBRegressor(**params).fit(
+    #                 x_train,
+    #                 y_train
+    #             )
+    #         except Exception as e:
+    #             print(str(e))
+    #             continue
+    #
+    #         # ====================
+    #         # 样本外预测
+    #         # ====================
+    #         # 获取预测日数据
+    #         predict_date = sorted_dates[i]
+    #         predict_df = x_value[predict_date]
+    #
+    #         # 生成预测特征
+    #         x_predict = sm.add_constant(predict_df, has_constant="add")
+    #
+    #         # 执行预测
+    #         predicted = pd.Series(
+    #             model.predict(x_predict),
+    #             index=x_predict.index
+    #         )
+    #         predicted.name = "predicted"
+    #
+    #         # 存储结果
+    #         result[predict_date] = predicted.to_frame()
+    #
+    #     return result
 
     # --------------------------
     # 随机森林

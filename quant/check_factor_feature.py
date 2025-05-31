@@ -1,9 +1,12 @@
+"""检验因子特征"""
 from typing import Self
 from scipy.stats import ttest_1samp
 from statsmodels.tsa.regime_switching.markov_regression import MarkovRegression
+from sklearn.linear_model import RANSACRegressor, LinearRegression
 
 import pandas as pd
 import numpy as np
+import statsmodels.api as sm
 
 from constant.type_ import CYCLE
 from utils.data_processor import DataProcessor
@@ -294,3 +297,142 @@ class MarkovChainAnalyzer:
             .__assign_states()
             .__analyze_performance()
         )
+
+
+########################################################
+def check_u_shaped_feature(
+        data_dict: dict[str, pd.DataFrame],
+        factor_name: str,
+        return_col: str = 'pctChg',  # 参数化收益率列名
+        threshold: float = 0.7
+) -> bool:
+    from statsmodels.regression.quantile_regression import QuantReg
+
+    valid_days = 0
+    total_days = len(data_dict)
+
+    condition_11 = 0
+    condition_22 = 0
+    condition_33 = 0
+    condition_44 = 0
+
+    for date, df in data_dict.items():
+        try:
+            # ===== 1. 数据预处理 =====
+            df_clean = df.dropna(subset=[factor_name, return_col])
+            if len(df_clean) < 30:
+                continue
+
+            x = df_clean[factor_name].values.reshape(-1, 1)
+            y = df_clean[return_col].values
+
+            # ===== 2. 二次项构造（关键优化）=====
+            # 二次项用原始因子值计算（保持分布一致性）
+            x_sq = x ** 2
+
+            # 构建设计矩阵
+            x_design = np.column_stack([x, x_sq])
+            x_design = sm.add_constant(x_design)
+
+            # ===== 3. 动态RANSAC拟合 =====
+            # 基于MAD的动态残差阈值
+            mad = np.median(np.abs(y - np.median(y)))
+            residual_threshold = np.percentile(np.abs(y - np.median(y)), 75)
+
+            model = RANSACRegressor(
+                estimator=LinearRegression(),
+                min_samples=max(0.5, 30 / len(x)),  # 提高样本要求
+                residual_threshold=residual_threshold,
+                max_trials=1000
+            )
+            model.fit(x_design, y)
+
+            # ===== 4. 二次项显著性（验证存在弯曲） =====
+            coefs = model.estimator_.coef_
+            beta_1 = coefs[1]                   # 线性项系数
+            beta_2 = coefs[2]                   # 二次项系数
+
+            # 内点集OLS拟合获取p值
+            inlier_mask = model.inlier_mask_
+            ols_model = sm.OLS(y[inlier_mask], x_design[inlier_mask]).fit()
+            p_value = ols_model.pvalues[2]
+            condition_1 = (beta_2 != 0) and (p_value < 0.0005)
+
+            # ===== 5. 端点斜率检验（验证两端趋势反向） =====
+            extremum = -beta_1 / (2 * beta_2)
+
+            # 极值点分位数位置（使用原始因子值）
+            extremum_quantile = np.sum(x <= extremum) / len(x)
+            left_ratio = np.sum(x <= extremum) / len(x)
+            right_ratio = 1 - left_ratio
+
+            # 条件2：极值点有效性（5%-95%分位且两侧均衡）
+            q_low = np.percentile(x, 5)  # 5%分位值
+            q_high = np.percentile(x, 95)  # 95%分位值
+            is_central = (q_low <= extremum_quantile <= q_high)
+
+            min_ratio = max(0.05, 8 / np.sqrt(len(x)))
+            is_balanced = (min(left_ratio, right_ratio) > min_ratio)
+            condition_2 = is_central and is_balanced
+
+            # ===== 6. 拐点位置验证（验证转折点在数据内） =====
+            model_low = QuantReg(y, sm.add_constant(x)).fit(q=0.3)
+            model_high = QuantReg(y, sm.add_constant(x)).fit(q=0.7)
+            slope_low = model_low.params[1]
+            slope_high = model_high.params[1]
+            condition_3 = (
+                    ((slope_low < 0) and (slope_high > 0))  # U型
+                    or
+                    ((slope_low > 0) and (slope_high < 0))  # 倒U型
+            )
+
+            # ===== 7. 局部线性趋势检测（验证弯曲形态连贯） =====
+            inlier_X = x[inlier_mask].flatten()
+            inlier_y = y[inlier_mask]
+            x_star = extremum
+
+            # 左侧斜率（极值点左侧样本）
+            left_mask = (inlier_X <= x_star)
+            left_slope = np.polyfit(inlier_X[left_mask], inlier_y[left_mask], 1)[0] if sum(left_mask) > 10 else np.nan
+
+            # 右侧斜率（极值点右侧样本）
+            right_mask = (inlier_X > x_star)
+            right_slope = np.polyfit(inlier_X[right_mask], inlier_y[right_mask], 1)[0] if sum(
+                right_mask) > 10 else np.nan
+
+            condition_4 = (
+                    ((left_slope < 0) and (right_slope > 0))  # U型：左降右升
+                    or
+                    ((left_slope > 0) and (right_slope < 0))  # 倒U型：左升右降
+            )
+
+            # ===== 7. 核心条件判断 =====
+            if all([condition_1, condition_2, condition_3, condition_4]):
+                valid_days += 1
+
+            if condition_1:
+                condition_11 += 1
+            if condition_2:
+                condition_22 += 1
+            if condition_3:
+                condition_33 += 1
+            if condition_4:
+                condition_44 += 1
+
+        except Exception as e:
+            print(f"Error in {date}: {str(e)}")
+            continue
+
+
+
+    print(condition_11)
+    print(condition_22)
+    print(condition_33)
+    print(condition_44)
+    print(valid_days)
+    print(total_days)
+    pass_ratio = valid_days / total_days
+    print(pass_ratio)
+    print(pass_ratio >= threshold)
+
+    return pass_ratio >= threshold

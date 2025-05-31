@@ -54,7 +54,10 @@ class FactorCollinearityProcessor:
         """获取二级分类因子"""
         result = defaultdict(list)
         for setting in self.model_setting.factors_setting:
-            result[setting.secondary_classification].append(f"processed_{setting.factor_name}")
+            if "_sqr" in setting.factor_name:
+                result[setting.secondary_classification].append(setting.factor_name)
+            else:
+                result[setting.secondary_classification].append(f"processed_{setting.factor_name}")
         return {k: list(dict.fromkeys(v)) for k, v in result.items()}
 
     def _get_half_life(
@@ -270,6 +273,34 @@ class FactorCollinearityProcessor:
         :param processed_data: 输入数据 {date: df}
         :return: 降维后的数据
         """
+        """
+        1、因子回测 需要检测出 因子的非线性特征
+                  标记 尽管ic不过关，但是icir大于0.5的弱因子，用以合成增强因子（在因子回测时加入因子合成模块）
+        2、因子合成 u型因子加入二项式
+        3、模型 非线性模型 主要是xgboost与随机森林
+        """
+        # -1 非线性三级底层因子分解
+        import copy
+        result = []
+        for setting in self.model_setting.factors_setting:
+            setting = copy.deepcopy(setting)
+            setting.factor_name = f"processed_{setting.factor_name}_sqr"
+            result.append(setting)
+        self.model_setting.factors_setting += result
+
+        print(self.model_setting.factors_setting)
+
+        for date, df in processed_data.items():
+            for setting in self.model_setting.factors_setting:
+                if "_sqr" not in setting.factor_name:
+                    df[f"processed_{setting.factor_name}_sqr"] = df[setting.factor_name] ** 2
+
+        self.primary_factors = self._get_primary_factors()              # 一级行业分类
+        self.secondary_factors = self._get_secondary_factors()          # 二级行业分类
+
+        print(self.primary_factors)
+        print(self.secondary_factors)
+
         # -1 三级底层因子正交
         processed_data = self._bottom_factors_orthogonal(processed_data)
 
