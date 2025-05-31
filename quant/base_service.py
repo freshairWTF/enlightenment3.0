@@ -352,7 +352,7 @@ class BaseService:
                     cls.evaluate.test.jonckheere_terpstra_test(grouped_return[group_label]),
                     pd.Series(
                         {
-                            "j_shape": cls.evaluate.returns.check_j_shape_feature(
+                            "j_shape_p_value": cls.evaluate.returns.check_j_shape_feature(
                                 grouped_data,
                                 (group_label[0], group_label[1]) if reverse else
                                 (group_label[-1], group_label[-2])

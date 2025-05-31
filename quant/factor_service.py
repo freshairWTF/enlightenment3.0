@@ -331,7 +331,7 @@ class FactorAnalyzer(BaseService):
                 "震荡市IC": result["different_market_result"].loc["Range", "mean"],
                 "震荡市IR": result["different_market_result"].loc["Range", "ic_ir"],
                 "震荡市t值": result["different_market_result"].loc["Range", "t_stat"],
-                "倒J型因子": result["basic_stats"].loc["value", "j_shape"],
+                "倒J型因子": result["basic_stats"].loc["value", "j_shape_p_value"],
             }
         )
 
@@ -606,9 +606,6 @@ class FactorAnalyzer(BaseService):
                 result
             )
 
-            print(measure_metrics)
-            print(result)
-
             # ---------------------------------------
             # 存储、可视化
             # ---------------------------------------
@@ -636,6 +633,118 @@ class FactorAnalyzer(BaseService):
                 f"错误信息: {factor_name} {self.group_mode} {filter_mode}|"
                 f"异常类型: {type(e).__name__}, 错误详情: {str(e)}, 堆栈跟踪:\n{traceback.format_exc()}"
             )
+
+    @validate_literal_params
+    def _analyze_single_factor_debug(
+            self,
+            raw_data: dict[str, pd.DataFrame],
+            factor_name: str,
+            filter_mode: FILTER_MODE,
+            lock: Lock = None
+    ) -> None:
+        """
+        单个因子分析
+        :param raw_data: 原始数据
+        :param factor_name: 因子名
+        :param filter_mode: 过滤模式
+        """
+        self.logger.info(f"start: {factor_name} - {self.group_mode} - {filter_mode}")
+        # --------------------------
+        # 初始化
+        # --------------------------
+        storage_dir = self._get_storage_dir(factor_name, filter_mode)
+        processed_factor_col = f"processed_{factor_name}"
+        valid_factors = self._get_valid_factor(factor_name)
+
+        # --------------------------
+        # 数据处理
+        # --------------------------
+        grouped_data = self._data_process(
+            raw_data,
+            valid_factors,
+            filter_mode,
+            self.group_mode,
+            factor_name,
+            processed_factor_col
+        )
+
+        # ---------------------------------------
+        # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
+        # ---------------------------------------
+        # ic类统计
+        ic_stats = self.calc_ic_metrics(
+            grouped_data,
+            processed_factor_col,
+            self.cycle
+        )
+        # ic均值
+        ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
+        # 是否为反转因子
+        reverse = True if ic_mean < 0 else False
+
+        result = {
+            **{
+                "coverage": self.calc_coverage(grouped_data, self.listed_nums),
+                "desc_stats": self.get_desc_stats(
+                    grouped_data,
+                    list(set([factor_name, processed_factor_col] + self.DESCRIPTIVE_FACTOR))
+                ),
+            },
+            **ic_stats,
+            **self.calc_return_metrics(
+                grouped_data,
+                self.cycle,
+                self.group_label,
+                reverse=reverse
+            ),
+            **self.calc_return_metrics(
+                grouped_data,
+                self.cycle,
+                self.group_label,
+                mode="mv_weight", reverse=reverse, prefix="mw"
+            ),
+        }
+
+        # 识别不同市场下的因子表现
+        dm_result = DifferentMarketAnalyzer(
+            factor_ic=result["ic"]["ic"],
+            month_market_metrics=self.index_month_data,
+            day_market_metrics=self.index_day_data,
+            cycle=self.cycle
+        ).run()
+        result.update(
+            {"different_market_result": dm_result}
+        )
+
+        # 因子综合评价
+        measure_metrics = self._get_measure_indicator(
+            factor_name,
+            filter_mode,
+            self.group_mode,
+            self.group_label[0] if ic_mean < 0 else self.group_label[-1],
+            result
+        )
+
+        # ---------------------------------------
+        # 存储、可视化
+        # ---------------------------------------
+        # excel 因子判断
+        self._save_measure_indicator(
+            measure_metrics,
+            lock
+        )
+        # pycharts IC 收益率
+        self._draw_charts(
+            storage_dir,
+            result,
+            self.setting.visualization
+        )
+        # png 因子分布
+        self._calc_and_save_pdf(
+            grouped_data,
+            factor_name,
+            storage_dir
+        )
 
     # --------------------------
     # 多进程方法
@@ -693,6 +802,17 @@ class FactorAnalyzer(BaseService):
                     factor_name=factor_name,
                     filter_mode=filter_mode
                 )
+
+    def debug(self) -> None:
+        """执行完整分析流程"""
+        for k, factor_name in enumerate(self.factors_name, 1):
+            for filter_mode in get_args(self.filter_mode):
+                self._analyze_single_factor_debug(
+                    raw_data=self.raw_data,
+                    factor_name=factor_name,
+                    filter_mode=filter_mode
+                )
+
 
     def multi_run(self) -> None:
         """多进程执行完整分析流程"""

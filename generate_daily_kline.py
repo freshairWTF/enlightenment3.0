@@ -47,6 +47,6 @@ def daily_update_kline():
 
 # ------------------------- 执行入口 -------------------------
 if __name__ == "__main__":
-    start_date = "2025-05-19"
-    end_date = "2025-05-23"
+    start_date = "2025-05-26"
+    end_date = "2025-05-30"
     daily_update_kline()

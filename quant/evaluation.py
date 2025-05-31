@@ -350,7 +350,7 @@ class ReturnMetrics:
             grouped_data: dict[str, pd.DataFrame],
             group_label: tuple[str, str],
             return_col: str = 'pctChg',
-    ) -> bool:
+    ) -> float:
         """
         检验 倒J型特征
         :param grouped_data: k期分组截面数据
@@ -369,7 +369,7 @@ class ReturnMetrics:
         diffs = group_df["最高组"] - group_df["次高组"]
 
         # -2 正态性检验（Shapiro-Wilk）
-        shapiro_stat, shapiro_p = stats.shapiro(diffs)
+        _, shapiro_p = stats.shapiro(diffs)
 
         # -3 自动选择检验方法
         if shapiro_p > 0.05:
@@ -379,7 +379,7 @@ class ReturnMetrics:
             # 不满足正态分布
             _, p_value = stats.wilcoxon(diffs, alternative='less', mode='approx')
 
-        return True if p_value < alpha else False
+        return p_value
 
 
 ####################################################
