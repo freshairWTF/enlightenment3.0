@@ -1,7 +1,6 @@
 from collections import deque
 from functools import reduce
-
-from scipy.stats import norm, spearmanr
+from scipy import stats
 from statsmodels import api as sm
 
 import numpy as np
@@ -345,6 +344,43 @@ class ReturnMetrics:
                 / (returns.mean() * annualized_num)
         ) * 100
 
+    @classmethod
+    def check_j_shape_feature(
+            cls,
+            grouped_data: dict[str, pd.DataFrame],
+            group_label: tuple[str, str],
+            return_col: str = 'pctChg',
+    ) -> bool:
+        """
+        检验 倒J型特征
+        :param grouped_data: k期分组截面数据
+        :param group_label: 最高组与次高组的组名
+        :param return_col: 收益率列名
+        :return: 是否具备倒J型特征，即最高组收益率低于次高组
+        """
+        alpha = 0.05
+
+        # -1 计算差值
+        high_label, second_label = group_label
+        group_df = pd.DataFrame({
+            "最高组": [df[df['group'] == high_label][return_col].mean() for df in grouped_data.values()],
+            "次高组": [df[df['group'] == second_label][return_col].mean() for df in grouped_data.values()]
+        })
+        diffs = group_df["最高组"] - group_df["次高组"]
+
+        # -2 正态性检验（Shapiro-Wilk）
+        shapiro_stat, shapiro_p = stats.shapiro(diffs)
+
+        # -3 自动选择检验方法
+        if shapiro_p > 0.05:
+            # 满足正态分布
+            _, p_value = stats.ttest_1samp(diffs, popmean=0, alternative='less')
+        else:
+            # 不满足正态分布
+            _, p_value = stats.wilcoxon(diffs, alternative='less', mode='approx')
+
+        return True if p_value < alpha else False
+
 
 ####################################################
 class ICMetrics:
@@ -366,7 +402,7 @@ class ICMetrics:
         """
         return pd.DataFrame.from_dict(
             {
-                date: spearmanr(df[pnl_col], df[factor_col], nan_policy="omit").statistic
+                date: stats.spearmanr(df[pnl_col], df[factor_col], nan_policy="omit").statistic
                 for date, df in data.items()
             },
             orient="index",
@@ -607,10 +643,10 @@ class TestMetrics:
         # 标准化统计量并计算p值
         z = (u - mu) / np.sqrt(var)
         if z > 0:
-            p_value = 1 - norm.cdf(z)
+            p_value = 1 - stats.norm.cdf(z)
             trend = "Increasing"
         else:
-            p_value = norm.cdf(z)
+            p_value = stats.norm.cdf(z)
             trend = "Decreasing"
 
         return pd.Series({
@@ -635,7 +671,7 @@ class TestMetrics:
 
         x = valid_series.rank().values.astype(np.float64)
         y = np.arange(1, len(valid_series)+1, dtype=np.float64)
-        return spearmanr(
+        return stats.spearmanr(
             x,
             y, # ignore[arg-type]
             nan_policy="omit"

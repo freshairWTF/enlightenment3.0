@@ -34,7 +34,7 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250502-WEEK-混合"
-    storage_dir = "模型debug/linear-20250503W-营业利润u型因子测试-加入二项式"
+    storage_dir = "模型debug/linear-20250503W-营业利润u型因子测试-无二项式"
 
     """
     linear-传统-ir_decay_weight

@@ -343,9 +343,22 @@ class BaseService:
             ).T,
             "basic_stats": pd.concat(
                 [
-                    pd.Series({"duration": f"{round(duration, 2)}Y"}),
-                    pd.Series({"corr": cls.evaluate.test.rank_corr_test(annualized_return[group_label])}),
+                    pd.Series(
+                        {"duration": f"{round(duration, 2)}Y"}
+                    ),
+                    pd.Series(
+                        {"corr": cls.evaluate.test.rank_corr_test(annualized_return[group_label])}
+                    ),
                     cls.evaluate.test.jonckheere_terpstra_test(grouped_return[group_label]),
+                    pd.Series(
+                        {
+                            "j_shape": cls.evaluate.returns.check_j_shape_feature(
+                                grouped_data,
+                                (group_label[0], group_label[1]) if reverse else
+                                (group_label[-1], group_label[-2])
+                            )
+                        }
+                    ),
                 ]
             ).to_frame("value").T,
         }

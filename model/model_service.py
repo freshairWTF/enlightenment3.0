@@ -1,7 +1,6 @@
 """
 模型分析业务层
 """
-import copy
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -138,16 +137,6 @@ class ModelAnalyzer(BaseService):
             if classification_ok and half_life_ok and filter_mode_ok:
                 result.append(setting)
 
-        return result
-
-    def _add_factor_quadratic_term(
-            self
-    ) -> list:
-        """添加因子二次项"""
-        result = []
-        for setting in self.model_setting.factors_setting:
-            sqr_setting = copy.deepcopy(setting)
-            sqr_setting.factor_name = f"{setting.factor_name}_sqr"
         return result
 
     # --------------------------
