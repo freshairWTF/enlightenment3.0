@@ -7,7 +7,7 @@ def update_support():
     """更新支持数据"""
     updater = SupportDataUpdater(
         start_date="2000-01-01",
-        end_date="2025-05-23",
+        end_date="2025-05-30",
         get_listed_code=False        # 仅更新交易日历 = False
     )
     tasks = {
@@ -30,5 +30,5 @@ def data_convert():
 
 # ------------------------- 执行入口 -------------------------
 if __name__ == "__main__":
-    # update_support()
-    data_convert()
+    update_support()
+    # data_convert()

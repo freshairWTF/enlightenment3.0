@@ -33,20 +33,26 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250502-WEEK-混合"
-    storage_dir = "模型debug/linear-20250503W-营业利润u型因子测试-无二项式"
+    source_dir = "20250530-WEEK-跟踪"
+    storage_dir = "模型跟踪/linear-20250530W-ir衰减-旧因子库"
 
     """
-    linear-传统-ir_decay_weight
-    linear-阿尔法-ir_decay_weight
-    linear-阿尔法-半衰期
+    增加波动率因子
+    寻找高波动的
+    
+    增加成长因子
+    
+    pca降维前后因子数不一致怎么办？
+    
+    阿尔法因子   直接ir加权
+    弱/风险因子  使用ir衰减   
     """
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
         model="linear",
         cycle="week",
-        factors_setting=list(RISK_FACTOR_LIBRARY.values()),
+        factors_setting=list(FACTOR_LIBRARY.values()),
 
         # 目标股票池
         industry_info={"全部": "三级行业"},
@@ -55,7 +61,7 @@ if __name__ == "__main__":
         # 目标因子
         factor_filter=False,
         # factor_primary_classification=["基本面因子"],
-        factor_secondary_classification=["质量因子"],
+        # factor_secondary_classification=["质量因子"],
         factor_filter_mode=["_entire_filter"],
         # factor_half_life=(3, 6),
 
@@ -70,7 +76,7 @@ if __name__ == "__main__":
         group_mode="frequency",
 
         # 仓位
-        position_weight_method="group_equal",
+        position_weight_method="group_long_only",
         position_distribution=(3, 1),
     )
 

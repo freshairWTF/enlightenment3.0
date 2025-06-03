@@ -51,7 +51,7 @@ def normal_analysis():
 # ---------------------------------------------------
 def factor_analysis():
     """单因子分析 -> 生成分析因子"""
-    storage_dir_name = "阳线阴线次数"
+    storage_dir_name = "收益率标准差"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -91,7 +91,7 @@ def model_factor_analysis():
     模型分析 -> 生成因子库中的因子
     注：更新指数数据 -> 更新交易日历 -> 最新数据
     """
-    storage_dir_name = "20250504-WEEK"
+    storage_dir_name = "20250530-WEEK-跟踪"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -107,9 +107,9 @@ def model_factor_analysis():
 
         cycle="week",
         financial_cycle="quarter",
-        start_date="2015-01-31",
+        start_date="2015-01-01",
         financial_end_date="2025-03-31",
-        end_date="2025-05-23",
+        end_date="2025-05-30",
 
         target_info={"全部": "三级行业"},
         index_code="000300",
@@ -155,8 +155,8 @@ def inventory_cycle_analysis():
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    factor_analysis()
-    # model_factor_analysis()
+    # factor_analysis()
+    model_factor_analysis()
     # inventory_cycle_analysis()
 
     """

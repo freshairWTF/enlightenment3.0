@@ -1556,10 +1556,10 @@ class Factor:
     class Kline:
         def __init__(self):
             self.kline = {
-                "阳线次数": [
+                "收益率标准差": [
                     0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
                 ],
-                "阴线次数": [
+                "真实波幅均线": [
                     0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
                 ],
             }
@@ -1590,6 +1590,8 @@ class ModelFactor:
         self.valuation = self.Valuation()
         # 量价模块
         self.kline = self.Kline()
+        # 公司治理模块
+        self.governance = self.Governance()
         # 统计模块
         self.stat = self.Statistics()
         # 可视化模块
@@ -1679,7 +1681,16 @@ class ModelFactor:
                 "换手率标准差": [
                     0.25, 0.5, 1, 1.5, 2
                 ],
+                "收益率标准差": [
+                    0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
+                ],
             }
+
+    class Governance:
+        def __init__(self):
+            self.governance = [
+                "前十大股东持股变化率"
+            ]
 
     class Statistics:
         def __init__(self):

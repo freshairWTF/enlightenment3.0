@@ -1,11 +1,10 @@
 arviz==0.21.0
 attr==0.3.2
 baostock==0.8.9
-beautifulsoup4==4.13.4
+beautifulsoup4==4.12.3
 ConfigParser==7.2.0
 contextlib2==21.6.0
 cryptography==45.0.3
-docutils==0.18.1
 docutils==0.18.1
 HTMLParser==0.0.2
 importlib_metadata==7.0.1
@@ -18,10 +17,10 @@ jnius==1.1.0
 keyring==24.3.1
 lockfile==0.12.2
 loguru==0.7.3
-matplotlib==3.10.3
+matplotlib==3.9.2
 mock==5.2.0
-numpy==2.2.6
-pandas==2.2.3
+numpy==1.26.4
+pandas==2.2.2
 pathos==0.3.3
 Pillow==11.2.1
 protobuf==4.25.3
@@ -34,7 +33,7 @@ PyYAML==6.0.1
 PyYAML==6.0.2
 railroad==0.5.0
 scikit_learn==1.6.1
-scipy==1.15.3
+scipy==1.13.1
 Sphinx==8.2.3
 statsmodels==0.14.2
 thread==2.0.5
@@ -44,3 +43,7 @@ truststore==0.10.1
 urllib3_secure_extra==0.1.0
 xgboost==3.0.2
 xmlrpclib==1.0.1
+
+scikit-learn==1.5.1
+yaml==0.2.5
+requests==2.32.3

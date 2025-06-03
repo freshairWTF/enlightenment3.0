@@ -53,7 +53,7 @@ class XGBoostMultiFactors(MultiFactorsModel):
 
     def run(self):
         """
-        xgboost非线性模型：
+        xgboost非线性模型（因子数量要一致）：
             1）因子加权；
             2）模型训练/回测；
             3）分组；

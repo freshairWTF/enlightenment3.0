@@ -638,11 +638,26 @@ ALPHA_FACTOR_LIBRARY = {
         market_value_neutral=False,
         industry_neutral=False,
         reverse=True,
-         filter_mode = "_small_cap_filter",
+        filter_mode = "_small_cap_filter",
         bull_market=True,
         bear_market=True,
         shocking_market=True
     ),
+
+    # 公司治理
+    # "前十大股东持股变化率-1": FactorSetting(
+    #     factor_name="前十大股东持股变化率",
+    #     primary_classification="基本面因子",
+    #     secondary_classification="公司治理因子",
+    #     cycle="week",
+    #     half_life=10,
+    #     market_value_neutral=False,
+    #     industry_neutral=False,
+    #     filter_mode="_entire_filter",
+    #     # bull_market=True,
+    #     # bear_market=True,
+    #     # shocking_market=True
+    # ),
 }
 
 

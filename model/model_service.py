@@ -29,7 +29,7 @@ class ModelAnalyzer(BaseService):
         "对数市值", "open", "close", "pctChg"
     ]
     DESCRIPTIVE_FACTOR = [
-        "市值", "市净率"
+        "市值", "市净率", "收益率标准差_0.09"
     ]
     predict_date = "2100-01-01"
 

@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from statsmodels import api as sm
 from sklearn.ensemble import RandomForestRegressor
+from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import TimeSeriesSplit
 
 import numpy as np
 import pandas as pd
@@ -190,21 +193,34 @@ class MultiFactorsModel(ABC):
         :param window: 滚动窗口长度
         :return: 预期收益率
         """
-        from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
-        from sklearn.metrics import mean_squared_error
-        from sklearn.model_selection import TimeSeriesSplit
 
         # 定义XGBoost参数搜索空间 [1,6](@ref)
+        # def get_param_space():
+        #     return {
+        #         'learning_rate': hp.loguniform('learning_rate', np.log(0.01), np.log(0.2)),
+        #         'max_depth': hp.quniform('max_depth', 3, 12, 1),  # 加深深度
+        #         'subsample': hp.uniform('subsample', 0.5, 0.95),
+        #         'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 0.95),
+        #         'reg_alpha': hp.uniform('reg_alpha', 0, 1),  # L1上限降至0.3
+        #         'reg_lambda': hp.uniform('reg_lambda', 0, 1),  # L2下限提升
+        #         'gamma': hp.uniform('gamma', 0, 0.5)  # 分裂阈值压缩
+        #     }
+
         def get_param_space():
-            return {
+            base_space = {
                 'learning_rate': hp.loguniform('learning_rate', np.log(0.01), np.log(0.2)),
-                'max_depth': hp.quniform('max_depth', 3, 10, 1),
-                'subsample': hp.uniform('subsample', 0.5, 0.95),
-                'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 0.95),
-                'reg_alpha': hp.uniform('reg_alpha', 0, 1),
-                'reg_lambda': hp.uniform('reg_lambda', 0, 1),
-                'gamma': hp.uniform('gamma', 0, 0.5)
+                'subsample': hp.uniform('subsample', 0.7, 0.9)
             }
+            if prev_model is None:  # 首期全量调参
+                full_space = {
+                    'max_depth': hp.quniform('max_depth', 3, 12, 1),
+                    'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 0.95),
+                    'reg_alpha': hp.uniform('reg_alpha', 0, 0.3),  # L1上限压缩
+                    'reg_lambda': hp.uniform('reg_lambda', 0.7, 1),  # L2下限提升
+                    'gamma': hp.uniform('gamma', 0, 0.3)
+                }
+                return {**base_space, **full_space}
+            return base_space  # 后续仅优化关键参数
 
         # 目标函数（含时间序列验证）[2,7](@ref)
         def objective(params, X_train, y_train):
@@ -229,10 +245,14 @@ class MultiFactorsModel(ABC):
 
             return {'loss': np.mean(losses), 'status': STATUS_OK}
 
+        def ic_score(y_true, y_pred):
+            return np.corrcoef(y_true, y_pred)[0, 1]
+
         # 主流程
         sorted_dates = sorted(x_value.keys())
         result = {}
         trials_cache = None  # 用于增量调参的缓存
+        prev_model = None
 
         for i in range(window, len(sorted_dates)):
             # ====================
@@ -248,9 +268,9 @@ class MultiFactorsModel(ABC):
                 train_dfs.append(df)
             train_data = pd.concat(train_dfs).dropna()
 
-            # 准备特征矩阵（添加常数项）
+            # xgboost2.0之后的版本，不需手动添加截距项
             y_train = train_data["pctChg"]
-            x_train = sm.add_constant(train_data.drop(["pctChg", "date"], axis=1), has_constant="add")
+            x_train = train_data.drop(["pctChg", "date"], axis=1)
 
             # ====================
             # Hyperopt参数优化 [3,8](@ref)
@@ -269,30 +289,34 @@ class MultiFactorsModel(ABC):
 
             # 参数类型转换
             best_params = {
-                'objective': 'reg:squarederror',
+                'objective': 'reg:quantileerror',
+                'quantile_alpha': 0.5,
                 'learning_rate': best_params['learning_rate'],
                 'max_depth': int(best_params['max_depth']),
                 'subsample': best_params['subsample'],
                 'colsample_bytree': best_params['colsample_bytree'],
                 'reg_alpha': best_params['reg_alpha'],
                 'reg_lambda': best_params['reg_lambda'],
-                'gamma': best_params['gamma']
+                'gamma': best_params['gamma'],
+                'eval_metric': ic_score,
             }
 
             # ====================
             # 模型训练与预测
             # ====================
-            model = xgb.XGBRegressor(**best_params).fit(x_train, y_train)
+            model = xgb.XGBRegressor(**best_params)
+            model.fit(x_train, y_train, xgb_model=prev_model)
+            prev_model = model.get_booster()
 
             # 预测处理（保持原有逻辑）
             predict_date = sorted_dates[i]
             predict_df = x_value[predict_date]
-            x_predict = sm.add_constant(predict_df, has_constant="add")
             predicted = pd.Series(
-                model.predict(x_predict),
-                index=x_predict.index,
+                model.predict(predict_df),
+                index=predict_df.index,
                 name="predicted"
             )
+            print(predict_date)
             result[predict_date] = predicted.to_frame()
 
         return result
