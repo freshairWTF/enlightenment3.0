@@ -504,7 +504,7 @@ class Analyzer:
         backward_adjusted_kline = self._load_kline_data(code, "backward_adjusted")
         split_adjusted_kline = self._load_kline_data(code, "split_adjusted")
         
-        bonus = self._load_bonus(code)
+        bonus = self.loader.get_bonus(code=code)
 
         # --------------------------
         # 指标计算（技术指标/基本面指标/公司治理指标）
@@ -560,17 +560,19 @@ class Analyzer:
         # --------------------------
         # 估值指标计算
         # --------------------------
-        # 加载总股本
-        shares = self._load_shares(
-            code,
-            financial_date=rolling_financial_to_value.index
-        )
-        # 估值
         value = self._calculate_valuation(
             rolling_financial_to_value,
             backward_adjusted_kline,
             bonus,
-            shares
+            total_shares=self.loader.get_shares(
+                code=code,
+                financial_date=rolling_financial_to_value.index
+            ),
+            circulating_shares=self.loader.get_shares(
+                code=code,
+                financial_date=rolling_financial_to_value.index,
+                circulating=True
+            )
         )
 
         # --------------------------
@@ -610,7 +612,7 @@ class Analyzer:
             # --------------------------
             backward_adjusted_kline = self._load_kline_data(code, "backward_adjusted")
             split_adjusted_kline = self._load_kline_data(code, "split_adjusted")
-            bonus = self._load_bonus(code)
+            bonus = self.loader.get_bonus(code=code)
 
             # --------------------------
             # 指标计算（技术指标/基本面指标/公司治理指标）
@@ -665,17 +667,19 @@ class Analyzer:
             # --------------------------
             # 估值指标计算
             # --------------------------
-            # 加载总股本
-            shares = self._load_shares(
-                code,
-                financial_date=rolling_financial_to_value.index
-            )
-            # 估值
             value = self._calculate_valuation(
                 rolling_financial_to_value,
                 backward_adjusted_kline,
                 bonus,
-                shares
+                total_shares=self.loader.get_shares(
+                    code=code,
+                    financial_date=rolling_financial_to_value.index
+                ),
+                circulating_shares=self.loader.get_shares(
+                    code=code,
+                    financial_date=rolling_financial_to_value.index,
+                    circulating=True
+                )
             )
 
             # --------------------------
@@ -784,31 +788,6 @@ class Analyzer:
 
         return calculator.metrics.round(4)
 
-    def _load_bonus(
-            self,
-            code: str
-    ) -> pd.DataFrame:
-        """
-        加载分红数据
-        :param code: 企业代码
-        """
-        return self.loader.get_bonus(code=code)
-        
-    def _load_shares(
-            self,
-            code: str,
-            financial_date: pd.DatetimeIndex
-    ) -> pd.DataFrame:
-        """
-        加载总股本数据
-        :param code: 企业代码
-        :param financial_date:
-        """
-        return self.loader.get_total_shares(
-            code=code,
-            financial_date=financial_date
-        )
-
     # --------------------------
     # 填充（财务）
     # 计算（财务、估值、量价）
@@ -851,14 +830,24 @@ class Analyzer:
             financial: pd.DataFrame,
             kline: pd.DataFrame,
             bonus: pd.DataFrame,
-            shares: pd.DataFrame,
+            total_shares: pd.DataFrame,
+            circulating_shares: pd.DataFrame
     ) -> pd.DataFrame:
-        """计算估值指标"""
+        """
+        计算估值指标
+        :param financial: 财务
+        :param kline: k线
+        :param bonus: 分红
+        :param total_shares: 总股本
+        :param circulating_shares: 流通股本
+        :return:
+        """
         calculator = ValuationMetrics(
             financial_data=financial,
             kline_data=kline,
             bonus_data=bonus,
-            shares_data=shares,
+            total_shares_data=total_shares,
+            circulating_shares_data=circulating_shares,
             cycle=self.cycle,
             methods=sum(self.PARAMS.valuation.__dict__.values(), []),
             function_map=self.MAPPING["VALUATION"],

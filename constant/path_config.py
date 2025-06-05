@@ -8,7 +8,8 @@ class DataPATH:
     FUNDAMENTAL_DATA = BASE_DIR / "fundamental_data" / "cleaned_data"
     BONUS_FINANCING_DATA = BASE_DIR / "fundamental_data" / "cleaned_data" / "bonus_financing"
     FINANCIAL_DATA = BASE_DIR / "fundamental_data" / "cleaned_data" / "financial_data"
-    SHARES_DATA = BASE_DIR / "fundamental_data" / "cleaned_data" / "total_shares"
+    TOTAL_SHARES_DATA = BASE_DIR / "fundamental_data" / "cleaned_data" / "total_shares"
+    CIRCULATing_SHARES_DATA = BASE_DIR / "fundamental_data" / "cleaned_data" / "circulating_shares"
     TOP_TEN_CIRCULATING_SHAREHOLDERS = BASE_DIR / "fundamental_data" / "cleaned_data" / "top_ten_circulating_shareholders"
     TOP_TEN_SHAREHOLDERS = BASE_DIR / "fundamental_data" / "cleaned_data" / "top_ten_shareholders"
 

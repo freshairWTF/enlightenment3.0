@@ -50,6 +50,7 @@ class Crawler:
 
         # 新浪（总股本/公告标题）
         "total_shares": ROOT / "total_shares_from_sina",
+        "circulating_shares": ROOT / "circulating_shares_from_sina",
         "announcement_title": ROOT / "announcement_title_from_sina",
 
         # 巨潮（年报/半年报/季度报）
@@ -69,7 +70,8 @@ class Crawler:
             data_name: Literal[
                 "financial_data", "bonus_financing",
                 "top_ten_circulating_shareholders", "top_ten_shareholders",
-                "total_shares", "announcement_title",
+                "circulating_shares", "total_shares",
+                "announcement_title",
                 "annual_report", "semiannual_report",
                 "firstQuarter_report", "thirdQuarter_report"
             ],
@@ -380,7 +382,8 @@ class Crawler:
     # --------------------------
     def _download_total_shares(
             self,
-            code: str
+            code: str,
+            circulating: bool = False
     ) -> None:
         """
         下载总股本
@@ -393,13 +396,19 @@ class Crawler:
         3   2008-09-16   50000000.0
         4   2009-05-26   69120000.0
         """
+        crawler = CrawlerToSina(
+            code=code,
+            user_agent=self.get_user_agent(),
+            pause_time=self.PAUSE_TIME["sina"],
+        )
+        df = crawler.get_shares(circulating)
         try:
             crawler = CrawlerToSina(
                 code=code,
                 user_agent=self.get_user_agent(),
                 pause_time=self.PAUSE_TIME["sina"],
             )
-            df = crawler.get_total_shares()
+            df = crawler.get_shares(circulating)
             if not df.empty:
                 df = df.reset_index(drop=False)
                 self._save_data(df, code, subset=["date"], sort_by=["date"])
@@ -499,8 +508,8 @@ class Crawler:
                 self._download_bonus_financing(code)
             elif self.data_name == "announcement_title":
                 self._download_announcement_title(code)
-            elif self.data_name == "total_shares":
-                self._download_total_shares(code)
+            elif self.data_name in ["total_shares", "circulating_shares"]:
+                self._download_total_shares(code, True if self.data_name == "circulating_shares" else False)
             elif self.data_name in ["annual_report", "semiannual_report",
                                     "firstQuarter_report", "thirdQuarter_report"]:
                 self._download_report(code)

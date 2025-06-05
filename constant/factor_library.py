@@ -644,6 +644,43 @@ ALPHA_FACTOR_LIBRARY = {
         shocking_market=True
     ),
 
+    # 波动率
+    "真实波幅均线_1": FactorSetting(
+        factor_name="真实波幅均线_0.09",
+        primary_classification="技术面因子",
+        secondary_classification="波动率因子",
+        reverse=True,
+        filter_mode="_entire_filter",
+    ),
+    "真实波幅均线_2": FactorSetting(
+        factor_name="真实波幅均线_0.5",
+        primary_classification="技术面因子",
+        secondary_classification="波动率因子",
+        reverse=True,
+        filter_mode="_entire_filter",
+    ),
+    "真实波幅均线_3": FactorSetting(
+        factor_name="真实波幅均线_1",
+        primary_classification="技术面因子",
+        secondary_classification="波动率因子",
+        reverse=True,
+        filter_mode="_entire_filter",
+    ),
+    "真实波幅均线_4": FactorSetting(
+        factor_name="真实波幅均线_1.5",
+        primary_classification="技术面因子",
+        secondary_classification="波动率因子",
+        reverse=True,
+        filter_mode="_entire_filter",
+    ),
+    "真实波幅均线_5": FactorSetting(
+        factor_name="真实波幅均线_2",
+        primary_classification="技术面因子",
+        secondary_classification="波动率因子",
+        reverse=True,
+        filter_mode="_entire_filter",
+    ),
+
     # 公司治理
     # "前十大股东持股变化率-1": FactorSetting(
     #     factor_name="前十大股东持股变化率",
@@ -1140,7 +1177,7 @@ FACTOR_LIBRARY = {
         overall_filter=True,
     ),
 
-    "换手率标准差_0.25": FactorSetting(
+    "换手率标准差_1": FactorSetting(
         factor_name="换手率标准差_0.25",
         primary_classification="技术面因子",
         secondary_classification="流动性风险因子",
@@ -1148,7 +1185,7 @@ FACTOR_LIBRARY = {
         entire_filter=True,
         overall_filter=True,
     ),
-    "换手率标准差_0.5": FactorSetting(
+    "换手率标准差_2": FactorSetting(
         factor_name="换手率标准差_0.5",
         primary_classification="技术面因子",
         secondary_classification="流动性风险因子",
@@ -1156,7 +1193,7 @@ FACTOR_LIBRARY = {
         entire_filter=True,
         overall_filter=True,
     ),
-    "换手率标准差_1": FactorSetting(
+    "换手率标准差_3": FactorSetting(
         factor_name="换手率标准差_1",
         primary_classification="技术面因子",
         secondary_classification="流动性风险因子",
@@ -1164,7 +1201,7 @@ FACTOR_LIBRARY = {
         entire_filter=True,
         overall_filter=True,
     ),
-    "换手率标准差_1.5": FactorSetting(
+    "换手率标准差_4": FactorSetting(
         factor_name="换手率标准差_1.5",
         primary_classification="技术面因子",
         secondary_classification="流动性风险因子",
@@ -1172,7 +1209,7 @@ FACTOR_LIBRARY = {
         entire_filter=True,
         overall_filter=True,
     ),
-    "换手率标准差_2": FactorSetting(
+    "换手率标准差_5": FactorSetting(
         factor_name="换手率标准差_2",
         primary_classification="技术面因子",
         secondary_classification="流动性风险因子",
@@ -1180,6 +1217,48 @@ FACTOR_LIBRARY = {
         entire_filter=True,
         overall_filter=True,
     ),
+
+    # 波动率
+    # "真实波幅均线_1": FactorSetting(
+    #     factor_name="真实波幅均线_0.09",
+    #     primary_classification="技术面因子",
+    #     secondary_classification="波动率因子",
+    #     reverse=True,
+    #     entire_filter=True,
+    #     overall_filter=True,
+    # ),
+    # "真实波幅均线_2": FactorSetting(
+    #     factor_name="真实波幅均线_0.5",
+    #     primary_classification="技术面因子",
+    #     secondary_classification="波动率因子",
+    #     reverse=True,
+    #     entire_filter=True,
+    #     overall_filter=True,
+    # ),
+    # "真实波幅均线_3": FactorSetting(
+    #     factor_name="真实波幅均线_1",
+    #     primary_classification="技术面因子",
+    #     secondary_classification="波动率因子",
+    #     reverse=True,
+    #     entire_filter=True,
+    #     overall_filter=True,
+    # ),
+    # "真实波幅均线_4": FactorSetting(
+    #     factor_name="真实波幅均线_1.5",
+    #     primary_classification="技术面因子",
+    #     secondary_classification="波动率因子",
+    #     reverse=True,
+    #     entire_filter=True,
+    #     overall_filter=True,
+    # ),
+    # "真实波幅均线_5": FactorSetting(
+    #     factor_name="真实波幅均线_2",
+    #     primary_classification="技术面因子",
+    #     secondary_classification="波动率因子",
+    #     reverse=True,
+    #     entire_filter=True,
+    #     overall_filter=True,
+    # ),
 
     # 行为金融
     "close": FactorSetting(

@@ -1547,7 +1547,7 @@ class Factor:
         def __init__(self):
             # 基础指标
             self.basic_metrics = [
-                "市值", "市净率", "对数市值",
+                "市值", "市净率", "对数市值", "对数流通市值",
             ]
             # 衍生指标
             self.derived_metrics = [
@@ -1662,7 +1662,7 @@ class ModelFactor:
         def __init__(self):
             # 基础指标
             self.basic_metrics = [
-                "市值", "对数市值", "市净率"
+                "市值", "市净率", "对数市值", "对数流通市值",
             ]
             # 衍生指标
             self.derived_metrics = [
@@ -1682,6 +1682,9 @@ class ModelFactor:
                     0.25, 0.5, 1, 1.5, 2
                 ],
                 "收益率标准差": [
+                    0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
+                ],
+                "真实波幅均线": [
                     0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
                 ],
             }

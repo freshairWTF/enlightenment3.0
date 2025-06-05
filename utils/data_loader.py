@@ -345,19 +345,26 @@ class DataLoader:
         return cls._read_parquet(path)[["dividend"]]
 
     @classmethod
-    def get_total_shares(
+    def get_shares(
             cls,
             code: str,
-            financial_date: pd.DatetimeIndex | None = None
+            financial_date: pd.DatetimeIndex | None = None,
+            circulating: bool = False
     ) -> pd.DataFrame:
         """
         获取总股本
         :param code：代码
         :param financial_date：财务数据日期
+        :param circulating: 流通股东
         :return 总股本数据
         """
         # 读取文件
-        path = (DataPATH.SHARES_DATA / code).with_suffix(".parquet")
+        path = (
+                (
+                    DataPATH.CIRCULATing_SHARES_DATA if circulating else
+                    DataPATH.TOTAL_SHARES_DATA
+                ) / code
+        ).with_suffix(".parquet")
         df = cls._read_parquet(path)
 
         if financial_date is None:
@@ -420,27 +427,21 @@ class DataLoader:
     @classmethod
     def get_top_ten_shareholders(
             cls,
-            code: str
+            code: str,
+            circulating: bool = False
     ) -> pd.DataFrame:
         """
         获取前十大股东
         :param code: 代码
+        :param circulating: 流通股东
         :return: 清洗过的前十大股东
         """
-        path = (DataPATH.TOP_TEN_SHAREHOLDERS / code).with_suffix(".parquet")
-        return cls._read_parquet(path)
-
-    @classmethod
-    def get_top_ten_circulating_shareholders(
-            cls,
-            code: str
-    ) -> pd.DataFrame:
-        """
-        获取前十大流通股东
-        :param code: 代码
-        :return: 清洗过的前十大流通股东
-        """
-        path = (DataPATH.TOP_TEN_CIRCULATING_SHAREHOLDERS / code).with_suffix(".parquet")
+        path = (
+                (
+                    DataPATH.TOP_TEN_CIRCULATING_SHAREHOLDERS if circulating else
+                    DataPATH.TOP_TEN_SHAREHOLDERS
+                ) / code
+        ).with_suffix(".parquet")
         return cls._read_parquet(path)
 
     @classmethod

@@ -29,7 +29,7 @@ class CrawlerToSina:
     CASHFLOW_STATEMENT_URL = 'https://money.finance.sina.com.cn/corp/go.php/vFD_CashFlow'
     ANNOUNCEMENT_URL = 'https://vip.stock.finance.sina.com.cn/corp/view/vCB_AllBulletin.php'
     INDUSTRY_URL = 'https://vip.stock.finance.sina.com.cn/corp/go.php/vCI_CorpOtherInfo'
-    TOTAL_SHARES_URL = 'https://vip.stock.finance.sina.com.cn/corp/go.php/vCI_StockStructureHistory'
+    SHARES_URL = 'https://vip.stock.finance.sina.com.cn/corp/go.php/vCI_StockStructureHistory'
 
     def __init__(
             self,
@@ -221,16 +221,19 @@ class CrawlerToSina:
             print(f"行业分类获取失败: {str(e)}")
             return pd.DataFrame()
 
-    def _get_total_shares(
-            self
+    def _get_shares(
+            self,
+            circulating: bool
     ) -> pd.DataFrame:
         """
         爬取总股本
-        :return: 总股本
+        :param circulating: 是否为流通股本
+        :return: 总股本/流通股本
         """
         try:
             response = self.session.get(
-                url=f"{self.TOTAL_SHARES_URL}/stockid/{self.code}/stocktype/TotalStock.phtml",
+                url=f"{self.SHARES_URL}/stockid/{self.code}/stocktype/LiuTongA.phtml"
+                if circulating else f"{self.SHARES_URL}/stockid/{self.code}/stocktype/TotalStock.phtml",
                 timeout=self.REQUEST_TIMEOUT,
             )
             response.raise_for_status()
@@ -328,13 +331,14 @@ class CrawlerToSina:
 
         return df
 
-    def get_total_shares(
-            self
+    def get_shares(
+            self,
+            circulating: bool
     ) -> pd.DataFrame:
         """
-        爬取总股本
+        爬取 总股本/流通股本
         """
-        df = self._safe_request(self._get_total_shares)
+        df = self._safe_request(self._get_shares, circulating)
         # 暂停，规避反爬
         time.sleep(self.pause_time)
 

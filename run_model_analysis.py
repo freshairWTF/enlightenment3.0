@@ -1,3 +1,17 @@
+"""
+模型回测
+"""
+"""
+    -1 线性回归模型的局限？ -> 非权重方法的分类器
+    -2 交叉验证
+    -3 barra中性化 9大类风格因子
+    -4 不同回归器、分类器的评估值对比    
+    -5 超参数 暴力调参
+    
+    模型实战
+    初始模型评估
+    超参数调整 调整模型评估
+"""
 from constant.factor_library import *
 from constant.quant_setting import ModelSetting
 
@@ -34,18 +48,14 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250530-WEEK-跟踪"
-    storage_dir = "模型跟踪/linear-20250530W-ir衰减-旧因子库"
+    storage_dir = "模型跟踪/linear-20250530W-ir衰减-旧因子库-mad去极值"
 
     """
-    增加波动率因子
-    寻找高波动的
-    
-    增加成长因子
-    
-    pca降维前后因子数不一致怎么办？
-    
     阿尔法因子   直接ir加权
-    弱/风险因子  使用ir衰减   
+    弱/风险因子  使用ir衰减
+       
+    因子暴露控制！！！
+    barra风格中性化！！！
     """
     # 模型参数设置
     model_setting = ModelSetting(

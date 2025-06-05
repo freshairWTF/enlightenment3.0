@@ -465,3 +465,9 @@ class DataProcessor:
             index=factor_data.index,
             columns=factor_data.columns
         )
+
+
+###############################################################
+class StyleNeutralization:
+    """风格中性化"""
+
