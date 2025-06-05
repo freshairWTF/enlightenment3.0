@@ -3,6 +3,9 @@
 PARAMETERS_OF_VALUATION:
     市值: [实收资本]
     对数市值: [实收资本]
+    流通市值: [实收资本]
+    对数流通市值: [实收资本]
+
     市盈率: [净利润, 实收资本]
     核心利润市盈率: [营业成本, 营业税金及附加, 销售费用, 管理费用, 财务费用, 研发费用, 实收资本]
     核心利润市盈率倒数: [营业成本, 营业税金及附加, 销售费用, 管理费用, 财务费用, 研发费用, 实收资本]
@@ -35,6 +38,9 @@ FUNCTION_OF_VALUATION:
 
     市值: _market_value
     对数市值: _log_market_value
+    流通市值: _circulating_market_value
+    对数流通市值: _log_circulating_market_value
+
     市盈率: _pe_ratio
     核心利润市盈率: _pe_ratio_by_core_profit
     核心利润市盈率倒数: _reciprocal_of_pe_ratio_by_core_profit

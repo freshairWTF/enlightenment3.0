@@ -16,26 +16,29 @@ class ValuationMetrics(Metrics):
             self,
             financial_data: pd.DataFrame,
             kline_data: pd.DataFrame,
-            bonus_data: pd.DataFrame,
-            shares_data: pd.DataFrame,
             cycle: CYCLE,
             methods: list[str],
             function_map: dict[str, str],
-            kline_adjust: KLINE_SHEET = "backward_adjusted"
+            kline_adjust: KLINE_SHEET = "backward_adjusted",
+            bonus_data: pd.DataFrame | None = None,
+            total_shares_data: pd.DataFrame | None = None,
+            circulating_shares_data: pd.DataFrame | None = None,
     ):
         """
         :param financial_data: 财务数据
         :param kline_data: 行情数据
-        :param bonus_data: 分红数据
-        :param shares_data: 总股本数据
         :param cycle: 周期
         :param methods: 需要实现的方法
         :param function_map: 已定义的方法对应方法名
         :param kline_adjust: k线复权方法
+        :param bonus_data: 分红数据
+        :param total_shares_data: 总股本数据
+        :param circulating_shares_data: 流通股本数据
         """
         self.financial_data = financial_data
         self.bonus_data = bonus_data
-        self.shares_data = shares_data
+        self.total_shares_data = total_shares_data
+        self.circulating_shares_data = circulating_shares_data
         self.metrics = pd.DataFrame(index=financial_data.index)
 
         self.cycle = cycle
@@ -83,45 +86,54 @@ class ValuationMetrics(Metrics):
         """每股收益 = 归母净利润 / 平均股本"""
         self.metrics["每股收益"] = self._safe_divide(
                 self.financial_data["净利润"],
-                self._calc_rolling(self.shares_data["shares"], 2, 2)
+                self._calc_rolling(self.total_shares_data["shares"], 2, 2)
         )
 
     def _core_earnings_per_share(self) -> None:
         """核心每股收益 = 核心利润 / 平均股本"""
         self.metrics["每股核心利润"] = self._safe_divide(
             self.financial_data["核心利润"],
-            self._calc_rolling(self.shares_data["shares"], 2, 2)
+            self._calc_rolling(self.total_shares_data["shares"], 2, 2)
         )
 
     def _net_assets_per_share(self) -> None:
         """每股净资产 = 所有者权益 / 总股本"""
         self.metrics["每股净资产"] = self._safe_divide(
                 self.financial_data["所有者权益"],
-                self.shares_data["shares"]
+                self.total_shares_data["shares"]
         )
 
     def _sales_per_share(self) -> None:
         """每股销售额 = 营业收入 / 平均股本"""
         self.metrics["每股销售额"] = self._safe_divide(
                 self.financial_data["营业收入"],
-                self._calc_rolling(self.shares_data["shares"], 2, 2)
+                self._calc_rolling(self.total_shares_data["shares"], 2, 2)
         )
 
     def _dividend_per_share(self) -> None:
         """每股分红 = 分红总额 / 总股本"""
         self.metrics["每股分红"] = self._safe_divide(
             self.bonus_data["dividend"],
-            self.shares_data["shares"]
+            self.total_shares_data["shares"]
         )
 
     def _market_value(self) -> None:
         """市值 = 收盘价 * 总股本"""
-        self.metrics["市值"] = self.kline_data["close"] * self.shares_data["shares"]
+        self.metrics["市值"] = self.kline_data["close"] * self.total_shares_data["shares"]
 
     @depends_on("市值")
     def _log_market_value(self) -> None:
-        """对数市值 = ln(市值)"""
+        """市值对数 = ln(市值)"""
         self.metrics["对数市值"] = np.log(self.metrics["市值"])
+
+    def _circulating_market_value(self) -> None:
+        """流通市值 = 收盘价 * 流通股本"""
+        self.metrics["流通市值"] = self.kline_data["close"] * self.circulating_shares_data["shares"]
+
+    @depends_on("流通市值")
+    def _log_circulating_market_value(self) -> None:
+        """流通市值对数 = ln(流通市值)"""
+        self.metrics["对数流通市值"] = np.log(self.metrics["流通市值"])
 
     @depends_on("每股收益")
     def _pe_ratio(self) -> None:

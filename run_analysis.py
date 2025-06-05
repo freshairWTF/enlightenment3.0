@@ -51,7 +51,7 @@ def normal_analysis():
 # ---------------------------------------------------
 def factor_analysis():
     """单因子分析 -> 生成分析因子"""
-    storage_dir_name = "收益率标准差"
+    storage_dir_name = "流通市值测试"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -75,7 +75,7 @@ def factor_analysis():
         index_code="000300",
 
         processes_nums=10,
-        debug=False
+        debug=True
     )
     analyzer.run()
 
@@ -158,8 +158,3 @@ if __name__ == "__main__":
     # factor_analysis()
     model_factor_analysis()
     # inventory_cycle_analysis()
-
-    """
-    技术面因子  真实波幅的波动率
-    市场情绪因子  市场最高连扳数
-    """
