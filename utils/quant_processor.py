@@ -58,6 +58,7 @@ class QuantProcessor:
 
             # -3 中性化
             if market_value_neutral and factor_name not in PROHIBIT_MV_NEUTRAL:
+                # df_[processed_col] = cls.processor.market_value_neutral(df_[processed_col], df_["对数流通市值"])
                 df_[processed_col] = cls.processor.market_value_neutral(df_[processed_col], df_["对数市值"])
 
             if industry_neutral:

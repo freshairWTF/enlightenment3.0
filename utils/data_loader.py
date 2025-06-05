@@ -365,7 +365,10 @@ class DataLoader:
                     DataPATH.TOTAL_SHARES_DATA
                 ) / code
         ).with_suffix(".parquet")
+
         df = cls._read_parquet(path)
+        # 去除0值
+        df = df[df["shares"] != 0]
 
         if financial_date is None:
             return df

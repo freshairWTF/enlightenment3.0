@@ -46,7 +46,7 @@ class FactorAnalyzer(BaseService):
     ]
     # "real_pctChg"
     CORE_FACTOR = [
-        "对数市值", "close", "pctChg"
+        "对数市值", "对数流通市值", "close", "pctChg"
     ]
 
     @validate_literal_params

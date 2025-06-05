@@ -5,18 +5,19 @@ from quant.factor_service import FactorAnalyzer
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="收益率标准差",
+        source_dir="20250530-WEEK-跟踪",
         index_code="000300",
         factors_name=[
-            "收益率标准差_0.09", "收益率标准差_0.17", "收益率标准差_0.09", "收益率标准差_0.25", "收益率标准差_0.5", "收益率标准差_1",
-            "收益率标准差_1.5", "收益率标准差_2",
-            "真实波幅均线_0.09", "真实波幅均线_0.17", "真实波幅均线_0.09", "真实波幅均线_0.25", "真实波幅均线_0.5", "真实波幅均线_1",
-            "真实波幅均线_1.5", "真实波幅均线_2",
+            "负债和所有者权益"
+            # "收益率标准差_0.09", "收益率标准差_0.17", "收益率标准差_0.09", "收益率标准差_0.25", "收益率标准差_0.5", "收益率标准差_1",
+            # "收益率标准差_1.5", "收益率标准差_2",
+            # "真实波幅均线_0.09", "真实波幅均线_0.17", "真实波幅均线_0.09", "真实波幅均线_0.25", "真实波幅均线_0.5", "真实波幅均线_1",
+            # "真实波幅均线_1.5", "真实波幅均线_2",
         ],
         cycle="week",
         standardization=True,
-        mv_neutral=False,
-        industry_neutral=False,
+        mv_neutral=True,
+        industry_neutral=True,
         restructure=False,
 
         group_mode="frequency",
