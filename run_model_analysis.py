@@ -27,13 +27,8 @@
 from constant.factor_library import *
 from constant.quant_setting import ModelSetting
 
-"""
-从模型 __init__ 文件中导入各类模型！！！
-"""
+from model import *
 from model.model_service import ModelAnalyzer
-from model.linear_multi_factors_model import LinearMultiFactors
-from model.xgboost_multi_factors_model import XGBoostMultiFactors
-from model.randomforest_multi_factors_model import RandomForestMultiFactors
 
 
 # -----------------------------
