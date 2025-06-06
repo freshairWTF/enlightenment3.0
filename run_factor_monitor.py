@@ -66,15 +66,15 @@ def factor_monitor() -> None:
 # ------------------------- 执行入口 -------------------------
 if __name__ == "__main__":
     # 监控因子设置
-    factors = ["对数市值", "市净率"]
+    factors = ["对数市值", "市净率倒数"]
     factors_setting = get_factors_setting(factors)
 
     # 路径参数
-    monitor_dir = "20250302W"
+    monitor_dir = "20250530W"
 
     # 日期参数
     start_date = "2022-03-31"
-    end_date = "2025-03-14"
+    end_date = "2025-05-30"
 
     # quant_analysis(start_date, end_date)
     # data_convert()
