@@ -339,10 +339,12 @@ class CrawlerToEastMoney:
         return ret
 
     def get_top_ten_shareholders(
-            self
+            self,
+            circulating: bool = False
     ) -> pd.DataFrame:
         """
         获取十大股东数据
+        :param circulating: 流通股东
         :return: 十大股东数据
         """
         # 例：SH600019 -> 600019.SH

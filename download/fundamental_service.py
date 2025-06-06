@@ -286,43 +286,15 @@ class Crawler:
         except Exception as e:
             self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
 
-    def _download_top_ten_circulating_shareholders(
-            self,
-            code: str
-    ) -> None:
-        """
-        下载十大流通股东数据（东财）
-        :param code: 代码
-        """
-        crawler = CrawlerToEastMoney(
-            code=code,
-            user_agent=self.get_user_agent(),
-            pause_time=self.PAUSE_TIME["east_money"],
-            start_date=self._modify_start_date(code=code),
-            end_date=self._modify_end_date(code=code)
-        )
-        try:
-            df = crawler.get_top_ten_circulating_shareholders()
-            if not df.empty:
-                self._save_data(
-                    df,
-                    code,
-                    subset=["END_DATE", "HOLDER_RANK"],
-                    sort_by=["END_DATE", "HOLDER_RANK"]
-                )
-                self.logger.success(f"下载成功 | Code: {code}")
-            else:
-                self.logger.error(f"下载失败 | Code: {code} | Error: 数据为空值")
-        except Exception as e:
-            self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
-
     def _download_top_ten_shareholders(
             self,
-            code: str
+            code: str,
+            circulating: bool = False
     ) -> None:
         """
-        下载十大流通股东数据（东财）
+        下载十大股东/流通股东数据（东财）
         :param code: 代码
+        :param circulating: 流通股东
         """
         crawler = CrawlerToEastMoney(
             code=code,
@@ -332,7 +304,10 @@ class Crawler:
             end_date=self._modify_end_date(code=code)
         )
         try:
-            df = crawler.get_top_ten_shareholders()
+            df = (
+                crawler.get_top_ten_circulating_shareholders() if circulating else
+                crawler.get_top_ten_shareholders()
+            )
             if not df.empty:
                 self._save_data(
                     df,
@@ -380,7 +355,7 @@ class Crawler:
     # --------------------------
     # 数据下载方法 新浪
     # --------------------------
-    def _download_total_shares(
+    def _download_shares(
             self,
             code: str,
             circulating: bool = False
@@ -388,6 +363,7 @@ class Crawler:
         """
         下载总股本
         :param code: 代码
+        :param circulating: 流通股本
 
               date       shares
         0   2007-08-24   37500000.0
@@ -396,12 +372,6 @@ class Crawler:
         3   2008-09-16   50000000.0
         4   2009-05-26   69120000.0
         """
-        crawler = CrawlerToSina(
-            code=code,
-            user_agent=self.get_user_agent(),
-            pause_time=self.PAUSE_TIME["sina"],
-        )
-        df = crawler.get_shares(circulating)
         try:
             crawler = CrawlerToSina(
                 code=code,
@@ -500,16 +470,14 @@ class Crawler:
 
             if self.data_name == "financial_data":
                 self._download_financial(code)
-            elif self.data_name == "top_ten_circulating_shareholders":
-                self._download_top_ten_circulating_shareholders(code)
-            elif self.data_name == "top_ten_shareholders":
+            elif self.data_name in ["top_ten_shareholders", "top_ten_circulating_shareholders"]:
                 self._download_top_ten_shareholders(code)
             elif self.data_name == "bonus_financing":
                 self._download_bonus_financing(code)
             elif self.data_name == "announcement_title":
                 self._download_announcement_title(code)
             elif self.data_name in ["total_shares", "circulating_shares"]:
-                self._download_total_shares(code, True if self.data_name == "circulating_shares" else False)
+                self._download_shares(code, True if self.data_name == "circulating_shares" else False)
             elif self.data_name in ["annual_report", "semiannual_report",
                                     "firstQuarter_report", "thirdQuarter_report"]:
                 self._download_report(code)

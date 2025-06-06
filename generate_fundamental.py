@@ -15,7 +15,7 @@ def download_fundamental():
         start_date="2000-03-31",            # 起始时间
         end_date="2025-03-31",              # 结束时间
 
-        code="600729",                      # 代码：无需sh/sz前缀
+        code="688101",                      # 代码：无需sh/sz前缀
         filter_mode="from_code",                  # 可选：None/all/from_code
         industry_info=None,                 # 指定行业
 
