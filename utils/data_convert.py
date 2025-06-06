@@ -1,8 +1,11 @@
+"""
+dict[metrics, df] --> dict[date, df]
+"""
 import pandas as pd
 
 from constant.path_config import DataPATH
-from data_storage import DataStorage
-from data_loader import DataLoader
+from storage import DataStorage
+from loader import DataLoader
 
 
 ####################################################

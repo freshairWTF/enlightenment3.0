@@ -1,3 +1,4 @@
+"""范围过滤"""
 import pandas as pd
 
 from constant.type_ import FILTER_MODE, CYCLE, validate_literal_params

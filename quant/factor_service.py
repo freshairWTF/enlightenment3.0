@@ -25,7 +25,7 @@ from constant.type_ import (
     CYCLE, CLASS_LEVEL, FILTER_MODE,
     GROUP_MODE, validate_literal_params
 )
-from data_storage import DataStorage
+from storage import DataStorage
 
 
 warnings.filterwarnings("ignore")

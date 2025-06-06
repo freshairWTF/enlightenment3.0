@@ -1,6 +1,6 @@
 from analysis.analysis_service import Analyzer
 from constant.analysis_setting import Individual, Normal, Factor, ModelFactor, InventoryCycle
-from quant.data_convert import DataConvert
+from data_convert import DataConvert
 
 
 # ---------------------------------------------------

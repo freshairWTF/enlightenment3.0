@@ -5,7 +5,7 @@ import pandas as pd
 
 from evaluation import Evaluation
 from utils.drawer import Drawer
-from utils.data_loader import DataLoader
+from utils.loader import DataLoader
 from utils.quant_processor import QuantProcessor
 from constant.type_ import CLASS_LEVEL, CYCLE, CALC_RETURN_MODE, validate_literal_params
 from analysis.kline_metrics import KLineMetrics

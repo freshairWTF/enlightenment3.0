@@ -14,8 +14,8 @@ from constant.type_ import (
     validate_literal_params
 )
 from utils.data_processor import DataProcessor
-from data_storage import DataStorage
-from data_loader import DataLoader
+from storage import DataStorage
+from loader import DataLoader
 from utils.drawer import Drawer, IndividualDrawer
 from stats_metrics import StatisticsMetrics, IndividualStatisticsMetrics
 from kline_metrics import KLineMetrics

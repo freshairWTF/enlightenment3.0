@@ -1,3 +1,4 @@
+"""绘图"""
 from typing import Literal
 from pathlib import Path
 from pyecharts import options as opts

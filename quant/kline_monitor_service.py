@@ -10,8 +10,8 @@ import pandas as pd
 from base_service import BaseService
 from constant.path_config import DataPATH
 from constant.type_ import CYCLE, INDUSTRY_SHEET, KLINE_SHEET, validate_literal_params
-from data_storage import DataStorage
-from data_loader import DataLoader
+from storage import DataStorage
+from loader import DataLoader
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 

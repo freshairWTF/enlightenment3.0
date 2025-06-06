@@ -1,5 +1,5 @@
 from analysis.analysis_service import Analyzer
-from quant.data_convert import DataConvert
+from data_convert import DataConvert
 from quant.factor_monitor_service import FactorMonitor
 from constant.monitor_setting import Factor
 from constant.factor_library import FACTOR_LIBRARY

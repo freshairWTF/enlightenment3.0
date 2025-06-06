@@ -18,8 +18,8 @@ from source_eastMoney import CrawlerToEastMoney, CleanerToEastMoney
 from source_sina import CrawlerToSina
 from source_juChao import CrawlerToJuChao
 from source_baoStock import BaoStockDownLoader
-from data_storage import DataStorage
-from data_loader import DataLoader
+from storage import DataStorage
+from loader import DataLoader
 
 
 import warnings

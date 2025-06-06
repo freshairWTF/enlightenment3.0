@@ -14,7 +14,7 @@ from constant.path_config import DataPATH
 from constant.quant import ModelVisualization
 from constant.type_ import CYCLE, validate_literal_params
 from model.dimensionality_reduction import FactorCollinearityProcessor
-from data_storage import DataStorage
+from storage import DataStorage
 
 
 import warnings

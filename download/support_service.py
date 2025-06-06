@@ -4,8 +4,8 @@ import pandas as pd
 from pathlib import Path
 from typing import get_args
 
-from data_storage import DataStorage
-from data_loader import DataLoader
+from storage import DataStorage
+from loader import DataLoader
 from constant.path_config import DataPATH
 
 from constant.type_ import CYCLE

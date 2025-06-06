@@ -1,3 +1,4 @@
+"""K线形态判定"""
 import numpy as np
 import pandas as pd
 

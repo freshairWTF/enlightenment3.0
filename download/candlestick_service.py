@@ -14,8 +14,8 @@ import pandas as pd
 import multiprocessing
 
 from source_baoStock import BaoStockDownLoader, BaoStockCleaner
-from data_storage import DataStorage
-from data_loader import DataLoader
+from storage import DataStorage
+from loader import DataLoader
 from constant.download import SHEET_NAME_MAP
 from constant.path_config import DataPATH
 from constant.index_code import INDEX_CODE

@@ -1,4 +1,4 @@
-from data_loader import DataLoader
+from loader import DataLoader
 from constant.path_config import DataPATH
 from constant.draw_specs import BasicChartSpecs, QuadrantsChartSpecs
 

@@ -6,7 +6,7 @@ from xgboost_multi_factors_model import XGBoostMultiFactors
 from randomforest_multi_factors_model import RandomForestMultiFactors
 
 __all__ = [
-    LinearMultiFactors,
-    XGBoostMultiFactors,
-    RandomForestMultiFactors
+    "LinearMultiFactors",
+    "XGBoostMultiFactors",
+    "RandomForestMultiFactors"
 ]

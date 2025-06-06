@@ -1,5 +1,5 @@
 from download.support_service import SupportDataUpdater
-from quant.data_convert import DataConvert
+from data_convert import DataConvert
 
 
 # --------------------------------------------------
