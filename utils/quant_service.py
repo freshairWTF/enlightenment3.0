@@ -148,6 +148,8 @@ class QuantService:
     ) -> pd.DataFrame:
         """
         有效数据过滤
+            -1 列过滤 因子不全
+            -2 行过滤 因子有空值
         :param raw_data: 原始数据
         :param valid_factors: 有效因子
         :param date_col: 标识日期的列名，默认为 date

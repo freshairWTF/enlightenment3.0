@@ -2,7 +2,8 @@ import pandas as pd
 
 from base_model import MultiFactorsModel
 from constant.type_ import GROUP_MODE, FACTOR_WEIGHT, POSITION_WEIGHT, validate_literal_params
-from utils.quant_processor import QuantProcessor
+from utils.processor import DataProcessor
+from model.dimensionality_reduction import FactorCollinearityProcessor
 
 
 ########################################################################
@@ -60,6 +61,31 @@ class LinearRegressionModel(MultiFactorsModel):
             4）分组；
             5）仓位权重；
         """
+
+        processed_factors_name = [
+            f"processed_{factor_name}"
+            for factor_name in self.model_factors_name
+        ]
+
+        # ---------------------------------------
+        # 因子降维（去多重共线性 -> vif + 对称正交 + 预拟合）
+        # ---------------------------------------
+        self.logger.info("---------- 因子降维 ----------")
+        # 因子降维
+        collinearity = FactorCollinearityProcessor(self.model_setting)
+        collinearity_data = collinearity.fit_transform(
+            processed_data
+        )
+        selected_factors = {date: df.columns.tolist() for date, df in collinearity_data.items()}
+
+        # 预拟合
+        beta_feature = self.evaluate.test.calc_beta_feature(
+            processed_data, processed_factors_name, "pctChg"
+        )
+        r_squared = self.evaluate.test.calc_r_squared(
+            processed_data, processed_factors_name, "pctChg"
+        )
+
         # -1 因子权重
         factor_weights = self.factor_weight.get_factors_weights(
             factors_data=self.raw_data,

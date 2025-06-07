@@ -1,6 +1,4 @@
-"""
-模型分析业务层
-"""
+"""模型 回测/预测 业务层"""
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from datetime import datetime
@@ -9,14 +7,13 @@ import yaml
 import numpy as np
 import pandas as pd
 
-from quant_service import QuantService
-from range_filter import RangeFilter
 from constant.path_config import DataPATH
 from constant.quant import ModelVisualization
 from constant.type_ import CYCLE, validate_literal_params
-from model.dimensionality_reduction import FactorCollinearityProcessor
-from storage import DataStorage
-
+from utils.storage import DataStorage
+from utils.quant_service import QuantService
+from utils.stock_pool_filter import StockPoolFilter
+from utils.processor import DataProcessor
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -27,10 +24,10 @@ class ModelAnalyzer(QuantService):
     """模型分析"""
 
     CORE_FACTOR = [
-        "对数市值", "对数流通市值", "open", "close", "pctChg"
+        "对数市值", "open", "close", "pctChg"
     ]
     DESCRIPTIVE_FACTOR = [
-        "市值", "市净率", "收益率标准差_0.09"
+        "市值", "市净率"
     ]
     predict_date = datetime.strptime("2100-01-01", "%Y-%m-%d").date()
 
@@ -57,61 +54,45 @@ class ModelAnalyzer(QuantService):
         self.cycle = cycle
         self.benchmark_code = benchmark_code
         self.filter_mode = self.model_setting.filter_mode
+        self.stock_pool_filter = StockPoolFilter                        # 标的池过滤类
+        self.processor = DataProcessor()                                # 数据处理实例
 
         # --------------------------
         # 初始化配置参数
         # --------------------------
-        # 工具类
-        self.filter = RangeFilter
-        # 初始化其他配置
-        self._initialize_config()
-        # 日志
-        self.logger = self.setup_logger(self.storage_dir)
-
-    # --------------------------
-    # 初始化
-    # --------------------------
-    def _initialize_config(
-            self
-    ) -> None:
-        """初始化配置参数"""
-        # --------------------------
-        # 路径参数
-        # --------------------------
+        # 路径
         self.storage_dir = DataPATH.QUANT_MODEL_ANALYSIS_RESULT / self.storage_dir
         self.source_dir = DataPATH.QUANT_CONVERT_RESULT / self.source_dir
 
-        # --------------------------
         # 数据
-        # --------------------------
         self.industry_mapping = self.load_industry_mapping()
         self.listed_nums = self.load_listed_nums()
         self.raw_data = self.load_factors_value(self.source_dir)
-        self.target_codes = self._get_target_codes()
 
-        # --------------------------
         # 过滤因子
-        # --------------------------
         self.model_setting.factors_setting = self._factor_filter()
 
-        # --------------------------
         # 因子名
-        # --------------------------
-        self.support_factors_name = self._get_support_factors()
-        self.factors_name = self._get_factors_name()
-        self.denominators_name = self._get_denominators_name()
-        self.valid_factors_name = self._get_valid_factor()
+        self.model_factors_name = self._get_model_factors_name()
+        self.backtest_factors_name = self._get_backtest_factors_name()
 
-        # --------------------------
         # 其他参数
-        # --------------------------
         self.visual_setting = ModelVisualization()
         self.group_label = self.setup_group_label(self.model_setting.group_nums)
+
+        # 日志
+        self.logger = self.setup_logger(self.storage_dir)
+
 
     def _factor_filter(
             self
     ) -> list:
-        """因子过滤"""
+        """
+        因子过滤
+            -1 一级/二级分类因子
+            -2 半衰期
+            -3 因子适配池
+        """
         if not self.model_setting.factor_filter:
             return self.model_setting.factors_setting
 
@@ -140,22 +121,7 @@ class ModelAnalyzer(QuantService):
 
         return result
 
-    # --------------------------
-    # 数据类 方法
-    # --------------------------
-    def _get_support_factors(
-            self
-    ) -> list[str]:
-        """获取分析因子之外所需的因子"""
-        factors = (
-                self.DESCRIPTIVE_FACTOR
-                + self.CORE_FACTOR
-                + self.filter.PARAMETERS
-                + ["date", "股票代码"]
-        )
-        return [f for f in set(factors) if f]
-
-    def _get_factors_name(
+    def _get_model_factors_name(
             self
     ) -> list[str]:
         """获取因子名"""
@@ -164,128 +130,97 @@ class ModelAnalyzer(QuantService):
             for setting in self.model_setting.factors_setting
         ]
 
-    def _get_denominators_name(
+    def _get_backtest_factors_name(
             self
     ) -> list[str]:
-        """获取重构因子所需的分母"""
-        return [
-            setting.restructure_denominator
-            for setting in self.model_setting.factors_setting
-            if setting.restructure
-        ]
+        """
+        获取回测全部所需的因子
+            -1 模型因子
+            -2 支持因子
+        """
+        support_factors = [f for f in set(
+                self.DESCRIPTIVE_FACTOR
+                + self.CORE_FACTOR
+                + self.stock_pool_filter.PARAMETERS
+                + ["date", "股票代码"]
+        )]
 
-    def _get_valid_factor(
-            self
-    ) -> list[str]:
-        """获取全部所需的因子"""
-        valid_factor = list(set(
-            self.factors_name
-            + self.support_factors_name
-            + self.denominators_name
+        bc_factor = list(set(
+            self.model_factors_name
+            + support_factors
         ))
         # 排序（支持复现）
-        valid_factor.sort()
-        return valid_factor
+        bc_factor.sort()
 
-    def _get_target_codes(
-            self
-    ) -> list[str]:
-        """获取目标代码列表"""
-        target_codes = self.loader.get_industry_codes(
-            sheet_name="Total_A",
-            industry_info=self.model_setting.industry_info,
-            return_type="list"
-        )
-        target_codes.sort()
-        if target_codes:
-            return target_codes
-        else:
-            raise ValueError(f"目标代码为空")
+        return bc_factor
 
     # --------------------------
     # 数据处理
     # --------------------------
-    def _data_process(
+    def _pre_processing(
             self,
             raw_data: pd.DataFrame,
-            valid_factors: list[str],
-            factors_setting: list[dataclass]
-    ) -> dict[str, pd.DataFrame]:
+            backtest_factors: list[str]
+    ) -> pd.DataFrame:
         """
-        数据处理
-            -1 截取（全部因子） -2 平移（除 pctChg 之外） -3 过滤（过滤因子）
-            -4 预处理（回测因子） -5 分组（预处理因子、使用过去的因子给当下分组，无未来函数）
+        模型前数据预处理
+            -1 因子过滤
+            -2 非因子数据添加 -> 所属行业/预测日期数据
+            -3 平移（除 pctChg/date/股票代码/行业）
+            -4 标的池过滤
+            -5 有效数据量过滤 -> 单日数据量高于分组数
+
         :param raw_data: 原始数据
-        :param valid_factors: 所需全部因子
-        :param factors_setting: 因子配置
-        :return: 处理后的数据
+        :param backtest_factors: 回测所需全部因子
+        :return: 预处理后的数据
         """
-        valid_factors_data = self.valid_factors_filter(raw_data, valid_factors)
-
-        add_industry_data = self.add_industry(
-            valid_factors_data,
-            self.industry_mapping,
-            self.model_setting.class_level
+        return (
+            raw_data
+            .pipe(self.valid_factors_filter,
+                  valid_factors=backtest_factors)
+            .pipe(self.add_industry,
+                  industry_mapping=self.industry_mapping,
+                  class_level=self.model_setting.class_level)
+            .pipe(self._add_the_latest_df)
+            .pipe(self.processor.refactor.shift_factors_value,
+                  fixed_col=["股票代码", "行业", "pctChg", "date"],
+                  lag_periods=self.model_setting.lag_period)
+            .pipe(self.stock_pool_filter(filter_mode=self.filter_mode, cycle=self.cycle))
+            .pipe(self._quantity_check)
         )
 
-        latest_data = self._create_latest_data(add_industry_data)
-
-        shifted_data = self.processor.shift_factors_value(
-            latest_data,
-            self.model_setting.lag_period
-        )
-
-        filtered_data = self.filter(
-            data=shifted_data,
-            filter_mode=self.filter_mode,
-            cycle=self.cycle
-        ).run()
-
-        processed_data = self.processor.preprocessing_factors_by_setting(
-            filtered_data,
-            factors_setting
-        )
-
-        valid_codes_data = self._get_valid_codes(
-            processed_data
-        )
-
-        return valid_codes_data
-
-    def _get_valid_codes(
+    def _add_the_latest_df(
             self,
-            raw_data: dict[str, pd.DataFrame]
-    ) -> dict[str, pd.DataFrame]:
-        """过滤所需代码，且行数需大于等于分组数"""
-        result = {}
-        for date, df in raw_data.items():
-            index_set = set(df.index)
-            valid_codes = [code for code in self.target_codes if code in index_set]
-            if not valid_codes:
-                continue
-
-            # 提取数据并检查行数
-            filtered_df = df.loc[valid_codes]
-            if filtered_df.shape[0] >= self.model_setting.group_nums:
-                result[date] = filtered_df
-
-        return result
-
-    def _create_latest_data(
-            self,
-            before_shifted_data: pd.DataFrame
+            input_df: pd.DataFrame
     ) -> pd.DataFrame:
         """
         创建最新日期的数据
-        :param before_shifted_data: 平移前的数据
+        :param input_df: 平移前的数据
         """
-        latest_date = before_shifted_data["date"].unique()[-1]
+        latest_date = input_df["date"].unique()[-1]
 
-        df = before_shifted_data[before_shifted_data["date"] == latest_date].copy(deep=True)
+        df = input_df[input_df["date"] == latest_date].copy(deep=True)
         df["pctChg"] = np.nan
         df["date"] = self.predict_date
 
-        return pd.concat([before_shifted_data, df])
+        return pd.concat([input_df, df])
+
+    def _quantity_check(
+            self,
+            input_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """行数检查 -> 行数大于分组数"""
+        # 按日期分组处理
+        grouped = input_df.groupby('date')
+        result_dfs = []
+
+        for date, group_df in grouped:
+            # 检查当前日期组行数是否满足要求
+            if len(group_df) >= self.model_setting.group_nums:
+                result_dfs.append(group_df)
+
+        # 合并结果
+        return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
 
     # --------------------------
     # 计算指标
@@ -305,7 +240,7 @@ class ModelAnalyzer(QuantService):
                 "coverage": self.calc_coverage(grouped_data, self.listed_nums),
                 "desc_stats": self.get_desc_stats(
                     grouped_data,
-                    list(set(self.factors_name + self.DESCRIPTIVE_FACTOR))
+                    list(set(self.model_factors_name + self.DESCRIPTIVE_FACTOR))
                 )
             },
             **ic_stats,
@@ -421,52 +356,21 @@ class ModelAnalyzer(QuantService):
             self
     ) -> None:
         """执行完整分析流程"""
-        # ---------------------------------------
-        # 数据处理
-        # ---------------------------------------
-        self.logger.info("---------- 数据处理 ----------")
-        processed_data = self._data_process(
+        self.logger.info("---------- 模型前数据预处理 ----------")
+        pre_processing_data = self._pre_processing(
             self.raw_data,
-            self.valid_factors_name,
-            self.model_setting.factors_setting,
+            self.backtest_factors_name
         )
-        if not processed_data:
+        if not pre_processing_data:
             raise ValueError("过滤数据为空值")
-
-        processed_factors_name = [
-            f"processed_{factor_name}"
-            for factor_name in self.factors_name
-        ]
-
-        # ---------------------------------------
-        # 因子降维（去多重共线性 -> vif + 对称正交 + 预拟合）
-        # ---------------------------------------
-        self.logger.info("---------- 因子降维 ----------")
-        # 因子降维
-        collinearity = FactorCollinearityProcessor(self.model_setting)
-        collinearity_data = collinearity.fit_transform(
-            processed_data
-        )
-        selected_factors = {date: df.columns.tolist() for date, df in collinearity_data.items()}
-
-        # 预拟合
-        beta_feature = self.evaluate.test.calc_beta_feature(
-            processed_data, processed_factors_name, "pctChg"
-        )
-        r_squared = self.evaluate.test.calc_r_squared(
-            processed_data, processed_factors_name, "pctChg"
-        )
 
         # ---------------------------------------
         # 生成模型
         # ---------------------------------------
         self.logger.info("---------- 模型生成 ----------")
         model = self.model(
-            raw_data={
-                date: df.join(processed_data.get(date, pd.DataFrame()), how="left")
-                for date, df in collinearity_data.items()
-            },
-            factors_name=selected_factors,
+            raw_data=pre_processing_data,
+            factors_name=self.model_factors_name,
             group_nums=self.model_setting.group_nums,
             group_label=self.group_label,
             group_mode=self.model_setting.group_mode,

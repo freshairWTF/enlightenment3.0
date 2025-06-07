@@ -1,4 +1,4 @@
-from quant.factor_service import FactorAnalyzer
+from factor.factor_service import FactorAnalyzer
 
 """
 流通市值中性化 < 市值中性化？

@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
         # 目标股票池
         industry_info={"全部": "三级行业"},
-        filter_mode="_entire_filter",
+        filter_mode="_small_cap_filter",
 
         # 目标因子
         factor_filter=False,

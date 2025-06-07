@@ -2,7 +2,7 @@ import pandas as pd
 
 from base_model import MultiFactorsModel
 from constant.type_ import GROUP_MODE, FACTOR_WEIGHT, POSITION_WEIGHT, validate_literal_params
-from utils.quant_processor import QuantProcessor
+from utils.processor import DataProcessor
 
 
 ########################################################################

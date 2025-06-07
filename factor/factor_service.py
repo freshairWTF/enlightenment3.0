@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from quant_service import QuantService
-from range_filter import RangeFilter
+from stock_pool_filter import StockPoolFilter
 from check_factor_feature import DifferentMarketAnalyzer
 from constant.quant import (
                             Factor, RESTRUCTURE_FACTOR,
@@ -46,7 +46,7 @@ class FactorAnalyzer(QuantService):
     ]
     # "real_pctChg"
     CORE_FACTOR = [
-        "对数市值", "对数流通市值", "close", "pctChg"
+        "对数市值", "close", "pctChg"
     ]
 
     @validate_literal_params
@@ -106,7 +106,7 @@ class FactorAnalyzer(QuantService):
         # 初始化配置参数
         # --------------------------
         # 工具类
-        self.filter = RangeFilter
+        self.filter = StockPoolFilter
         # 初始化其他配置
         self._initialize_config()
         # 日志
@@ -245,7 +245,7 @@ class FactorAnalyzer(QuantService):
         )
 
         filtered_data = self.filter(
-            data=shifted_data,
+            target_data=shifted_data,
             filter_mode=filter_mode,
             cycle=self.cycle
         ).run()

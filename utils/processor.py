@@ -615,18 +615,20 @@ class Refactor:
     @staticmethod
     def shift_factors_value(
             raw_data: pd.DataFrame,
+            fixed_col: list[str],
             lag_periods: int = 1,
     ) -> pd.DataFrame:
         """
         将每个DataFrame中的因子向后移指定期数，用于 T-N期因子 与 T期涨跌幅 的拟合回归
         :param raw_data: 原始数据
+        :param fixed_col: 固定因子
         :param lag_periods: 滞后期数
         :return: 平移后的数据
         """
         # 深拷贝原始数据
         copied_data = raw_data.copy(deep=True).reset_index(drop=True)
         # 确定需要平移的列
-        shifted_col = copied_data.columns.difference(["股票代码", "行业", "pctChg", "date"]).tolist()
+        shifted_col = copied_data.columns.difference(fixed_col).tolist()
 
         grouped = copied_data.sort_values('date').groupby('股票代码')
         shifted_factors = grouped[shifted_col].transform(

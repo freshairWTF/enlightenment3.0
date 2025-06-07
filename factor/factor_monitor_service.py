@@ -9,7 +9,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from range_filter import RangeFilter
+from stock_pool_filter import StockPoolFilter
 from quant_service import QuantService
 from constant.type_ import CYCLE, CLASS_LEVEL, FILTER_MODE, validate_literal_params
 from constant.monitor_setting import Factor
@@ -59,7 +59,7 @@ class FactorMonitor(QuantService):
         # --------------------------
         # 初始化配置参数
         # --------------------------
-        self.filter = RangeFilter
+        self.filter = StockPoolFilter
         # 初始化其他配置
         self._initialize_config()
         # 日志
@@ -199,7 +199,7 @@ class FactorMonitor(QuantService):
         )
 
         filtered_data = self.filter(
-            data=shifted_data,
+            target_data=shifted_data,
             filter_mode=filter_mode,
             cycle=self.cycle
         ).run()
