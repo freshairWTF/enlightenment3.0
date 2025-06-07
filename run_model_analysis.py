@@ -30,7 +30,6 @@ from constant.quant_setting import ModelSetting
 from model import *
 from model.model_service import ModelAnalyzer
 
-
 # -----------------------------
 # 模型工厂
 # -----------------------------
