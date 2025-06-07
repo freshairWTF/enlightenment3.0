@@ -39,9 +39,10 @@ class BaseService:
     def load_factor_data(
             cls,
             source_dir: Path
-    ) -> dict[str, pd.DataFrame]:
-        """加载因子数据（分析因子、双重排序因子、基础量价因子、描述性因子、过滤因子）"""
-        return dict(sorted(
+    ) -> pd.DataFrame:
+        """加载因子数据并合并为单个DataFrame，日期作为新列"""
+        # 加载原始字典数据
+        data_dict = dict(sorted(
             {
                 f.stem: cls.loader.load_parquet(f)
                 for f in source_dir.glob("*.parquet")
@@ -49,6 +50,19 @@ class BaseService:
             }.items(),
             key=lambda x: x[0]
         ))
+
+        # 创建包含日期列的DataFrame列表
+        dfs_with_date = []
+        for date_str, df in data_dict.items():
+            # 添加日期列 [5](@ref)
+            df = df.copy()  # 避免修改原始DataFrame
+            df['date'] = date_str  # 添加日期列
+            dfs_with_date.append(df)
+
+        # 合并所有DataFrame
+        combined_df = pd.concat(dfs_with_date, ignore_index=True)
+
+        return combined_df
 
     @classmethod
     def load_industry_mapping(
