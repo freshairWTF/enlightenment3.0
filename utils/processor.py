@@ -4,8 +4,10 @@ import pandas as pd
 import statsmodels.api as sm
 
 from typing import Callable
+from dataclasses import dataclass
 
-from constant.type_ import ERROR
+from constant.type_ import ERROR, GROUP_MODE, validate_literal_params
+from constant.quant import RESTRUCTURE_FACTOR, PROHIBIT_MV_NEUTRAL
 
 
 ###############################################################
@@ -17,6 +19,138 @@ class DataProcessor:
         self.dimensionless = Dimensionless
         self.neutralization = Neutralization
         self.refactor = Refactor
+
+    @classmethod
+    def preprocessing_factor_data(
+            cls,
+            data: dict[str, pd.DataFrame],
+            factor_name: str,
+            standardization: bool = True,
+            market_value_neutral: bool = True,
+            industry_neutral: bool = True,
+            restructure: bool = False
+    ) -> dict[str, pd.DataFrame]:
+        """
+        预处理数据
+        :param data: 原始数据
+        :param factor_name: 因子名
+        :param standardization: 标准化
+        :param market_value_neutral: 市值中性化
+        :param industry_neutral: 行业中性化
+        :param restructure: 因子重构
+        :return: 预处理因子数据
+        """
+        def __process_single_date(
+                df_: pd.DataFrame
+        ) -> pd.DataFrame:
+            """单日数据处理"""
+            processed_col = f"processed_{factor_name}"
+            df_[processed_col] = df_[factor_name]
+
+            # -1 重构因子
+            if restructure and RESTRUCTURE_FACTOR.get(factor_name, ""):
+                df_[processed_col] = cls.processor.refactor.restructure_factor(
+                    df_[processed_col],
+                    df_[RESTRUCTURE_FACTOR.get(factor_name)]
+                )
+
+            # -2 第一次 去极值、标准化
+            df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
+            if standardization:
+                df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
+
+            # -3 中性化
+            if market_value_neutral and factor_name not in PROHIBIT_MV_NEUTRAL:
+                df_[processed_col] = cls.processor.neutralization.market_value_neutral(
+                    df_[processed_col],
+                    df_["对数市值"],
+                    winsorizer=cls.processor.winsorizer.percentile,
+                    dimensionless=cls.processor.dimensionless.standardization
+                )
+
+            if industry_neutral:
+                df_[processed_col] = cls.processor.neutralization.industry_neutral(df_[processed_col], df_["行业"])
+
+            # -4 第二次 去极值、标准化
+            df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
+            if standardization:
+                df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
+
+            return df_
+
+        processed_data = {}
+        for date, df in data.items():
+            try:
+                processed_data[date] = __process_single_date(df)
+            except ValueError:
+                continue
+        return processed_data
+
+    @classmethod
+    def preprocessing_factors_by_setting(
+            cls,
+            data: dict[str, pd.DataFrame],
+            factors_setting: list[dataclass]
+    ) -> dict[str, pd.DataFrame]:
+        """
+        预处理方法
+        :param data: 原始数据
+        :param factors_setting: 因子配置
+        :return: 预处理好的数据
+        """
+        def __process_single_date(
+                df_: pd.DataFrame,
+        ) -> pd.DataFrame:
+            """单日数据处理"""
+            for setting in factors_setting:
+                factor_name = setting.factor_name
+                processed_col = f"processed_{factor_name}"
+                df_[processed_col] = df_[factor_name]
+
+                # 1- 重构因子
+                if setting.restructure:
+                    df_[processed_col] = cls.processor.refactor.restructure_factor(
+                        df_[processed_col],
+                        df_[setting.restructure_denominator]
+                    )
+
+                # -2 顺序反转
+                if setting.reverse:
+                    df_[processed_col] = df_[processed_col] * -1
+
+                # -3 第一次 去极值、标准化
+                df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
+                if setting.standardization:
+                    df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
+
+                # -4 中性化
+                if setting.market_value_neutral:
+                    df_[processed_col] = cls.processor.neutralization.market_value_neutral(
+                        df_[processed_col],
+                        df_["对数流通市值"],
+                        winsorizer=cls.processor.winsorizer.percentile,
+                        dimensionless=cls.processor.dimensionless.standardization
+                    )
+                    # df_[processed_col] = cls.processor.market_value_neutral(df_[processed_col], df_["对数市值"] ** 3)
+                if setting.industry_neutral:
+                    df_[processed_col] = cls.processor.neutralization.industry_neutral(df_[processed_col], df_["行业"])
+
+                # -5 第二次 去极值、标准化
+                df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
+                if setting.standardization:
+                    df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
+
+            return df_
+
+        processed_data = {}
+        for date, df in data.items():
+            try:
+                processed_data[date] = __process_single_date(df)
+            except ValueError:
+                continue
+
+        return processed_data
+
 
 
 ###############################################################
@@ -477,6 +611,148 @@ class Refactor:
             index=factor_values.index,
             columns=factor_values.columns
         )
+
+    @staticmethod
+    def shift_factors_value(
+            raw_data: pd.DataFrame,
+            lag_periods: int = 1,
+    ) -> pd.DataFrame:
+        """
+        将每个DataFrame中的因子向后移指定期数，用于 T-N期因子 与 T期涨跌幅 的拟合回归
+        :param raw_data: 原始数据
+        :param lag_periods: 滞后期数
+        :return: 平移后的数据
+        """
+        # 深拷贝原始数据
+        copied_data = raw_data.copy(deep=True).reset_index(drop=True)
+        # 确定需要平移的列
+        shifted_col = copied_data.columns.difference(["股票代码", "行业", "pctChg", "date"]).tolist()
+
+        grouped = copied_data.sort_values('date').groupby('股票代码')
+        shifted_factors = grouped[shifted_col].transform(
+            lambda x: x.shift(lag_periods)
+        )
+
+        # 将平移后的数据替换原始因子列
+        copied_data[shifted_col] = shifted_factors
+
+        # 删除因子列中存在NaN的行（至少有一个因子为NaN即删除）
+        result_data = copied_data.dropna(
+            subset=shifted_col,
+            how="any"
+        ).reset_index(drop=True)
+
+        return result_data
+
+
+###############################################################
+class Classification:
+
+    @classmethod
+    @validate_literal_params
+    def divide_into_group(
+            cls,
+            data: dict[str, pd.DataFrame],
+            factor_col: str,
+            processed_factor_col: str,
+            group_mode: GROUP_MODE,
+            group_nums: int,
+            group_label: list[str],
+            negative: bool = False
+    ) -> dict[str, pd.DataFrame]:
+        """
+        分组 -1等距 distant；-2 等频 frequency
+        :param data: 分组数据
+        :param factor_col: 分组因子列名
+        :param processed_factor_col: 分组预处理因子列名
+        :param group_mode: 分组模式
+        :param group_nums: 分组数
+        :param group_label: 分组标签
+        :param negative: 负值单列
+        """
+        method = {
+            "distant": cls.__distant,
+            "frequency": cls.__frequency
+        }.get(group_mode, cls.__frequency)
+
+        result: dict[str, pd.DataFrame] = {}
+        for date, df in data.items():
+            try:
+                if df.shape[0] >= group_nums:
+                    df["group"] = method(
+                        df, factor_col, processed_factor_col, group_nums, group_label, negative
+                    )
+                    result[date] = df
+            except ValueError:
+                continue
+        return result
+
+    @staticmethod
+    def __distant(
+            df: pd.DataFrame,
+            factor_col: str,
+            processed_factor_col: str,
+            group_nums: int,
+            group_label: list[str],
+            negative: bool
+    ) -> pd.Series:
+        """等距分组"""
+        if negative:
+            negative_mask = df[factor_col] < 0
+            df["group"] = np.where(
+                negative_mask,
+                'negative',
+                pd.NA
+            )
+            non_negative_group = pd.cut(
+                df.loc[~negative_mask, processed_factor_col],
+                bins=group_nums,
+                labels=group_label,
+                duplicates="drop"
+            )
+            df.loc[~negative_mask, "group"] = non_negative_group
+            return df["group"].astype("category")
+        else:
+            return pd.cut(
+                pd.to_numeric(df[processed_factor_col]),
+                bins=group_nums,
+                labels=group_label,
+                duplicates="drop"
+            )
+
+    @staticmethod
+    def __frequency(
+            df: pd.DataFrame,
+            factor_col: str,
+            processed_factor_col: str,
+            group_nums: int,
+            group_label: list[str],
+            negative: bool
+    ) -> pd.Series:
+        """等频分组"""
+        if negative:
+            negative_mask = df[factor_col] < 0
+            df["group"] = np.where(
+                negative_mask,
+                'negative',
+                pd.NA
+            )
+            non_negative_group = pd.qcut(
+                df.loc[~negative_mask, processed_factor_col],
+                q=group_nums,
+                labels=group_label,
+                duplicates="drop"
+            )
+            df.loc[~negative_mask, "group"] = non_negative_group
+            return df["group"].astype("category")
+        else:
+            return pd.qcut(
+                pd.to_numeric(df[processed_factor_col]),
+                q=group_nums,
+                labels=group_label,
+                duplicates="drop"
+            )
+
 
 
 ###############################################################

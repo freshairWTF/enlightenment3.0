@@ -7,7 +7,7 @@ from pathos.multiprocessing import ProcessPool as Pool
 import warnings
 import pandas as pd
 
-from base_service import BaseService
+from quant_service import QuantService
 from constant.path_config import DataPATH
 from constant.type_ import CYCLE, INDUSTRY_SHEET, KLINE_SHEET, validate_literal_params
 from storage import DataStorage
@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
 
 ###############################################################
-class KlineMonitor(BaseService):
+class KlineMonitor(QuantService):
 
     @validate_literal_params
     def __init__(

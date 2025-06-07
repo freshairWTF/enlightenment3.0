@@ -6,20 +6,18 @@ import pandas as pd
 from evaluation import Evaluation
 from utils.drawer import Drawer
 from utils.loader import DataLoader
-from utils.quant_processor import QuantProcessor
 from constant.type_ import CLASS_LEVEL, CYCLE, CALC_RETURN_MODE, validate_literal_params
 from analysis.kline_metrics import KLineMetrics
 from constant.path_config import DataPATH
 
 
 ####################################################
-class BaseService:
-    """应用基类"""
+class QuantService:
+    """量化基类"""
 
     loader = DataLoader
     draw = Drawer
     evaluate = Evaluation()
-    processor = QuantProcessor
 
     # --------------------------
     # 初始化
@@ -36,22 +34,7 @@ class BaseService:
     # 数据加载
     # --------------------------
     @classmethod
-    def load_factor_data(
-            cls,
-            source_dir: Path
-    ) -> dict[str, pd.DataFrame]:
-        """加载因子数据（分析因子、双重排序因子、基础量价因子、描述性因子、过滤因子）"""
-        return dict(sorted(
-            {
-                f.stem: cls.loader.load_parquet(f)
-                for f in source_dir.glob("*.parquet")
-                if f.is_file()
-            }.items(),
-            key=lambda x: x[0]
-        ))
-
-    @classmethod
-    def load_model_factors_data(
+    def load_factors_value(
             cls,
             source_dir: Path
     ) -> pd.DataFrame:
@@ -76,6 +59,7 @@ class BaseService:
 
         # 合并所有DataFrame
         combined_df = pd.concat(dfs_with_date)
+        # 代码索引成列
         combined_df = combined_df.reset_index().rename(columns={'index': '股票代码'})
         # 转换日期
         combined_df['date'] = pd.to_datetime(combined_df['date'], format='%Y-%m-%d').dt.date
@@ -136,33 +120,6 @@ class BaseService:
     @validate_literal_params
     def add_industry(
             cls,
-            raw_data: dict[str, pd.DataFrame],
-            industry_mapping: pd.DataFrame,
-            class_level: CLASS_LEVEL,
-    ) -> dict[str, pd.DataFrame]:
-        """
-        加入行业分类数据
-        :param raw_data: 原始数据
-        :param industry_mapping: 行业映射数据
-        :param class_level: 行业分类级数
-        :return: 具有行业信息的数据
-        """
-        industry = (
-            industry_mapping[["股票代码", class_level]]
-            .set_index("股票代码")
-            .rename(columns={
-                class_level: "行业"
-            })
-        )
-        return {
-            date: df.join(industry, how="left").fillna({"行业": "未知行业"})
-            for date, df in raw_data.items()
-        }
-
-    @classmethod
-    @validate_literal_params
-    def add_industry_data(
-            cls,
             raw_data: pd.DataFrame,
             industry_mapping: pd.DataFrame,
             class_level: CLASS_LEVEL,
@@ -181,32 +138,6 @@ class BaseService:
             })
         )
         return pd.merge(raw_data, industry, how="left", on="股票代码")
-
-    @classmethod
-    def valid_data_filter(
-            cls,
-            raw_data: dict[str, pd.DataFrame],
-            valid_factors: list[str]
-    ) -> dict[str, pd.DataFrame]:
-        """
-        有效数据过滤
-        :param raw_data: 原始数据
-        :param valid_factors: 有效因子
-        :return: 过滤后的数据
-        """
-        required_col = set(valid_factors)
-
-        result = {}
-        for date, raw_df in raw_data.items():
-            missing_col = required_col - set(raw_df.columns)
-            if missing_col:
-                print(f"{date} | 缺少以下列: {', '.join(missing_col)}")
-            else:
-                valid_data = raw_df[valid_factors].dropna(how="any")
-                if not valid_data.empty:
-                    result[date] = valid_data
-
-        return result
 
     @classmethod
     def valid_factors_filter(

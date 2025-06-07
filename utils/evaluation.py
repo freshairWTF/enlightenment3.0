@@ -9,7 +9,6 @@ import pandas as pd
 
 from constant.quant import ANNUALIZED_DAYS
 from utils.processor import DataProcessor
-from utils.quant_processor import QuantProcessor
 
 
 ####################################################
@@ -447,7 +446,7 @@ class ICMetrics:
         decay = {}
         for i in range(1, 13, 1):
             try:
-                shifted_data = QuantProcessor.shift_factors(data, i, [factor_col])
+                shifted_data = DataProcessor().refactor.shift_factors_value(data, i)
                 ic = cls.calc_ic(
                     shifted_data,
                     factor_col,

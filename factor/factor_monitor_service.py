@@ -10,14 +10,14 @@ from collections import defaultdict
 import pandas as pd
 
 from range_filter import RangeFilter
-from base_service import BaseService
+from quant_service import QuantService
 from constant.type_ import CYCLE, CLASS_LEVEL, FILTER_MODE, validate_literal_params
 from constant.monitor_setting import Factor
 from constant.path_config import DataPATH
 
 
 #####################################################
-class FactorMonitor(BaseService):
+class FactorMonitor(QuantService):
     """因子监控"""
 
     CORE_FACTOR = [
@@ -83,7 +83,7 @@ class FactorMonitor(BaseService):
         # --------------------------
         self.industry_mapping = self.load_industry_mapping()
         self.listed_nums = self.load_listed_nums()
-        self.raw_data = self.load_factor_data(self.source_dir)
+        self.raw_data = self.load_factors_value(self.source_dir)
 
         # --------------------------
         # 因子名
@@ -189,7 +189,7 @@ class FactorMonitor(BaseService):
         :return: 处理后的数据
         """
         raw_data = self.add_industry(
-            self.valid_data_filter(raw_data, valid_factors),
+            self.valid_factors_filter(raw_data, valid_factors),
             self.industry_mapping,
             self.class_level
         )

@@ -13,7 +13,7 @@ import traceback
 import numpy as np
 import pandas as pd
 
-from base_service import BaseService
+from quant_service import QuantService
 from range_filter import RangeFilter
 from check_factor_feature import DifferentMarketAnalyzer
 from constant.quant import (
@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore")
 
 
 #####################################################
-class FactorAnalyzer(BaseService):
+class FactorAnalyzer(QuantService):
     """
     单因子分析：
         -1 IC（Rank）
@@ -130,7 +130,7 @@ class FactorAnalyzer(BaseService):
         # --------------------------
         self.industry_mapping = self.load_industry_mapping()
         self.listed_nums = self.load_listed_nums()
-        self.raw_data = self.load_factor_data(self.source_dir)
+        self.raw_data = self.load_factors_value(self.source_dir)
 
         # --------------------------
         # 其他参数
@@ -232,7 +232,7 @@ class FactorAnalyzer(BaseService):
         :param processed_factor_col: 预处理因子名
         :return: 处理后的数据
         """
-        valid_data = self.valid_data_filter(raw_data, valid_factors)
+        valid_data = self.valid_factors_filter(raw_data, valid_factors)
 
         add_industry_data = self.add_industry(
             valid_data,

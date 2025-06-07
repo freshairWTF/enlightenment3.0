@@ -9,7 +9,7 @@ import yaml
 import numpy as np
 import pandas as pd
 
-from base_service import BaseService
+from quant_service import QuantService
 from range_filter import RangeFilter
 from constant.path_config import DataPATH
 from constant.quant import ModelVisualization
@@ -23,7 +23,7 @@ warnings.filterwarnings("ignore")
 
 
 #####################################################
-class ModelAnalyzer(BaseService):
+class ModelAnalyzer(QuantService):
     """模型分析"""
 
     CORE_FACTOR = [
@@ -86,7 +86,7 @@ class ModelAnalyzer(BaseService):
         # --------------------------
         self.industry_mapping = self.load_industry_mapping()
         self.listed_nums = self.load_listed_nums()
-        self.raw_data = self.load_model_factors_data(self.source_dir)
+        self.raw_data = self.load_factors_value(self.source_dir)
         self.target_codes = self._get_target_codes()
 
         # --------------------------
@@ -222,7 +222,7 @@ class ModelAnalyzer(BaseService):
         """
         valid_factors_data = self.valid_factors_filter(raw_data, valid_factors)
 
-        add_industry_data = self.add_industry_data(
+        add_industry_data = self.add_industry(
             valid_factors_data,
             self.industry_mapping,
             self.model_setting.class_level
@@ -230,7 +230,7 @@ class ModelAnalyzer(BaseService):
 
         latest_data = self._create_latest_data(add_industry_data)
 
-        shifted_data = self.processor.shift_factors_data(
+        shifted_data = self.processor.shift_factors_value(
             latest_data,
             self.model_setting.lag_period
         )
