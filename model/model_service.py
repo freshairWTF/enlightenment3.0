@@ -85,7 +85,7 @@ class ModelAnalyzer(BaseService):
         # --------------------------
         self.industry_mapping = self.load_industry_mapping()
         self.listed_nums = self.load_listed_nums()
-        self.raw_data = self.load_factor_data(self.source_dir)
+        self.raw_data = self.load_model_factors_data(self.source_dir)
         self.target_codes = self._get_target_codes()
 
         # --------------------------
@@ -205,7 +205,7 @@ class ModelAnalyzer(BaseService):
     # --------------------------
     def _data_process(
             self,
-            raw_data: dict[str, pd.DataFrame],
+            raw_data: pd.DataFrame,
             valid_factors: list[str],
             factors_setting: list[dataclass]
     ) -> dict[str, pd.DataFrame]:
@@ -218,10 +218,10 @@ class ModelAnalyzer(BaseService):
         :param factors_setting: 因子配置
         :return: 处理后的数据
         """
-        valid_factor_data = self.valid_data_filter(raw_data, valid_factors)
+        valid_factors_data = self.valid_factors_filter(raw_data, valid_factors)
 
-        add_industry_data = self.add_industry(
-            valid_factor_data,
+        add_industry_data = self.add_industry_data(
+            valid_factors_data,
             self.industry_mapping,
             self.model_setting.class_level
         )

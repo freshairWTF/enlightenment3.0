@@ -39,6 +39,21 @@ class BaseService:
     def load_factor_data(
             cls,
             source_dir: Path
+    ) -> dict[str, pd.DataFrame]:
+        """加载因子数据（分析因子、双重排序因子、基础量价因子、描述性因子、过滤因子）"""
+        return dict(sorted(
+            {
+                f.stem: cls.loader.load_parquet(f)
+                for f in source_dir.glob("*.parquet")
+                if f.is_file()
+            }.items(),
+            key=lambda x: x[0]
+        ))
+
+    @classmethod
+    def load_model_factors_data(
+            cls,
+            source_dir: Path
     ) -> pd.DataFrame:
         """加载因子数据并合并为单个DataFrame，日期作为新列"""
         # 加载原始字典数据
@@ -61,6 +76,8 @@ class BaseService:
 
         # 合并所有DataFrame
         combined_df = pd.concat(dfs_with_date, ignore_index=True)
+        # 转换日期
+        combined_df['date'] = pd.to_datetime(combined_df['date'], format='%Y-%m-%d', errors='coerce')
 
         return combined_df
 
@@ -142,6 +159,36 @@ class BaseService:
         }
 
     @classmethod
+    @validate_literal_params
+    def add_industry_data(
+            cls,
+            raw_data: pd.DataFrame,
+            industry_mapping: pd.DataFrame,
+            class_level: CLASS_LEVEL,
+    ) -> pd.DataFrame:
+        """
+        加入行业分类数据
+        :param raw_data: 原始数据
+        :param industry_mapping: 行业映射数据
+        :param class_level: 行业分类级数
+        :return: 具有行业信息的数据
+        """
+        industry = (
+            industry_mapping[["股票代码", class_level]]
+            .set_index("股票代码")
+            .rename(columns={
+                class_level: "行业"
+            })
+        )
+        print(industry)
+        print(raw_data.info())
+        print(dd)
+        return {
+            date: df.join(industry, how="left").fillna({"行业": "未知行业"})
+            for date, df in raw_data.items()
+        }
+
+    @classmethod
     def valid_data_filter(
             cls,
             raw_data: dict[str, pd.DataFrame],
@@ -166,6 +213,55 @@ class BaseService:
                     result[date] = valid_data
 
         return result
+
+    @classmethod
+    def valid_factors_filter(
+            cls,
+            raw_data: pd.DataFrame,
+            valid_factors: list[str],
+            date_col: str = 'date'
+    ) -> pd.DataFrame:
+        """
+        有效数据过滤
+        :param raw_data: 原始数据
+        :param valid_factors: 有效因子
+        :param date_col: 标识日期的列名，默认为 date
+        :return: 过滤后的数据
+        """
+        # 确保日期列存在
+        if date_col not in raw_data.columns:
+            raise ValueError(f"DataFrame中缺少日期列: {date_col}")
+
+        # 获取所有唯一日期
+        unique_dates = raw_data[date_col].unique()
+        result_dfs = []                             # 存储每个日期处理后的DataFrame
+
+        # 检查因子列是否存在
+        missing_factors = set(valid_factors) - set(raw_data.columns)
+        if missing_factors:
+            print(f"警告：全局缺少以下因子列: {', '.join(missing_factors)}")
+
+        for date in unique_dates:
+            # 获取当前日期的数据子集
+            date_mask = raw_data[date_col] == date
+            date_df = raw_data.loc[date_mask]
+
+            # 列检查 检查当前日期是否缺少因子列
+            valid_df = date_df[valid_factors].dropna(how="all", axis=1)
+            date_missing = set(valid_factors) - set(valid_df.columns)
+            if date_missing:
+                print(f"{date} | 缺少以下列: {', '.join(date_missing)}")
+                continue
+
+            # 行检查 筛选有效因子并删除缺失值
+            valid_df = date_df[[date_col] + valid_factors].dropna(how="any")
+            if valid_df.empty:
+                print(f"{date} | 缺少行")
+            else:
+                result_dfs.append(valid_df)
+
+        # 合并所有有效数据
+        return pd.concat(result_dfs, ignore_index=False) if result_dfs else pd.DataFrame()
 
     # --------------------------
     # 指标计算
