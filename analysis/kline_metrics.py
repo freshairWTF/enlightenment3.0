@@ -6,7 +6,7 @@ import pandas as pd
 from base_metrics import Metrics, depends_on
 from constant.type_ import CYCLE, validate_literal_params
 from kline_determination import KlineDetermination
-from utils.data_processor import DataProcessor
+from utils.processor import DataProcessor
 
 
 ###############################################################
@@ -15,6 +15,8 @@ class KLineMetrics(Metrics, KlineDetermination):
     量价指标计算器
     指标命名规则：指标名_计算窗口
     """
+
+    processor = DataProcessor()
 
     @validate_literal_params
     def __init__(
@@ -259,7 +261,7 @@ class KLineMetrics(Metrics, KlineDetermination):
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
         # 标准化
-        price_series = DataProcessor.standardization(self.metrics["close"])
+        price_series = self.processor.dimensionless.standardization(self.metrics["close"])
 
         # 滚动计算斜率
         slopes = price_series.rolling(

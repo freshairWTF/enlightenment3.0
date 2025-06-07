@@ -3,12 +3,14 @@ import pandas as pd
 from scipy.stats import spearmanr
 
 from type_ import validate_literal_params, FACTOR_WEIGHT
-from data_processor import DataProcessor
+from utils.processor import DataProcessor
 
 
 ####################################################
 class FactorWeight:
     """因子权重"""
+
+    processor = DataProcessor()
 
     # --------------------------
     # 辅助方法
@@ -275,7 +277,7 @@ class FactorWeight:
 
         # 标准化处理
         factors_df[synthesis_factor_name] = factors_df.groupby('date')[synthesis_factor_name].transform(
-            lambda x: DataProcessor.standardization(x, error="ignore")
+            lambda x: cls.processor.dimensionless.standardization(x, error="ignore")
         )
 
         return factors_df

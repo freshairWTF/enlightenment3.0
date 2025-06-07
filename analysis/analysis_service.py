@@ -13,7 +13,7 @@ from constant.type_ import (
     INDUSTRY_SHEET, KLINE_SHEET, WEIGHTS,
     validate_literal_params
 )
-from utils.data_processor import DataProcessor
+from utils.processor import DataProcessor
 from storage import DataStorage
 from loader import DataLoader
 from utils.drawer import Drawer, IndividualDrawer
@@ -228,7 +228,7 @@ class Analyzer:
         # --------------------------
         # 工具类
         self.loader = DataLoader
-        self.process = DataProcessor
+        self.process = DataProcessor()
 
         # 数据容器
         self.data_container = self._setup_data_container()
@@ -782,7 +782,7 @@ class Analyzer:
             cycle=cycle,
             methods=sum(self.PARAMS.finance.financial_analysis.values(), []),
             function_map=self.MAPPING["FINANCIAL"],
-            de_extreme_method=self.process.percentile
+            de_extreme_method=self.process.winsorizer.percentile
         )
         calculator.calculate()
 
@@ -1062,7 +1062,7 @@ class Analyzer:
         # -2 数据清洗（去极值）
         cleand_data = self._clean_data(
             raw_data=panel_data,
-            cleaning_func=self.process.percentile
+            cleaning_func=self.process.winsorizer.percentile
         )
 
         # -3 合成为 mac|行业

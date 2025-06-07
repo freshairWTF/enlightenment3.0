@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 from constant.type_ import CYCLE
-from utils.data_processor import DataProcessor
+from utils.processor import DataProcessor
 
 
 ########################################################
@@ -207,7 +207,7 @@ class MarkovChainAnalyzer:
         print(self.factor_return)
         # 标准化
         print(self.index_return)
-        self.index_return = DataProcessor.standardization(self.index_return)
+        self.index_return = DataProcessor().dimensionless.standardization(self.index_return)
 
         print(self.index_return)
 

@@ -58,7 +58,7 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250530-WEEK"
-    storage_dir = "中性化市值测试/linear-20250530W-ir衰减-旧因子库-市值加市值三次方中性化"
+    storage_dir = "中性化市值测试/linear-20250530W-ir衰减-旧因子库-流通市值中性化"
 
     """
     阿尔法因子   直接ir加权

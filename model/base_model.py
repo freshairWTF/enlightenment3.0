@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
-from data_processor import DataProcessor
+from utils.processor import DataProcessor
 from factor_weight import FactorWeight
 from position_weight import PositionWeight
 
@@ -18,7 +18,7 @@ from position_weight import PositionWeight
 class MultiFactorsModel(ABC):
     """多因子模型模板"""
 
-    processor = DataProcessor
+    processor = DataProcessor()
     factor_weight = FactorWeight
     position_weight = PositionWeight
 
@@ -75,7 +75,7 @@ class MultiFactorsModel(ABC):
             date: processed_df
             for date, df in z_score.items()
             if not (
-                processed_df := cls.processor.standardization(df, error="ignore").dropna()
+                processed_df := cls.processor.dimensionless.standardization(df, error="ignore").dropna()
             ).empty
         }
 
@@ -175,7 +175,7 @@ class MultiFactorsModel(ABC):
 
         # -2 标准化
         return {
-            date: cls.processor.standardization(df, error="ignore")
+            date: cls.processor.dimensionless.standardization(df, error="ignore")
             for date, df in weight_factors.items()
         }
 

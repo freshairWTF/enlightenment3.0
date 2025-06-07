@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from data_processor import DataProcessor
+from utils.processor import DataProcessor
 from constant.type_ import GROUP_MODE, validate_literal_params
 from constant.quant import RESTRUCTURE_FACTOR, PROHIBIT_MV_NEUTRAL
 
@@ -12,7 +12,7 @@ from constant.quant import RESTRUCTURE_FACTOR, PROHIBIT_MV_NEUTRAL
 class QuantProcessor:
     """量化数据处理"""
 
-    processor = DataProcessor
+    processor = DataProcessor()
 
     # ---------------------------------------
     # 因子预处理
@@ -46,27 +46,32 @@ class QuantProcessor:
 
             # -1 重构因子
             if restructure and RESTRUCTURE_FACTOR.get(factor_name, ""):
-                df_[processed_col] = cls.processor.restructure_factor(
+                df_[processed_col] = cls.processor.refactor.restructure_factor(
                     df_[processed_col],
                     df_[RESTRUCTURE_FACTOR.get(factor_name)]
                 )
 
             # -2 第一次 去极值、标准化
-            df_[processed_col] = cls.processor.percentile(df_[processed_col])
+            df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
             if standardization:
-                df_[processed_col] = cls.processor.standardization(df_[processed_col])
+                df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
 
             # -3 中性化
             if market_value_neutral and factor_name not in PROHIBIT_MV_NEUTRAL:
-                df_[processed_col] = cls.processor.market_value_neutral(df_[processed_col], df_["对数市值"])
+                df_[processed_col] = cls.processor.neutralization.market_value_neutral(
+                    df_[processed_col],
+                    df_["对数市值"],
+                    winsorizer=cls.processor.winsorizer.percentile,
+                    dimensionless=cls.processor.dimensionless.standardization
+                )
 
             if industry_neutral:
-                df_[processed_col] = cls.processor.industry_neutral(df_[processed_col], df_["行业"])
+                df_[processed_col] = cls.processor.neutralization.industry_neutral(df_[processed_col], df_["行业"])
 
             # -4 第二次 去极值、标准化
-            df_[processed_col] = cls.processor.percentile(df_[processed_col])
+            df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
             if standardization:
-                df_[processed_col] = cls.processor.standardization(df_[processed_col])
+                df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
 
             return df_
 
@@ -101,7 +106,7 @@ class QuantProcessor:
 
                 # 1- 重构因子
                 if setting.restructure:
-                    df_[processed_col] = cls.processor.restructure_factor(
+                    df_[processed_col] = cls.processor.refactor.restructure_factor(
                         df_[processed_col],
                         df_[setting.restructure_denominator]
                     )
@@ -111,21 +116,26 @@ class QuantProcessor:
                     df_[processed_col] = df_[processed_col] * -1
 
                 # -3 第一次 去极值、标准化
-                df_[processed_col] = cls.processor.percentile(df_[processed_col])
+                df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
-                    df_[processed_col] = cls.processor.standardization(df_[processed_col])
+                    df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
 
                 # -4 中性化
                 if setting.market_value_neutral:
-                    df_[processed_col] = cls.processor.market_value_neutral(df_[processed_col], df_["对数市值"])
-                    df_[processed_col] = cls.processor.market_value_neutral(df_[processed_col], df_["对数市值"] ** 3)
+                    df_[processed_col] = cls.processor.neutralization.market_value_neutral(
+                        df_[processed_col],
+                        df_["对数流通市值"],
+                        winsorizer=cls.processor.winsorizer.percentile,
+                        dimensionless=cls.processor.dimensionless.standardization
+                    )
+                    # df_[processed_col] = cls.processor.market_value_neutral(df_[processed_col], df_["对数市值"] ** 3)
                 if setting.industry_neutral:
-                    df_[processed_col] = cls.processor.industry_neutral(df_[processed_col], df_["行业"])
+                    df_[processed_col] = cls.processor.neutralization.industry_neutral(df_[processed_col], df_["行业"])
 
                 # -5 第二次 去极值、标准化
-                df_[processed_col] = cls.processor.percentile(df_[processed_col])
+                df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
-                    df_[processed_col] = cls.processor.standardization(df_[processed_col])
+                    df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
 
             return df_
 
@@ -355,7 +365,7 @@ class QuantProcessor:
         return {
             date: (
                 df.copy()
-                .assign(**cls.processor.symmetric_orthogonal(df[selected_factors[date]]))
+                .assign(**cls.processor.refactor.symmetric_orthogonal(df[selected_factors[date]]))
             )
             for date, df in processed_data.items()
         }

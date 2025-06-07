@@ -8,9 +8,9 @@ import pandas as pd
 import statsmodels.api as sm
 import scipy.cluster.hierarchy as sch
 
-from quant_setting import ModelSetting
-from data_processor import DataProcessor
-from factor_weight import FactorWeight
+from constant.quant_setting import ModelSetting
+from utils.processor import DataProcessor
+from model.factor_weight import FactorWeight
 
 
 ###################################################
@@ -177,7 +177,7 @@ class FactorCollinearityProcessor:
         """
         for date, df in processed_data.items():
             for second, factors in self.secondary_factors.items():
-                processed_data[date][factors] = DataProcessor.symmetric_orthogonal(df[factors])
+                processed_data[date][factors] = DataProcessor().refactor.symmetric_orthogonal(df[factors])
         return processed_data
 
     def _synthesis_secondary_factor(

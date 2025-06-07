@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from data_processor import DataProcessor
+from utils.processor import DataProcessor
 from type_ import validate_literal_params, POSITION_WEIGHT
 
 
@@ -9,11 +9,14 @@ from type_ import validate_literal_params, POSITION_WEIGHT
 class PositionWeight:
     """仓位权重"""
 
+    processor = DataProcessor()
+
     # --------------------------
     # 辅助方法
     # --------------------------
-    @staticmethod
+    @classmethod
     def __get_standardized_feature_ranking_vector(
+            cls,
             factors_data: dict[str, pd.DataFrame],
             factor_name: str,
             feature_range: tuple[int, int]
@@ -26,15 +29,16 @@ class PositionWeight:
         :return 标准化特征排名向量
         """
         return {
-            date: DataProcessor.normalization(
+            date: cls.processor.dimensionless.normalization(
                 df[factor_name].rank(),
                 feature_range=feature_range
             )
             for date, df in factors_data.items()
         }
 
-    @staticmethod
+    @classmethod
     def __get_group_standardized_feature_ranking_vector(
+            cls,
             factors_data: dict[str, pd.DataFrame],
             factor_name: str,
             group_column: str,
@@ -56,7 +60,7 @@ class PositionWeight:
             ranked = grouped[factor_name].rank()
             # 组内标准化到目标范围
             result[date] = ranked.groupby(df[group_column]).transform(
-                lambda x: DataProcessor.normalization(x, feature_range)
+                lambda x: cls.processor.dimensionless.normalization(x, feature_range)
             )
 
         return result

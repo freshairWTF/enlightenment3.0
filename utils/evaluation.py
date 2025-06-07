@@ -8,10 +8,8 @@ import numpy as np
 import pandas as pd
 
 from constant.quant import ANNUALIZED_DAYS
-from utils.data_processor import DataProcessor
+from utils.processor import DataProcessor
 from utils.quant_processor import QuantProcessor
-
-processor = DataProcessor
 
 
 ####################################################
@@ -774,8 +772,11 @@ class MonitorMetrics:
         3）VIF
     """
 
-    @staticmethod
+    processor = DataProcessor()
+
+    @classmethod
     def _get_grouped_feature(
+            cls,
             df: pd.DataFrame,
             factor_name: str,
             target_col: str,
@@ -800,7 +801,7 @@ class MonitorMetrics:
         )
 
         if clean:
-            df[target_col] = DataProcessor.percentile(df[target_col])
+            df[target_col] = cls.processor.winsorizer.percentile(df[target_col])
 
         return df.groupby("group", observed=False)[target_col].agg(agg_func)
 
@@ -868,7 +869,7 @@ class MonitorMetrics:
             orient="index"
         )
         valuation_spread = valuation_spread.rolling(window=window, min_periods=2).mean()
-        valuation_spread["ratio"] = DataProcessor.percentile(
+        valuation_spread["ratio"] = cls.processor.winsorizer.percentile(
             valuation_spread["high"] / valuation_spread["low"]
         )
 
@@ -904,7 +905,7 @@ class MonitorMetrics:
             orient="index"
         )
         vol = returns.rolling(window=window, min_periods=2).std()
-        vol["ratio"] = DataProcessor.percentile(vol["high"] / vol["low"])
+        vol["ratio"] = cls.processor.winsorizer.percentile(vol["high"] / vol["low"])
 
         return vol
 
@@ -930,7 +931,7 @@ class MonitorMetrics:
             orient="index"
         )
         turn = turn.rolling(window=window, min_periods=2).mean()
-        turn["ratio"] = DataProcessor.percentile(turn["high"] / turn["low"])
+        turn["ratio"] = cls.processor.winsorizer.percentile(turn["high"] / turn["low"])
 
         return turn
 
@@ -958,7 +959,7 @@ class MonitorMetrics:
             orient="index"
         )
         cum = returns.rolling(window=window, min_periods=2).sum()
-        cum["ratio"] = DataProcessor.percentile(cum["high"] / cum["low"])
+        cum["ratio"] = cls.processor.winsorizer.percentile(cum["high"] / cum["low"])
 
         return cum
 

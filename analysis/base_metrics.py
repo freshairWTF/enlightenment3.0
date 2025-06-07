@@ -6,7 +6,6 @@ import pandas as pd
 
 from constant.type_ import CYCLE, validate_literal_params
 from constant.quant import ANNUALIZED_DAYS
-from utils.data_processor import DataProcessor
 
 
 ###############################################################
@@ -25,8 +24,6 @@ def depends_on(*dependencies):
 
 ###############################################################
 class Metrics:
-
-    processor = DataProcessor
 
     # --------------------------
     # 计算 私有方法
