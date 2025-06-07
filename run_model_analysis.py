@@ -35,9 +35,9 @@ from model.model_service import ModelAnalyzer
 # 模型工厂
 # -----------------------------
 MODEL = {
-    "linear": LinearMultiFactors,
-    "xgboost": XGBoostMultiFactors,
-    "randomforest": RandomForestMultiFactors
+    "linear": LinearRegressionModel,
+    "xgboost": XGBoostRegressionModel,
+    "randomforest": RandomForestClassificationModel
 }
 
 

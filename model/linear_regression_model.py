@@ -6,10 +6,10 @@ from utils.quant_processor import QuantProcessor
 
 
 ########################################################################
-class XGBoostMultiFactors(MultiFactorsModel):
-    """xgboost多因子模型"""
+class LinearRegressionModel(MultiFactorsModel):
+    """线性回归模型"""
 
-    model_name: str = "xgboost多因子模型"
+    model_name: str = "线性回归模型"
 
     @validate_literal_params
     def __init__(
@@ -53,11 +53,12 @@ class XGBoostMultiFactors(MultiFactorsModel):
 
     def run(self):
         """
-        xgboost非线性模型（因子数量要一致）：
-            1）因子加权；
-            2）模型训练/回测；
-            3）分组；
-            4）仓位权重；
+        线性模型：
+            1）计算因子权重；
+            2）选择加权方法，计算综合Z-Score
+            3）Z-Score回归/计算预期收益率；
+            4）分组；
+            5）仓位权重；
         """
         # -1 因子权重
         factor_weights = self.factor_weight.get_factors_weights(
@@ -74,20 +75,13 @@ class XGBoostMultiFactors(MultiFactorsModel):
             weights=factor_weights
         )
 
-        # -3 加权因子
-        weight_factors = self.calc_weight_factors(
-            data=self.raw_data,
-            factors_name=self.factors_name,
-            weights=factor_weights
-        )
-
-        # -4 预期收益率
-        predict_return = self.calc_predict_return_by_xgboost(
-            x_value=weight_factors,
+        # -3 预期收益率
+        predict_return = self.calc_predict_return(
+            x_value=z_score,
             y_value={date: df["pctChg"] for date, df in self.raw_data.items()},
             window=self.factor_weight_window
         )
-        print(predict_return['2018-05-25'])
+
         # -4 分组
         grouped_data = QuantProcessor.divide_into_group(
             predict_return,
@@ -97,7 +91,7 @@ class XGBoostMultiFactors(MultiFactorsModel):
             group_nums=self.group_nums,
             group_label=self.group_label,
         )
-        print(grouped_data['2018-05-25'])
+
         # -5 仓位权重
         position_weight = self.position_weight.get_weights(
             grouped_data,
@@ -110,6 +104,5 @@ class XGBoostMultiFactors(MultiFactorsModel):
         result = self.join_data(grouped_data, position_weight)
         result = self.join_data(result, z_score)
         result = self.join_data(result, self.raw_data)
-        print(result['2018-05-25'])
-        print(result['2018-05-25'].columns)
+
         return result

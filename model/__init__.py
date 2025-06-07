@@ -1,12 +1,12 @@
 """
 显示导入特定模型类
 """
-from linear_multi_factors_model import LinearMultiFactors
-from xgboost_multi_factors_model import XGBoostMultiFactors
-from randomforest_multi_factors_model import RandomForestMultiFactors
+from linear_regression_model import LinearRegressionModel
+from xgboost_regression_model import XGBoostRegressionModel
+from randomforest_classification_model import RandomForestClassificationModel
 
 __all__ = [
-    "LinearMultiFactors",
-    "XGBoostMultiFactors",
-    "RandomForestMultiFactors"
+    "LinearRegressionModel",
+    "XGBoostRegressionModel",
+    "RandomForestClassificationModel"
 ]

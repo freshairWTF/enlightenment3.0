@@ -6,10 +6,10 @@ from utils.quant_processor import QuantProcessor
 
 
 ########################################################################
-class RandomForestMultiFactors(MultiFactorsModel):
-    """xgboost多因子模型"""
+class XGBoostRegressionModel(MultiFactorsModel):
+    """xgboost回归模型"""
 
-    model_name: str = "randomforest多因子模型"
+    model_name: str = "xgboost回归模型"
 
     @validate_literal_params
     def __init__(
@@ -53,7 +53,7 @@ class RandomForestMultiFactors(MultiFactorsModel):
 
     def run(self):
         """
-        xgboost非线性模型：
+        xgboost非线性模型（因子数量要一致）：
             1）因子加权；
             2）模型训练/回测；
             3）分组；
@@ -82,7 +82,7 @@ class RandomForestMultiFactors(MultiFactorsModel):
         )
 
         # -4 预期收益率
-        predict_return = self.calc_predict_return_by_randomforest(
+        predict_return = self.calc_predict_return_by_xgboost(
             x_value=weight_factors,
             y_value={date: df["pctChg"] for date, df in self.raw_data.items()},
             window=self.factor_weight_window
