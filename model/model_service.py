@@ -3,6 +3,7 @@
 """
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from datetime import datetime
 
 import yaml
 import numpy as np
@@ -31,7 +32,7 @@ class ModelAnalyzer(BaseService):
     DESCRIPTIVE_FACTOR = [
         "市值", "市净率", "收益率标准差_0.09"
     ]
-    predict_date = "2100-01-01"
+    predict_date = datetime.strptime("2100-01-01", "%Y-%m-%d").date()
 
     def __init__(
             self,
@@ -150,6 +151,7 @@ class ModelAnalyzer(BaseService):
                 self.DESCRIPTIVE_FACTOR
                 + self.CORE_FACTOR
                 + self.filter.PARAMETERS
+                + ["date", "股票代码"]
         )
         return [f for f in set(factors) if f]
 
@@ -228,7 +230,7 @@ class ModelAnalyzer(BaseService):
 
         latest_data = self._create_latest_data(add_industry_data)
 
-        shifted_data = self.processor.shift_factors(
+        shifted_data = self.processor.shift_factors_data(
             latest_data,
             self.model_setting.lag_period
         )
@@ -271,18 +273,19 @@ class ModelAnalyzer(BaseService):
 
     def _create_latest_data(
             self,
-            before_shifted_data: dict[str, pd.DataFrame]
-    ) -> dict[str, pd.DataFrame]:
+            before_shifted_data: pd.DataFrame
+    ) -> pd.DataFrame:
         """
         创建最新日期的数据
         :param before_shifted_data: 平移前的数据
         """
-        df = list(before_shifted_data.values())[-1].copy(deep=True)
+        latest_date = before_shifted_data["date"].unique()[-1]
+
+        df = before_shifted_data[before_shifted_data["date"] == latest_date].copy(deep=True)
         df["pctChg"] = np.nan
+        df["date"] = self.predict_date
 
-        before_shifted_data[self.predict_date] = df
-
-        return before_shifted_data
+        return pd.concat([before_shifted_data, df])
 
     # --------------------------
     # 计算指标

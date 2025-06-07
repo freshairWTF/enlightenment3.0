@@ -347,6 +347,40 @@ class QuantProcessor:
 
         return result
 
+    @classmethod
+    def shift_factors_data(
+            cls,
+            raw_data: pd.DataFrame,
+            lag_periods: int = 1,
+    ) -> pd.DataFrame:
+        """
+        将每个DataFrame中的因子向后移指定期数，用于 T-N期因子 与 T期涨跌幅 的拟合回归
+        :param raw_data: 原始数据
+        :param lag_periods: 滞后期数
+        :return: 平移后的数据
+        """
+        # 深拷贝原始数据
+        copied_data = raw_data.copy(deep=True).reset_index(drop=True)
+        # 确定需要平移的列
+        shifted_col = copied_data.columns.difference(["股票代码", "行业", "pctChg", "date"]).tolist()
+
+        grouped = copied_data.sort_values('date').groupby('股票代码')
+        shifted_factors = grouped[shifted_col].transform(
+            lambda x: x.shift(lag_periods)
+        )
+
+        # 将平移后的数据替换原始因子列
+        copied_data[shifted_col] = shifted_factors
+
+        # 删除因子列中存在NaN的行（至少有一个因子为NaN即删除）
+        result_data = copied_data.dropna(
+            subset=shifted_col,
+            how="any"
+        ).reset_index(drop=True)
+
+        return result_data
+
+
     # ---------------------------------------
     # 正交化
     # ---------------------------------------

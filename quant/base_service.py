@@ -75,9 +75,10 @@ class BaseService:
             dfs_with_date.append(df)
 
         # 合并所有DataFrame
-        combined_df = pd.concat(dfs_with_date, ignore_index=True)
+        combined_df = pd.concat(dfs_with_date)
+        combined_df = combined_df.reset_index().rename(columns={'index': '股票代码'})
         # 转换日期
-        combined_df['date'] = pd.to_datetime(combined_df['date'], format='%Y-%m-%d', errors='coerce')
+        combined_df['date'] = pd.to_datetime(combined_df['date'], format='%Y-%m-%d').dt.date
 
         return combined_df
 
@@ -175,18 +176,11 @@ class BaseService:
         """
         industry = (
             industry_mapping[["股票代码", class_level]]
-            .set_index("股票代码")
             .rename(columns={
                 class_level: "行业"
             })
         )
-        print(industry)
-        print(raw_data.info())
-        print(dd)
-        return {
-            date: df.join(industry, how="left").fillna({"行业": "未知行业"})
-            for date, df in raw_data.items()
-        }
+        return pd.merge(raw_data, industry, how="left", on="股票代码")
 
     @classmethod
     def valid_data_filter(
@@ -254,7 +248,7 @@ class BaseService:
                 continue
 
             # 行检查 筛选有效因子并删除缺失值
-            valid_df = date_df[[date_col] + valid_factors].dropna(how="any")
+            valid_df = date_df[valid_factors].dropna(how="any")
             if valid_df.empty:
                 print(f"{date} | 缺少行")
             else:
