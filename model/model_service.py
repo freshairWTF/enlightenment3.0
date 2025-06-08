@@ -8,7 +8,7 @@ import yaml
 import numpy as np
 import pandas as pd
 
-from base_service import BaseService
+from quant.base_service import BaseService
 from range_filter import RangeFilter
 from constant.path_config import DataPATH
 from constant.quant import ModelVisualization
@@ -26,10 +26,10 @@ class ModelAnalyzer(BaseService):
     """模型分析"""
 
     CORE_FACTOR = [
-        "对数市值", "对数流通市值", "open", "close", "pctChg"
+        "对数市值", "open", "close", "pctChg"
     ]
     DESCRIPTIVE_FACTOR = [
-        "市值", "市净率", "收益率标准差_0.09"
+        "市值", "市净率"
     ]
     predict_date = "2100-01-01"
 

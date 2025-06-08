@@ -124,7 +124,7 @@ class QuantProcessor:
                 if setting.market_value_neutral:
                     df_[processed_col] = cls.processor.neutralization.market_value_neutral(
                         df_[processed_col],
-                        df_["对数流通市值"],
+                        df_["对数市值"],
                         winsorizer=cls.processor.winsorizer.percentile,
                         dimensionless=cls.processor.dimensionless.standardization
                     )
