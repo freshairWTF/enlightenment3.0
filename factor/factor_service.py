@@ -268,7 +268,7 @@ class FactorAnalyzer(QuantService):
             raise ValueError("数据处理异常")
 
         grouped_data = self.processor.divide_into_group(
-            data=processed_data,
+            factor_values=processed_data,
             factor_col=factor_name,
             processed_factor_col=processed_factor_col,
             group_mode=group_mode,

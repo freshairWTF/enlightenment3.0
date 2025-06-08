@@ -1,22 +1,21 @@
+"""线性回归模型"""
 import pandas as pd
+from dataclasses import dataclass
 
-from base_model import MultiFactorsModel
 from constant.type_ import GROUP_MODE, FACTOR_WEIGHT, POSITION_WEIGHT, validate_literal_params
 from utils.processor import DataProcessor
 from model.dimensionality_reduction import FactorCollinearityProcessor
 
 
 ########################################################################
-class LinearRegressionModel(MultiFactorsModel):
+class LinearRegressionModel:
     """线性回归模型"""
-
-    model_name: str = "线性回归模型"
 
     @validate_literal_params
     def __init__(
             self,
-            raw_data: dict[str, pd.DataFrame],
-            factors_name: dict[str, list[str]],
+            input_df: pd.DataFrame,
+            factors_name: list[str],
             group_nums: int,
             group_label: list[str],
             group_mode: GROUP_MODE = "frequency",
@@ -28,7 +27,7 @@ class LinearRegressionModel(MultiFactorsModel):
             index_data: dict[str, pd.DataFrame] | None = None,
     ):
         """
-        :param raw_data: 数据
+        :param input_df: 数据
         :param factors_name: 因子名
         :param group_nums: 分组数
         :param group_mode: 分组模式
@@ -39,7 +38,7 @@ class LinearRegressionModel(MultiFactorsModel):
         :param individual_position_limit: 单一持仓上限
         :param index_data: 指数数据
         """
-        self.raw_data = raw_data
+        self.input_df = input_df
         self.factors_name = factors_name
         self.group_nums = group_nums
         self.group_label = group_label
@@ -49,8 +48,75 @@ class LinearRegressionModel(MultiFactorsModel):
         self.factor_weight_window = factor_weight_window
         self.position_weight_method = position_weight_method
         self.position_distribution = position_distribution
+        self.individual_position_limit = individual_position_limit
 
-        self.individual_position_limit = individual_position_limit,
+    def _pre_processing(self):
+        """
+        数据预处理
+            -1 缩尾
+            -2 标准化
+            -3 中性化
+            -4 缩尾
+            -5 标准化
+        :return:
+        """
+    @classmethod
+    def preprocessing_factors_by_setting(
+            cls,
+            data: dict[str, pd.DataFrame],
+            factors_setting: list[dataclass]
+    ) -> dict[str, pd.DataFrame]:
+        """
+        预处理方法
+        :param data: 原始数据
+        :param factors_setting: 因子配置
+        :return: 预处理好的数据
+        """
+        def __process_single_date(
+                df_: pd.DataFrame,
+        ) -> pd.DataFrame:
+            """单日数据处理"""
+            for setting in factors_setting:
+                factor_name = setting.factor_name
+                processed_col = f"processed_{factor_name}"
+                df_[processed_col] = df_[factor_name]
+
+                # -2 顺序反转
+                if setting.reverse:
+                    df_[processed_col] = df_[processed_col] * -1
+
+                # -3 第一次 去极值、标准化
+                df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
+                if setting.standardization:
+                    df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
+
+                # -4 中性化
+                if setting.market_value_neutral:
+                    df_[processed_col] = cls.processor.neutralization.market_value_neutral(
+                        df_[processed_col],
+                        df_["对数流通市值"],
+                        winsorizer=cls.processor.winsorizer.percentile,
+                        dimensionless=cls.processor.dimensionless.standardization
+                    )
+                    # df_[processed_col] = cls.processor.market_value_neutral(df_[processed_col], df_["对数市值"] ** 3)
+                if setting.industry_neutral:
+                    df_[processed_col] = cls.processor.neutralization.industry_neutral(df_[processed_col], df_["行业"])
+
+                # -5 第二次 去极值、标准化
+                df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
+                if setting.standardization:
+                    df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
+
+            return df_
+
+        processed_data = {}
+        for date, df in data.items():
+            try:
+                processed_data[date] = __process_single_date(df)
+            except ValueError:
+                continue
+
+        return processed_data
 
     def run(self):
         """
@@ -88,7 +154,7 @@ class LinearRegressionModel(MultiFactorsModel):
 
         # -1 因子权重
         factor_weights = self.factor_weight.get_factors_weights(
-            factors_data=self.raw_data,
+            factors_data=self.input_df,
             factors_name=self.factors_name,
             method=self.factor_weight_method,
             window=self.factor_weight_window
@@ -96,7 +162,7 @@ class LinearRegressionModel(MultiFactorsModel):
 
         # -2 综合Z值
         z_score = self.calc_z_scores(
-            data=self.raw_data,
+            data=self.input_df,
             factors_name=self.factors_name,
             weights=factor_weights
         )
@@ -104,7 +170,7 @@ class LinearRegressionModel(MultiFactorsModel):
         # -3 预期收益率
         predict_return = self.calc_predict_return(
             x_value=z_score,
-            y_value={date: df["pctChg"] for date, df in self.raw_data.items()},
+            y_value={date: df["pctChg"] for date, df in self.input_df.items()},
             window=self.factor_weight_window
         )
 
@@ -129,6 +195,6 @@ class LinearRegressionModel(MultiFactorsModel):
         # -6 数据合并
         result = self.join_data(grouped_data, position_weight)
         result = self.join_data(result, z_score)
-        result = self.join_data(result, self.raw_data)
+        result = self.join_data(result, self.input_df)
 
         return result
