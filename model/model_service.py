@@ -9,7 +9,7 @@ import pandas as pd
 
 from constant.path_config import DataPATH
 from constant.quant import ModelVisualization
-from constant.type_ import CYCLE, validate_literal_params
+from constant.type_ import CYCLE, validate_literal_params, FILTER_MODE
 from utils.storage import DataStorage
 from utils.quant_service import QuantService
 from utils.stock_pool_filter import StockPoolFilter
@@ -30,21 +30,25 @@ class ModelAnalyzer(QuantService):
         "市值", "市净率"
     ]
     predict_date = datetime.strptime("2100-01-01", "%Y-%m-%d").date()
-
+    
+    @validate_literal_params
     def __init__(
             self,
             model: callable,
             model_setting: dataclass,
+            filter_mode: FILTER_MODE,
+            cycle: CYCLE,
             source_dir: str | Path,
             storage_dir: str | Path,
-            cycle: CYCLE,
             benchmark_code: str = "000300"
     ):
         """
+        :param model: 模型
         :param model_setting: 模型配置
+        :param filter_mode: 标的池
+        :param cycle: 周期
         :param source_dir: 原始数据目录名称
         :param storage_dir: 存储数据目录名称
-        :param cycle: 周期
         :param benchmark_code: 基准指数代码
         """
         self.storage_dir = storage_dir
@@ -53,7 +57,7 @@ class ModelAnalyzer(QuantService):
         self.model_setting = model_setting
         self.cycle = cycle
         self.benchmark_code = benchmark_code
-        self.filter_mode = self.model_setting.filter_mode
+        self.filter_mode = filter_mode
         self.stock_pool_filter = StockPoolFilter                        # 标的池过滤类
         self.processor = DataProcessor()                                # 数据处理实例
 
@@ -78,7 +82,7 @@ class ModelAnalyzer(QuantService):
 
         # 其他参数
         self.visual_setting = ModelVisualization()
-        self.group_label = self.setup_group_label(self.model_setting.group_nums)
+        self.model_setting.group_label = self.setup_group_label(self.model_setting.group_nums)
 
         # 日志
         self.logger = self.setup_logger(self.storage_dir)
@@ -145,14 +149,14 @@ class ModelAnalyzer(QuantService):
                 + ["date", "股票代码"]
         )]
 
-        bc_factor = list(set(
+        backtest_factor = list(set(
             self.model_factors_name
             + support_factors
         ))
         # 排序（支持复现）
-        bc_factor.sort()
+        backtest_factor.sort()
 
-        return bc_factor
+        return backtest_factor
 
     # --------------------------
     # 数据处理
@@ -245,51 +249,51 @@ class ModelAnalyzer(QuantService):
             },
             **ic_stats,
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 reverse=reverse, prefix="0.0"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 mode="mv_weight", reverse=reverse, prefix="0.0_mw"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 mode="position_weight", reverse=reverse, prefix="0.0_pw"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 reverse=reverse, trade_cost=0.01, prefix="0.01"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 mode="mv_weight", reverse=reverse, trade_cost=0.01, prefix="0.01_mw"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 mode="position_weight", reverse=reverse, trade_cost=0.01, prefix="0.01_pw"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 reverse=reverse, trade_cost=0.03, prefix="0.03"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 mode="mv_weight", reverse=reverse, trade_cost=0.03, prefix="0.03_mw"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 mode="position_weight", reverse=reverse, trade_cost=0.03, prefix="0.03_pw"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 reverse=reverse, trade_cost=0.05, prefix="0.05"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 mode="mv_weight", reverse=reverse, trade_cost=0.05, prefix="0.05_mw"
             ),
             **self.calc_return_metrics(
-                grouped_data, self.cycle, self.group_label,
+                grouped_data, self.cycle, self.model_setting.group_label,
                 mode="position_weight", reverse=reverse, trade_cost=0.05, prefix="0.05_pw"
             ),
         }
@@ -357,11 +361,11 @@ class ModelAnalyzer(QuantService):
     ) -> None:
         """执行完整分析流程"""
         self.logger.info("---------- 模型前数据预处理 ----------")
-        pre_processing_data = self._pre_processing(
+        pre_processing_df = self._pre_processing(
             self.raw_data,
             self.backtest_factors_name
         )
-        if not pre_processing_data:
+        if pre_processing_df.empty:
             raise ValueError("过滤数据为空值")
 
         # ---------------------------------------
@@ -369,15 +373,8 @@ class ModelAnalyzer(QuantService):
         # ---------------------------------------
         self.logger.info("---------- 模型生成 ----------")
         model = self.model(
-            raw_data=pre_processing_data,
-            factors_name=self.model_factors_name,
-            group_nums=self.model_setting.group_nums,
-            group_label=self.group_label,
-            group_mode=self.model_setting.group_mode,
-            factor_weight_method=self.model_setting.secondary_factor_weight_method,
-            factor_weight_window=self.model_setting.factor_weight_window,
-            position_weight_method=self.model_setting.position_weight_method,
-            position_distribution=self.model_setting.position_distribution
+            input_df=pre_processing_df,
+            factors_setting=self.model_setting.factors_setting
         )
         grouped_data = model.run()
 

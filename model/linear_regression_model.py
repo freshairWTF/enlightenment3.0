@@ -2,7 +2,6 @@
 import pandas as pd
 from dataclasses import dataclass
 
-from constant.type_ import GROUP_MODE, FACTOR_WEIGHT, POSITION_WEIGHT, validate_literal_params
 from utils.processor import DataProcessor
 from model.dimensionality_reduction import FactorCollinearityProcessor
 
@@ -11,46 +10,32 @@ from model.dimensionality_reduction import FactorCollinearityProcessor
 class LinearRegressionModel:
     """线性回归模型"""
 
-    @validate_literal_params
     def __init__(
             self,
             input_df: pd.DataFrame,
-            factors_name: list[str],
-            group_nums: int,
-            group_label: list[str],
-            group_mode: GROUP_MODE = "frequency",
-            factor_weight_method: FACTOR_WEIGHT = "equal",
-            factor_weight_window: int = 12,
-            position_weight_method: POSITION_WEIGHT = "equal",
-            position_distribution: tuple[float, float] = (1, 1),
+            factors_setting: list[dataclass],
             individual_position_limit: float = 0.1,
             index_data: dict[str, pd.DataFrame] | None = None,
     ):
         """
         :param input_df: 数据
-        :param factors_name: 因子名
-        :param group_nums: 分组数
-        :param group_mode: 分组模式
-        :param factor_weight_method: 因子权重方法
-        :param factor_weight_window: 因子权重窗口数
-        :param position_weight_method: 仓位权重方法
-        :param position_distribution: 仓位集中度
+        :param factors_setting: 因子因子设置
         :param individual_position_limit: 单一持仓上限
         :param index_data: 指数数据
         """
         self.input_df = input_df
-        self.factors_name = factors_name
-        self.group_nums = group_nums
-        self.group_label = group_label
-        self.group_mode = group_mode
+        self.factors_setting = factors_setting
         self.index_data = index_data
-        self.factor_weight_method = factor_weight_method
-        self.factor_weight_window = factor_weight_window
-        self.position_weight_method = position_weight_method
-        self.position_distribution = position_distribution
         self.individual_position_limit = individual_position_limit
 
-    def _pre_processing(self):
+        self.processor = DataProcessor()
+        self._pre_processing(input_df, factors_setting)
+
+    def _pre_processing(
+            self,
+            raw_df: pd.DataFrame,
+            factors_setting: list[dataclass]
+    ):
         """
         数据预处理
             -1 缩尾
@@ -58,19 +43,9 @@ class LinearRegressionModel:
             -3 中性化
             -4 缩尾
             -5 标准化
-        :return:
-        """
-    @classmethod
-    def preprocessing_factors_by_setting(
-            cls,
-            data: dict[str, pd.DataFrame],
-            factors_setting: list[dataclass]
-    ) -> dict[str, pd.DataFrame]:
-        """
-        预处理方法
-        :param data: 原始数据
-        :param factors_setting: 因子配置
-        :return: 预处理好的数据
+        :param raw_df: 初始数据
+        :param factors_setting: 因子配置列表
+        :return: 处理过的数据
         """
         def __process_single_date(
                 df_: pd.DataFrame,
@@ -79,44 +54,47 @@ class LinearRegressionModel:
             for setting in factors_setting:
                 factor_name = setting.factor_name
                 processed_col = f"processed_{factor_name}"
-                df_[processed_col] = df_[factor_name]
 
-                # -2 顺序反转
-                if setting.reverse:
-                    df_[processed_col] = df_[processed_col] * -1
-
-                # -3 第一次 去极值、标准化
-                df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
+                df_[processed_col] = df_[factor_name].copy()
+                # -1 第一次 去极值、标准化
+                df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
-                    df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
+                    df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
 
-                # -4 中性化
+                # -2 中性化
                 if setting.market_value_neutral:
-                    df_[processed_col] = cls.processor.neutralization.market_value_neutral(
+                    df_[processed_col] = self.processor.neutralization.market_value_neutral(
                         df_[processed_col],
-                        df_["对数流通市值"],
-                        winsorizer=cls.processor.winsorizer.percentile,
-                        dimensionless=cls.processor.dimensionless.standardization
+                        df_["对数市值"],
+                        winsorizer=self.processor.winsorizer.percentile,
+                        dimensionless=self.processor.dimensionless.standardization
                     )
-                    # df_[processed_col] = cls.processor.market_value_neutral(df_[processed_col], df_["对数市值"] ** 3)
                 if setting.industry_neutral:
-                    df_[processed_col] = cls.processor.neutralization.industry_neutral(df_[processed_col], df_["行业"])
+                    df_[processed_col] = self.processor.neutralization.industry_neutral(
+                        df_[processed_col],
+                        df_["行业"]
+                    )
 
-                # -5 第二次 去极值、标准化
-                df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
+                # -3 第二次 去极值、标准化
+                df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
-                    df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
+                    df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
 
             return df_
 
-        processed_data = {}
-        for date, df in data.items():
+        print(raw_df)
+        result_dfs = []
+        for date, group_df in raw_df.groupby("date"):
             try:
-                processed_data[date] = __process_single_date(df)
+                processed_df = __process_single_date(group_df)
+                result_dfs.append(processed_df)
             except ValueError:
                 continue
 
-        return processed_data
+        print(pd.concat(result_dfs) if result_dfs else pd.DataFrame())
+        print(dd)
+        # 合并处理结果
+        return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
 
     def run(self):
         """
@@ -127,12 +105,6 @@ class LinearRegressionModel:
             4）分组；
             5）仓位权重；
         """
-
-        processed_factors_name = [
-            f"processed_{factor_name}"
-            for factor_name in self.model_factors_name
-        ]
-
         # ---------------------------------------
         # 因子降维（去多重共线性 -> vif + 对称正交 + 预拟合）
         # ---------------------------------------

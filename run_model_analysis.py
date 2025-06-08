@@ -29,6 +29,7 @@ from constant.quant_setting import ModelSetting
 
 from model import *
 from model.model_service import ModelAnalyzer
+from constant.type_ import FILTER_MODE
 
 # -----------------------------
 # 模型工厂
@@ -46,6 +47,7 @@ def model_backtest():
     analyzer = ModelAnalyzer(
         model=MODEL[model_setting.model],
         model_setting=model_setting,
+        filter_mode=filter_mode,
         source_dir=source_dir,
         storage_dir=storage_dir,
         cycle=model_setting.cycle,
@@ -57,7 +59,7 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250530-WEEK-跟踪"
-    storage_dir = "中性化市值测试/linear-20250530W-ir衰减-旧因子库-流通市值中性化"
+    storage_dir = "大剧变测试/linear-20250530W-ir衰减-旧因子库-流通市值中性化"
 
     """
     阿尔法因子   直接ir加权
@@ -66,16 +68,15 @@ if __name__ == "__main__":
     因子暴露控制！！！
     barra风格中性化！！！
     """
+    filter_mode: FILTER_MODE = "_small_cap_filter"
+
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
         model="linear",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
-
-        # 目标股票池
         industry_info={"全部": "三级行业"},
-        filter_mode="_small_cap_filter",
 
         # 目标因子
         factor_filter=False,

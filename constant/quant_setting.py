@@ -46,7 +46,6 @@ class ModelSetting:
     cycle: CYCLE                                                    # 周期
 
     industry_info: dict[str, str]                                   # 行业信息
-    filter_mode: FILTER_MODE                                        # 过滤模式
 
     position_weight_method: POSITION_WEIGHT                         # 仓位权重方法
     position_distribution: tuple[float, float]                      # 仓位集中度
@@ -56,6 +55,7 @@ class ModelSetting:
     lag_period: int = 1                                             # 滞后周期
 
     group_nums: int = 10                                            # 分组数
+    group_label: list = None                                        # 分组标签
     group_mode: GROUP_MODE = "frequency"                            # 分组方法
 
     secondary_factor_weight_method: FACTOR_WEIGHT = "equal"         # 二级分类因子权重方法
