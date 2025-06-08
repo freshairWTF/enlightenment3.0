@@ -2,6 +2,7 @@ import pandas as pd
 
 from base_metrics import Metrics
 from constant.type_ import CYCLE, validate_literal_params
+from utils.processor import DataProcessor
 
 
 ###############################################################
@@ -9,6 +10,8 @@ class StatisticsMetrics(Metrics):
     """
     统一统计类，支持汇总数据和个股分析
     """
+
+    processor = DataProcessor()
 
     @validate_literal_params
     def __init__(
@@ -197,8 +200,8 @@ class StatisticsMetrics(Metrics):
             if data:
                 self.data_container[key].update(
                     {
-                        f"{k}{suffix}": self.processor.normalization(
-                            data=df[df.columns[df.columns != "公司简称"]]
+                        f"{k}{suffix}": self.processor.dimensionless.normalization(
+                            factor_values=df[df.columns[df.columns != "公司简称"]]
                         ) * 100 for k, df in data.items() if "_"not in k
                     }
                 )
@@ -220,8 +223,8 @@ class StatisticsMetrics(Metrics):
             if data:
                 self.data_container[key].update(
                     {
-                        f"{k}{suffix}": self.processor.normalization(
-                            data=df[df.columns[df.columns != "公司简称"]],
+                        f"{k}{suffix}": self.processor.dimensionless.normalization(
+                            factor_values=df[df.columns[df.columns != "公司简称"]],
                             window=window,
                             min_periods=1
                         ) * 100 for k, df in data.items() if "_"not in k
@@ -264,6 +267,8 @@ class IndividualStatisticsMetrics(Metrics):
     """
     统一统计类，支持汇总数据和个股分析
     """
+
+    processor = DataProcessor()
 
     @validate_literal_params
     def __init__(
@@ -553,7 +558,7 @@ class IndividualStatisticsMetrics(Metrics):
                 filter_data = data.filter(regex=exclude_pattern)
 
                 # 计算分位数
-                normal = (self.processor.normalization(data=filter_data) * 100).round(2)
+                normal = (self.processor.dimensionless.normalization(factor_values=filter_data) * 100).round(2)
 
                 # 合并
                 self.data_container.update(
