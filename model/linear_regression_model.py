@@ -2,6 +2,7 @@
 import pandas as pd
 from dataclasses import dataclass
 
+from factor_weight import FactorWeight
 from utils.processor import DataProcessor
 from model.dimensionality_reduction import FactorCollinearityProcessor
 
@@ -13,29 +14,29 @@ class LinearRegressionModel:
     def __init__(
             self,
             input_df: pd.DataFrame,
-            factors_setting: list[dataclass],
+            model_setting: dataclass,
             individual_position_limit: float = 0.1,
             index_data: dict[str, pd.DataFrame] | None = None,
     ):
         """
         :param input_df: 数据
-        :param factors_setting: 因子因子设置
+        :param model_setting: 模型设置
         :param individual_position_limit: 单一持仓上限
         :param index_data: 指数数据
         """
         self.input_df = input_df
-        self.factors_setting = factors_setting
+        self.model_setting = model_setting
         self.index_data = index_data
         self.individual_position_limit = individual_position_limit
 
+        self.factors_setting = self.model_setting.factors_setting       # 因子设置
         self.processor = DataProcessor()
-        self._pre_processing(input_df, factors_setting)
 
     def _pre_processing(
             self,
             raw_df: pd.DataFrame,
             factors_setting: list[dataclass]
-    ):
+    ) -> pd.DataFrame:
         """
         数据预处理
             -1 缩尾
@@ -82,7 +83,6 @@ class LinearRegressionModel:
 
             return df_
 
-        print(raw_df)
         result_dfs = []
         for date, group_df in raw_df.groupby("date"):
             try:
@@ -91,20 +91,25 @@ class LinearRegressionModel:
             except ValueError:
                 continue
 
-        print(pd.concat(result_dfs) if result_dfs else pd.DataFrame())
-        print(dd)
         # 合并处理结果
         return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
 
-    def run(self):
+    def _collinearity(
+            self
+    ) -> pd.DataFrame:
         """
-        线性模型：
-            1）计算因子权重；
-            2）选择加权方法，计算综合Z-Score
-            3）Z-Score回归/计算预期收益率；
-            4）分组；
-            5）仓位权重；
+        因子降维
+            -1 合成
+            -2 降维
         """
+
+        # -1 三级因子因子权重
+        bottom_factors_weight = FactorWeight(
+            factors_value=self.input_df,
+            factors_name=[f"processed_{f.factor_name}" for f in self.factors_setting],
+            method=self.model_setting.bottom_factor_weight_method
+        )
+
         # ---------------------------------------
         # 因子降维（去多重共线性 -> vif + 对称正交 + 预拟合）
         # ---------------------------------------
@@ -124,13 +129,123 @@ class LinearRegressionModel:
             processed_data, processed_factors_name, "pctChg"
         )
 
-        # -1 因子权重
-        factor_weights = self.factor_weight.get_factors_weights(
-            factors_data=self.input_df,
-            factors_name=self.factors_name,
-            method=self.factor_weight_method,
-            window=self.factor_weight_window
-        )
+    @classmethod
+    def calc_z_scores(
+            cls,
+            data: dict[str, pd.DataFrame],
+            factors_name: dict[str, list[str]],
+            weights: pd.DataFrame,
+    ) -> dict[str, pd.DataFrame]:
+        """
+        计算因子综合Z值
+        :param data: 数据
+        :param factors_name: T期因子名
+        :param weights: 权重
+        :return: 因子综合Z值
+        """
+        # -1 计算z值
+        z_score = {
+            date: filtered_df.rename("综合Z值").to_frame()
+            for date, df in data.items()
+            if not (
+                filtered_df := (
+                    df[factors_name[date]].mean(axis=1)
+                ) if weights.empty
+                else (
+                        df[factors_name[date]] * weights.loc[date]
+                ).sum(axis=1, skipna=True)
+            ).dropna().empty
+        }
+
+        # -2 标准化
+        z_score = {
+            date: processed_df
+            for date, df in z_score.items()
+            if not (
+                processed_df := cls.processor.dimensionless.standardization(df, error="ignore").dropna()
+            ).empty
+        }
+
+        return z_score
+
+    @classmethod
+    def calc_predict_return(
+            cls,
+            x_value: dict[str, pd.DataFrame],
+            y_value: dict[str, pd.Series],
+            window: int = 12
+    ) -> dict[str, pd.DataFrame]:
+        """
+        滚动窗口回归预测收益率
+        :param x_value: T期截面数据
+        :param y_value: T期收益率
+        :param window: 滚动窗口长度
+        :return: 预期收益率
+        """
+        # 按日期排序并转换为列表
+        sorted_dates = sorted(x_value.keys())
+        result = {}
+
+        # 滚动窗口遍历
+        for i in range(window, len(sorted_dates)):
+            # ====================
+            # 样本内训练
+            # ====================
+            # 获取训练窗口数据
+            train_window = sorted_dates[i - window:i]
+
+            # 合并窗口期数据
+            train_dfs = []
+            for date in train_window:
+                df = pd.concat([x_value[date], y_value[date]], axis=1, join="inner")
+                df["date"] = date
+                train_dfs.append(df)
+            train_data = pd.concat(train_dfs).dropna()
+
+            # 准备训练数据
+            x_train = sm.add_constant(train_data["综合Z值"], has_constant="add")
+            y_train = train_data["pctChg"]
+
+            # 训练模型
+            try:
+                model = sm.OLS(y_train, x_train).fit()
+            except Exception as e:
+                print(str(e))
+                continue  # 处理奇异矩阵等异常情况
+
+            # ====================
+            # 样本外预测
+            # ====================
+            # 获取预测日数据
+            predict_date = sorted_dates[i]
+            predict_df = x_value[predict_date]
+
+            # 生成预测特征
+            x_predict = sm.add_constant(predict_df, has_constant="add")
+
+            # 执行预测
+            predicted = model.predict(x_predict)
+            predicted.name = "predicted"
+
+            # 存储结果
+            result[predict_date] = predicted.to_frame()
+
+        return result
+
+    def run(self):
+        """
+        线性模型：
+            1）计算因子权重；
+            2）选择加权方法，计算综合Z-Score
+            3）Z-Score回归/计算预期收益率；
+            4）分组；
+            5）仓位权重；
+        """
+
+        self.input_df = self._pre_processing(self.input_df, self.factors_setting)
+
+        print(dd)
+
 
         # -2 综合Z值
         z_score = self.calc_z_scores(

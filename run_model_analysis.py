@@ -68,7 +68,7 @@ if __name__ == "__main__":
     因子暴露控制！！！
     barra风格中性化！！！
     """
-    filter_mode: FILTER_MODE = "_small_cap_filter"
+    filter_mode: FILTER_MODE = "_entire_filter"
 
     # 模型参数设置
     model_setting = ModelSetting(

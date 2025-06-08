@@ -374,7 +374,7 @@ class ModelAnalyzer(QuantService):
         self.logger.info("---------- 模型生成 ----------")
         model = self.model(
             input_df=pre_processing_df,
-            factors_setting=self.model_setting.factors_setting
+            model_setting=self.model_setting
         )
         grouped_data = model.run()
 

@@ -10,8 +10,6 @@ import scipy.cluster.hierarchy as sch
 
 from constant.quant_setting import ModelSetting
 from utils.processor import DataProcessor
-from model.factor_weight import FactorWeight
-
 
 ###################################################
 class FactorCollinearityProcessor:

@@ -6,7 +6,6 @@ import statsmodels.api as sm
 from typing import Callable
 
 from constant.type_ import ERROR, GROUP_MODE, validate_literal_params
-from constant.quant import RESTRUCTURE_FACTOR, PROHIBIT_MV_NEUTRAL
 
 
 ###############################################################
@@ -18,72 +17,6 @@ class DataProcessor:
         self.dimensionless = Dimensionless
         self.neutralization = Neutralization
         self.refactor = Refactor
-
-    @classmethod
-    def preprocessing_factor_data(
-            cls,
-            data: dict[str, pd.DataFrame],
-            factor_name: str,
-            standardization: bool = True,
-            market_value_neutral: bool = True,
-            industry_neutral: bool = True,
-            restructure: bool = False
-    ) -> dict[str, pd.DataFrame]:
-        """
-        预处理数据
-        :param data: 原始数据
-        :param factor_name: 因子名
-        :param standardization: 标准化
-        :param market_value_neutral: 市值中性化
-        :param industry_neutral: 行业中性化
-        :param restructure: 因子重构
-        :return: 预处理因子数据
-        """
-        def __process_single_date(
-                df_: pd.DataFrame
-        ) -> pd.DataFrame:
-            """单日数据处理"""
-            processed_col = f"processed_{factor_name}"
-            df_[processed_col] = df_[factor_name]
-
-            # -1 重构因子
-            if restructure and RESTRUCTURE_FACTOR.get(factor_name, ""):
-                df_[processed_col] = cls.processor.refactor.restructure_factor(
-                    df_[processed_col],
-                    df_[RESTRUCTURE_FACTOR.get(factor_name)]
-                )
-
-            # -2 第一次 去极值、标准化
-            df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
-            if standardization:
-                df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
-
-            # -3 中性化
-            if market_value_neutral and factor_name not in PROHIBIT_MV_NEUTRAL:
-                df_[processed_col] = cls.processor.neutralization.market_value_neutral(
-                    df_[processed_col],
-                    df_["对数市值"],
-                    winsorizer=cls.processor.winsorizer.percentile,
-                    dimensionless=cls.processor.dimensionless.standardization
-                )
-
-            if industry_neutral:
-                df_[processed_col] = cls.processor.neutralization.industry_neutral(df_[processed_col], df_["行业"])
-
-            # -4 第二次 去极值、标准化
-            df_[processed_col] = cls.processor.winsorizer.percentile(df_[processed_col])
-            if standardization:
-                df_[processed_col] = cls.processor.dimensionless.standardization(df_[processed_col])
-
-            return df_
-
-        processed_data = {}
-        for date, df in data.items():
-            try:
-                processed_data[date] = __process_single_date(df)
-            except ValueError:
-                continue
-        return processed_data
 
 
 ###############################################################
