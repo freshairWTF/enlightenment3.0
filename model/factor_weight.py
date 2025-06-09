@@ -4,14 +4,11 @@ import pandas as pd
 from scipy.stats import spearmanr
 
 from type_ import validate_literal_params, FACTOR_WEIGHT
-from utils.processor import DataProcessor
 
 
 ####################################################
 class FactorWeight:
     """因子权重"""
-
-    processor = DataProcessor()
 
     def __init__(
             self,
@@ -241,42 +238,3 @@ class FactorWeight:
         }
 
         return handlers[self.method]()
-
-    @classmethod
-    def synthesis_factor(
-            cls,
-            bottom_factors_data: dict[str, pd.DataFrame],
-            factors_name: dict[str, list[str]],
-            weights: pd.DataFrame,
-            synthesis_factor_name: str
-    ) -> pd.DataFrame:
-        """
-        合成因子
-        :param bottom_factors_data: 底层因子数据
-        :param factors_name: T期因子名
-        :param weights: 权重
-        :param synthesis_factor_name: 合成因子名
-        :return: 综合因子
-        """
-        df_list = []
-        for date, df in bottom_factors_data.items():
-            # 计算因子值
-            filtered_series = (
-                (df[factors_name[date]] * weights.loc[date]).sum(axis=1, skipna=True)
-            ).dropna()
-
-            if not filtered_series.empty:
-                # 转换为DataFrame并添加日期列
-                temp_df = filtered_series.rename(synthesis_factor_name).to_frame()
-                temp_df.insert(0, 'date', date)                 # 在首列插入日期
-                df_list.append(temp_df.reset_index())           # 把索引转为列
-
-        # 纵向拼接所有数据
-        factors_df = pd.concat(df_list, ignore_index=True) if df_list else pd.DataFrame()
-
-        # 标准化处理
-        factors_df[synthesis_factor_name] = factors_df.groupby('date')[synthesis_factor_name].transform(
-            lambda x: cls.processor.dimensionless.standardization(x, error="ignore")
-        )
-
-        return factors_df

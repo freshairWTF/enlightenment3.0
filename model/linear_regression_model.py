@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from factor_weight import FactorWeight
 from utils.processor import DataProcessor
-from model.dimensionality_reduction import FactorCollinearityProcessor
+from model.dimensionality_reduction import DimensionalityReduction
 
 
 ########################################################################
@@ -31,6 +31,11 @@ class LinearRegressionModel:
 
         self.factors_setting = self.model_setting.factors_setting       # 因子设置
         self.processor = DataProcessor()
+
+
+        self.factors_name = [f"processed_{f.factor_name}" for f in self.factors_setting]
+        self.input_df = self._pre_processing(self.input_df, self.factors_setting)
+        self._collinearity()
 
     def _pre_processing(
             self,
@@ -102,20 +107,25 @@ class LinearRegressionModel:
             -1 合成
             -2 降维
         """
-
         # -1 三级因子因子权重
-        bottom_factors_weight = FactorWeight(
+        bottom_fw = FactorWeight(
             factors_value=self.input_df,
-            factors_name=[f"processed_{f.factor_name}" for f in self.factors_setting],
+            factors_name=self.factors_name,
             method=self.model_setting.bottom_factor_weight_method
         )
+        bottom_factors_weight = bottom_fw.get_factors_weights(12)
+
+        DimensionalityReduction(self.model_setting).synthesis_factor(
+            self.input_df, None, bottom_factors_weight)
+        print(dd)
+
 
         # ---------------------------------------
         # 因子降维（去多重共线性 -> vif + 对称正交 + 预拟合）
         # ---------------------------------------
         self.logger.info("---------- 因子降维 ----------")
         # 因子降维
-        collinearity = FactorCollinearityProcessor(self.model_setting)
+        collinearity = DimensionalityReduction(self.model_setting)
         collinearity_data = collinearity.fit_transform(
             processed_data
         )
@@ -241,8 +251,6 @@ class LinearRegressionModel:
             4）分组；
             5）仓位权重；
         """
-
-        self.input_df = self._pre_processing(self.input_df, self.factors_setting)
 
         print(dd)
 
