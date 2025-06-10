@@ -532,3 +532,30 @@ class MultiFactorsModel(ABC):
             )
             for date, df in merge_data.items()
         }
+
+    def _get_primary_factors(
+            self
+    ) -> dict[str, list[str]]:
+        """获取一级分类因子"""
+        result = defaultdict(list)
+        for setting in self.model_setting.factors_setting:
+            result[setting.primary_classification].append(setting.secondary_classification)
+        return {k: list(dict.fromkeys(v)) for k, v in result.items()}
+
+    def _get_secondary_factors(
+            self
+    ) -> dict[str, list[str]]:
+        """获取二级分类因子"""
+        result = defaultdict(list)
+        for setting in self.model_setting.factors_setting:
+            result[setting.secondary_classification].append(f"processed_{setting.factor_name}")
+        return {k: list(dict.fromkeys(v)) for k, v in result.items()}
+
+    def _get_half_life(
+            self
+    ) -> pd.DataFrame:
+        """获取因子半衰期"""
+        result = {}
+        for setting in self.model_setting.factors_setting:
+            result[setting.factor_name]= [setting.half_life]
+        return pd.DataFrame(result, index=["half_life"]).add_prefix("processed_")
