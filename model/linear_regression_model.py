@@ -2,9 +2,9 @@
 import pandas as pd
 from dataclasses import dataclass
 
-from factor_weight import FactorWeight
+from model_utils import FactorWeight
 from utils.processor import DataProcessor
-from model.dimensionality_reduction import DimensionalityReduction
+from model.model_utils import ModelUtils
 
 
 ########################################################################
@@ -30,10 +30,14 @@ class LinearRegressionModel:
         self.individual_position_limit = individual_position_limit
 
         self.factors_setting = self.model_setting.factors_setting       # 因子设置
-        self.processor = DataProcessor()
+        self.factors_name = [                                           # 因子名
+            f"processed_{f.factor_name}"
+            for f in self.factors_setting
+        ]
+        self.processor = DataProcessor()                                # 数据处理
+        self.utils = ModelUtils()                                       # 模型工具
 
 
-        self.factors_name = [f"processed_{f.factor_name}" for f in self.factors_setting]
         self.input_df = self._pre_processing(self.input_df, self.factors_setting)
         self._collinearity()
 

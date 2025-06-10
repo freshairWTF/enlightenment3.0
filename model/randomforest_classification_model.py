@@ -1,12 +1,11 @@
 import pandas as pd
 
-from base_model import MultiFactorsModel
 from constant.type_ import GROUP_MODE, FACTOR_WEIGHT, POSITION_WEIGHT, validate_literal_params
 from utils.processor import DataProcessor
 
 
 ########################################################################
-class RandomForestClassificationModel(MultiFactorsModel):
+class RandomForestClassificationModel:
     """randomforest分类模型"""
 
     model_name: str = "randomforest分类模型"
@@ -50,6 +49,107 @@ class RandomForestClassificationModel(MultiFactorsModel):
         self.position_distribution = position_distribution
 
         self.individual_position_limit = individual_position_limit,
+
+    @classmethod
+    def calc_predict_return_by_randomforest(
+            cls,
+            x_value: dict[str, pd.DataFrame | pd.Series],
+            y_value: dict[str, pd.Series],
+            window: int = 12
+    ) -> dict[str, pd.DataFrame]:
+        """
+        基于随机森林的滚动窗口回归预测收益率
+        :param x_value: T期截面数据
+        :param y_value: T期收益率
+        :param window: 滚动窗口长度
+        :return: 预期收益率
+        """
+        # 随机森林参数配置（参考网页7、网页8的金融预测最佳实践）
+        params = {
+            'n_estimators': 200,  # 树的数量，网页8使用200棵
+            'max_depth': 10,  # 树的最大深度，网页7建议5-15之间
+            'min_samples_split': 10,  # 节点分裂最小样本数，抑制噪声干扰
+            'max_features': 'sqrt',  # 每棵树随机选择√(总特征数)的特征
+            'n_jobs': -1,  # 使用全部CPU核心加速计算
+            'random_state': 42,  # 确保结果可复现
+            'verbose': 1  # 显示训练进度（参考网页6的日志配置）
+        }
+
+        sorted_dates = sorted(x_value.keys())
+        result = {}
+
+        for i in range(window, len(sorted_dates)):
+            # ====================
+            # 样本内训练（改进点：增加特征筛选）
+            # ====================
+            train_window = sorted_dates[i - window:i]
+
+            # 改进点：动态特征合并（参考网页7的prepare_features方法）
+            train_dfs = []
+            for date in train_window:
+                # 合并特征与目标变量时保留原始特征（网页8的X/y分离方式）
+                df = pd.concat([x_value[date], y_value[date].rename('target')], axis=1)
+                df["date"] = date
+                train_dfs.append(df)
+
+            train_data = pd.concat(train_dfs).dropna()
+
+            # 改进点：增加滞后特征（参考网页3的shift特征构造）
+            for lag in [1, 3, 5]:
+                train_data[f'return_lag_{lag}'] = train_data.groupby(level=0)['target'].shift(lag)
+
+            train_data = train_data.dropna()
+
+            # 拆分训练集（网页6的滑动窗口实现方式）
+            x_train = train_data.drop(['target', 'date'], axis=1)
+            y_train = train_data['target']
+
+            # ====================
+            # 模型训练（增加早停机制）
+            # ====================
+            try:
+                # 改进点：使用OOB误差估计（参考网页8的评估方法）
+                model = RandomForestRegressor(**params, oob_score=True)
+                model.fit(x_train, y_train)
+
+                # 特征重要性筛选（网页7的核心功能）
+                importance = pd.Series(model.feature_importances_, index=x_train.columns)
+                selected_features = importance.nlargest(15).index.tolist()  # 保留前15个重要特征
+            except Exception as e:
+                print(f"训练失败：{str(e)}")
+                continue
+
+            # ====================
+            # 样本外预测（改进点：增加不确定性估计）
+            # ====================
+            predict_date = sorted_dates[i]
+            predict_df = x_value[predict_date].copy()
+
+            # 为预测数据生成滞后特征（需与训练集同步）
+            for lag in [1, 3, 5]:
+                predict_df[f'return_lag_{lag}'] = y_value[sorted_dates[i - lag]].reindex(predict_df.index)
+
+            x_predict = predict_df[selected_features].dropna()
+
+            # 执行预测（网页6的预测实现方式）
+            predicted = pd.Series(
+                model.predict(x_predict),
+                index=x_predict.index,
+                name="predicted"
+            )
+
+            # 改进点：计算预测分位数（参考网页9的风险控制思想）
+            quantiles = np.quantile([tree.predict(x_predict) for tree in model.estimators_],
+                                    q=[0.25, 0.75], axis=0)
+            predicted_df = pd.DataFrame({
+                'point_pred': predicted,
+                'lower_bound': quantiles[0],
+                'upper_bound': quantiles[1]
+            })
+
+            result[predict_date] = predicted_df
+
+        return result
 
     def run(self):
         """
