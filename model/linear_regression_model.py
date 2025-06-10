@@ -37,10 +37,6 @@ class LinearRegressionModel:
         self.processor = DataProcessor()                                # 数据处理
         self.utils = ModelUtils()                                       # 模型工具
 
-
-        self.input_df = self._pre_processing(self.input_df, self.factors_setting)
-        self._collinearity()
-
     def _pre_processing(
             self,
             raw_df: pd.DataFrame,
@@ -103,11 +99,11 @@ class LinearRegressionModel:
         # 合并处理结果
         return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
 
-    def _collinearity(
+    def _bottom_dimensionality_reduction(
             self
     ) -> pd.DataFrame:
         """
-        因子降维
+        三级因子降维
             -1 合成
             -2 降维
         """
@@ -248,13 +244,16 @@ class LinearRegressionModel:
 
     def run(self):
         """
-        线性模型：
-            1）计算因子权重；
-            2）选择加权方法，计算综合Z-Score
-            3）Z-Score回归/计算预期收益率；
-            4）分组；
-            5）仓位权重；
+        线性模型处理流程：
+            -1 因子数值处理
+            -2 三级因子降维 -> 二级因子
+            -3 二级因子降维 -> 综合Z值
+            -4 模型训练、预测
+            -5 收益率预测分组
+            -6 仓位权重配比
         """
+        self.input_df = self._pre_processing(self.input_df, self.factors_setting)
+        self._bottom_dimensionality_reduction()
 
         print(dd)
 

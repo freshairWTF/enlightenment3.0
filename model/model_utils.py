@@ -127,34 +127,6 @@ class DimensionalityReduction:
         }
 
     @staticmethod
-    def synthesis_factor(
-            input_df: pd.DataFrame,
-            factors_synthesis_table: dict[str, list[str]],
-            factors_weights: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """
-        因子合成
-        :param input_df: 因子数据
-        :param factors_synthesis_table: 因子合成字典
-        :param factors_weights: 因子权重
-        :return: 合成因子
-        """
-        result_dfs = []
-        for date, group in input_df.copy().groupby("date"):
-            senior_dfs = {}
-            for senior, component in factors_synthesis_table.items():
-                senior_df = (group[component] * factors_weights.loc[date, component]).sum(axis=1, skipna=False)
-                senior_dfs[senior] = senior_df
-            # 构建当期合成因子df
-            senior_dfs = pd.DataFrame(senior_dfs)
-            senior_dfs = processor.dimensionless.standardization(senior_dfs)
-            senior_dfs.insert(0, 'date', date)
-
-            result_dfs.append(senior_dfs)
-
-        return pd.concat(result_dfs).dropna(ignore_index=True)
-
-    @staticmethod
     def pca(
             input_df: pd.DataFrame,
             factors_synthesis_table: dict[str, list[str]],
@@ -252,50 +224,77 @@ class FactorSynthesis:
         """
         input_df_copy = input_df.copy(deep=True)
 
-        result_dfs = []
         if isinstance(factors_name, list):
             for date, group in input_df_copy.groupby("date"):
                 group[factors_name] = processor.refactor.symmetric_orthogonal(group[factors_name])
-                result_dfs.append(group)
         elif isinstance(factors_name, dict):
             for date, group in input_df_copy.groupby("date"):
                 for group_factors in factors_name.values():
                     group[group_factors] = processor.refactor.symmetric_orthogonal(group[group_factors])
-                result_dfs.append(group)
         else:
             raise TypeError
 
-        return pd.concat(result_dfs)
+        return input_df_copy
 
     @staticmethod
-    def calc_weight_factors(
-            data: dict[str, pd.DataFrame],
-            factors_name: dict[str, list[str]],
-            weights: pd.DataFrame,
-    ) -> dict[str, pd.DataFrame]:
+    def factors_weighting(
+            input_df: pd.DataFrame,
+            factors_name: list[str] | dict[str, list[str]],
+            factors_weights: pd.DataFrame,
+    ) -> pd.DataFrame:
         """
-        计算因子加权值
-        :param data: 数据
-        :param factors_name: T期因子名
-        :param weights: 权重
-        :return: 因子综合Z值
+        因子加权
+        :param input_df: 因子数据
+        :param factors_name: 因子名 -1 因子列表 -2 因子分组字典
+        :param factors_weights: 因子权重
+        :return: 加权因子值
         """
-        # -1 计算加权因子
-        weight_factors = {
-            date: filtered_df
-            for date, df in data.items()
-            if not (
-                filtered_df := (
-                        df[factors_name[date]] * weights.loc[date]
-                )
-            ).dropna(axis=1, how="all").dropna(how="any").empty
-        }
+        input_df_copy = input_df.copy(deep=True)
 
-        # -2 标准化
-        return {
-            date: processor.dimensionless.standardization(df, error="ignore")
-            for date, df in weight_factors.items()
-        }
+        # -1 计算加权因子
+        if isinstance(factors_name, list):
+            for date, group in input_df.groupby("date"):
+                group[factors_name] = group[factors_name] * factors_weights.loc[date, factors_name]
+                group[factors_name] = processor.dimensionless.standardization(group[factors_name])
+        elif isinstance(factors_name, dict):
+            for date, group in input_df_copy.groupby("date"):
+                for group_factors in factors_name.values():
+                    group[group_factors] = group[group_factors] * factors_weights.loc[date, group_factors]
+                    group[group_factors] = processor.dimensionless.standardization(group[group_factors])
+        else:
+            raise TypeError
+
+        return input_df_copy
+
+    @staticmethod
+    def synthesis_factor(
+            input_df: pd.DataFrame,
+            factors_synthesis_table: dict[str, list[str]],
+            factors_weights: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        因子合成
+        :param input_df: 因子数据
+        :param factors_synthesis_table: 因子合成字典
+        :param factors_weights: 因子权重
+        :return: 合成因子
+        """
+        result_dfs = []
+        for date, group in input_df.copy().groupby("date"):
+            senior_dfs = {}
+            for senior, component in factors_synthesis_table.items():
+                senior_df = (group[component] * factors_weights.loc[date, component]).sum(axis=1, skipna=False)
+                senior_dfs[senior] = senior_df
+            # 构建当期合成因子df
+            senior_dfs = pd.DataFrame(senior_dfs)
+            # 标准化
+            senior_dfs = processor.dimensionless.standardization(senior_dfs)
+            # 添加日期列
+            senior_dfs.insert(0, 'date', date)
+
+            result_dfs.append(senior_dfs)
+
+        return pd.concat(result_dfs).dropna(ignore_index=True)
 
 
 ###################################################
