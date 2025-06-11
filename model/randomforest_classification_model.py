@@ -201,7 +201,7 @@ class RandomForestClassificationModel:
         # -5 仓位权重
         position_weight = self.position_weight.get_weights(
             grouped_data,
-            factor_name="predicted",
+            factor_col="predicted",
             method=self.position_weight_method,
             distribution=self.position_distribution
         )

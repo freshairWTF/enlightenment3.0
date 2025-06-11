@@ -1,7 +1,9 @@
 """线性回归模型"""
 from dataclasses import dataclass
+
+import numpy as np
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+from sklearn.metrics import r2_score
 
 import pandas as pd
 
@@ -233,7 +235,7 @@ class LinearRegressionModel:
             x_cols: list[str],
             y_col: str,
             window: int = 12
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, float]:
         """
         模型训练与预测
         :param input_df: 输入数据
@@ -246,6 +248,7 @@ class LinearRegressionModel:
         sorted_dates = sorted(input_df["date"].unique())
 
         result_dfs = []
+        metric = []
         # 滚动窗口遍历
         for i in range(window, len(sorted_dates)):
             # ====================
@@ -259,7 +262,8 @@ class LinearRegressionModel:
             )
             # 训练模型
             try:
-                model = LinearRegression(fit_intercept=True).fit(x_train, y_train)
+                model = LinearRegression(fit_intercept=True)
+                model.fit(x_train, y_train)
             except Exception as e:
                 print(str(e))
                 continue
@@ -281,9 +285,8 @@ class LinearRegressionModel:
                 name="predict"
             )
             # 模型评估
-            mse_test = mean_squared_error(y_test, y_test_pred)
-            mae_test = mean_absolute_error(y_test, y_test_pred)
             r2_test = r2_score(y_test, y_test_pred)
+            metric.append(r2_test)
 
             result_dfs.append(
                 pd.concat(
@@ -294,7 +297,7 @@ class LinearRegressionModel:
                     axis=1)
             )
 
-        return pd.concat(result_dfs)
+        return pd.concat(result_dfs).reset_index(drop=True), np.mean(metric, dtype=np.float64)
 
     def run(self):
         """
@@ -316,7 +319,7 @@ class LinearRegressionModel:
         comprehensive_z_value = self._comprehensive_z_value_synthesis(level_1_df)
 
         # -3 模型训练、预测
-        pred_df = self.model_training_and_predict(
+        pred_df, estimate_metric = self.model_training_and_predict(
             input_df=comprehensive_z_value,
             x_cols=["综合Z值"],
             y_col="pctChg",
@@ -336,14 +339,9 @@ class LinearRegressionModel:
         # -5 仓位权重
         position_weight = self.utils.pos_weight.get_weights(
             classification_df,
-            factor_name="predict",
+            factor_col="predict",
             method=self.model_setting.position_weight_method,
             distribution=self.model_setting.position_distribution
         )
 
-        # -6 数据合并
-        result = self.join_data(classification_df, position_weight)
-        result = self.join_data(result, z_score)
-        result = self.join_data(result, self.input_df)
-
-        return result
+        return position_weight
