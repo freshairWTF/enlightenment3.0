@@ -19,11 +19,11 @@ processor = DataProcessor()
 class ModelUtils:
 
     def __init__(self):
-        extract = ModelExtract
-        dimension = DimensionalityReduction
-        synthesis = FactorSynthesis
-        pos_weight = PositionWeight
-        factor_weight = FactorWeight
+        self.extract = ModelExtract
+        self.dimension = DimensionalityReduction
+        self.synthesis = FactorSynthesis
+        self.pos_weight = PositionWeight
+        self.factor_weight = FactorWeight
 
 
 ###################################################
@@ -271,27 +271,44 @@ class FactorSynthesis:
             input_df: pd.DataFrame,
             factors_synthesis_table: dict[str, list[str]],
             factors_weights: pd.DataFrame,
+            keep_cols: list[str] = None
     ) -> pd.DataFrame:
         """
         因子合成
         :param input_df: 因子数据
         :param factors_synthesis_table: 因子合成字典
         :param factors_weights: 因子权重
+        :param keep_cols: 需要保留的原始列名列表
         :return: 合成因子
         """
         result_dfs = []
-        for date, group in input_df.copy().groupby("date"):
+        for date, group in input_df.copy(deep=True).groupby("date"):
             senior_dfs = {}
+
+            # -1 计算合成因子
             for senior, component in factors_synthesis_table.items():
                 senior_df = (group[component] * factors_weights.loc[date, component]).sum(axis=1, skipna=False)
                 senior_dfs[senior] = senior_df
-            # 构建当期合成因子df
-            senior_dfs = pd.DataFrame(senior_dfs)
-            # 标准化
-            senior_dfs = processor.dimensionless.standardization(senior_dfs)
-            # 添加日期列
-            senior_dfs.insert(0, 'date', date)
 
+            # -2 构建当期合成因子df
+            senior_dfs = pd.DataFrame(senior_dfs)
+
+            print(senior_dfs)
+            print(senior_dfs.columns)
+            # -3 添加需要保留的原始列（索引自动对齐）
+            if keep_cols:
+                for col in keep_cols:
+                    if col in group.columns and col not in senior_dfs.columns:
+                        senior_dfs[col] = group[col].values  # 直接赋值避免索引问题
+            print(senior_dfs)
+            print(senior_dfs.columns)
+            print(dd)
+            # -4 标准化（仅对因子列处理）
+            factor_cols = list(factors_synthesis_table.keys())
+            senior_dfs = processor.dimensionless.standardization(senior_dfs[factor_cols])
+
+            # -5 添加日期列
+            senior_dfs.insert(0, 'date', date)
             result_dfs.append(senior_dfs)
 
         return pd.concat(result_dfs).dropna(ignore_index=True)
@@ -860,9 +877,10 @@ class FactorWeight:
     # --------------------------
     # 公开 API
     # --------------------------
+    @classmethod
     @validate_literal_params
     def get_factors_weights(
-            self,
+            cls,
             factors_value: pd.DataFrame,
             factors_name: list[str],
             method: FACTOR_WEIGHT,
@@ -879,32 +897,32 @@ class FactorWeight:
         :return 因子权重
         """
         handlers = {
-            "equal": lambda: self._calc_equal_weight(
+            "equal": lambda: cls._calc_equal_weight(
                 factors_value,
                 factors_name
             ),
-            "ic_weight": lambda: self._calc_ic_weight(
+            "ic_weight": lambda: cls._calc_ic_weight(
                 factors_value,
                 factors_name,
                 window
             ),
-            "ic_decay_weight": lambda: self._calc_ic_decay_weight(
+            "ic_decay_weight": lambda: cls._calc_ic_decay_weight(
                 factors_value,
                 factors_name,
                 window
             ),
-            "ir_weight": lambda: self._calc_ir_weight(
+            "ir_weight": lambda: cls._calc_ir_weight(
                 factors_value,
                 factors_name,
                 window
             ),
-            "ir_decay_weight": lambda: self._calc_ir_decay_weight(
+            "ir_decay_weight": lambda: cls._calc_ir_decay_weight(
                 factors_value,
                 factors_name,
                 window
             ),
             "_calc_ir_decay_weight_with_diff_halflife":
-                lambda: self._calc_ir_decay_weight_with_diff_halflife(
+                lambda: cls._calc_ir_decay_weight_with_diff_halflife(
                     factors_value,
                     factors_name,
                     half_life

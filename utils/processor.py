@@ -7,6 +7,10 @@ from typing import Callable
 
 from constant.type_ import ERROR, GROUP_MODE, validate_literal_params
 
+"""
+Refactor中加入 对数转换、box-cox转换 等方法
+"""
+
 
 ###############################################################
 class DataProcessor:
@@ -17,6 +21,7 @@ class DataProcessor:
         self.dimensionless = Dimensionless
         self.neutralization = Neutralization
         self.refactor = Refactor
+        self.classification = Classification
 
 
 ###############################################################

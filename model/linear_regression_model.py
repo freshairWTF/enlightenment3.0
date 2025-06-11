@@ -1,8 +1,9 @@
 """线性回归模型"""
 import pandas as pd
-from dataclasses import dataclass
 
-from model_utils import FactorWeight
+from dataclasses import dataclass
+from itertools import chain
+
 from utils.processor import DataProcessor
 from model.model_utils import ModelUtils
 
@@ -34,13 +35,20 @@ class LinearRegressionModel:
             f"processed_{f.factor_name}"
             for f in self.factors_setting
         ]
+
         self.processor = DataProcessor()                                # 数据处理
         self.utils = ModelUtils()                                       # 模型工具
 
+        # self.utils.factor_weight.get_factors_weights(
+        #     factors_value=input_df,
+        #     factors_name=self.factors_name,
+        #     method=self.model_setting.bottom_factor_weight_method,
+        #     window=self.model_setting.factor_weight_window
+        # )
+
     def _pre_processing(
             self,
-            raw_df: pd.DataFrame,
-            factors_setting: list[dataclass]
+            input_df: pd.DataFrame
     ) -> pd.DataFrame:
         """
         数据预处理
@@ -49,15 +57,14 @@ class LinearRegressionModel:
             -3 中性化
             -4 缩尾
             -5 标准化
-        :param raw_df: 初始数据
-        :param factors_setting: 因子配置列表
+        :param input_df: 初始数据
         :return: 处理过的数据
         """
         def __process_single_date(
                 df_: pd.DataFrame,
         ) -> pd.DataFrame:
             """单日数据处理"""
-            for setting in factors_setting:
+            for setting in self.factors_setting:
                 factor_name = setting.factor_name
                 processed_col = f"processed_{factor_name}"
 
@@ -89,7 +96,7 @@ class LinearRegressionModel:
             return df_
 
         result_dfs = []
-        for date, group_df in raw_df.groupby("date"):
+        for date, group_df in input_df.groupby("date"):
             try:
                 processed_df = __process_single_date(group_df)
                 result_dfs.append(processed_df)
@@ -99,94 +106,113 @@ class LinearRegressionModel:
         # 合并处理结果
         return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
 
-    def _bottom_dimensionality_reduction(
-            self
+    def _bottom_factors_synthesis(
+            self,
+            input_df: pd.DataFrame,
     ) -> pd.DataFrame:
         """
-        三级因子降维
-            -1 合成
-            -2 降维
+        三级因子合成二级因子
+        :param input_df: 初始数据
         """
-        # -1 三级因子因子权重
-        bottom_fw = FactorWeight(
-            factors_value=self.input_df,
-            factors_name=self.factors_name,
-            method=self.model_setting.bottom_factor_weight_method
+        # -1 三级因子构造表
+        factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
+            self.factors_setting,
+            top_level=False
         )
-        bottom_factors_weight = bottom_fw.get_factors_weights(12)
 
-        DimensionalityReduction(self.model_setting).synthesis_factor(
-            self.input_df, None, bottom_factors_weight)
-        print(dd)
+        # -2 三级因子因子权重
+        factors_weight = []
+        for group_factors in factors_synthesis_table.values():
+            factors_weight.append(
+                self.utils.factor_weight.get_factors_weights(
+                    factors_value=input_df,
+                    factors_name=group_factors,
+                    method=self.model_setting.bottom_factor_weight_method,
+                    window=self.model_setting.factor_weight_window
+                )
+            )
+        factors_weight = pd.concat(factors_weight, axis=1)
 
-
-        # ---------------------------------------
-        # 因子降维（去多重共线性 -> vif + 对称正交 + 预拟合）
-        # ---------------------------------------
-        self.logger.info("---------- 因子降维 ----------")
-        # 因子降维
-        collinearity = DimensionalityReduction(self.model_setting)
-        collinearity_data = collinearity.fit_transform(
-            processed_data
+        # -3 二级因子合成
+        return self.utils.synthesis.synthesis_factor(
+            input_df=input_df,
+            factors_synthesis_table=factors_synthesis_table,
+            factors_weights=factors_weight,
+            keep_cols=["股票代码", "行业", "pctChg"]
         )
-        selected_factors = {date: df.columns.tolist() for date, df in collinearity_data.items()}
 
-        # 预拟合
-        beta_feature = self.evaluate.test.calc_beta_feature(
-            processed_data, processed_factors_name, "pctChg"
+    def _level_2_factors_synthesis(
+            self,
+            input_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        二级因子合成一级因子
+        :param input_df: 初始数据
+        """
+        # -1 二级因子构造表
+        factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(self.factors_setting)
+
+        # -2 二级因子因子权重
+        factors_weight = []
+        for group_factors in factors_synthesis_table.values():
+            factors_weight.append(
+                self.utils.factor_weight.get_factors_weights(
+                    factors_value=input_df,
+                    factors_name=group_factors,
+                    method=self.model_setting.bottom_factor_weight_method,
+                    window=self.model_setting.factor_weight_window
+                )
+            )
+        factors_weight = pd.concat(factors_weight, axis=1)
+
+        # -3 一级因子合成
+        return self.utils.synthesis.synthesis_factor(
+            input_df=input_df,
+            factors_synthesis_table=factors_synthesis_table,
+            factors_weights=factors_weight
         )
-        r_squared = self.evaluate.test.calc_r_squared(
-            processed_data, processed_factors_name, "pctChg"
+
+    def _comprehensive_z_value_synthesis(
+            self,
+            input_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        一级因子合成综合Z值
+        :param input_df: 初始数据
+        """
+        # -1 综合Z值构造表
+        factors_synthesis_table = {
+            "综合Z值": list(
+                chain.from_iterable(
+                    self.utils.extract.get_factors_synthesis_table(self.factors_setting).values()
+                )
+            )
+        }
+
+        # -2 一级因子因子权重
+        factors_weight = self.utils.factor_weight.get_factors_weights(
+            factors_value=input_df,
+            factors_name=factors_synthesis_table["综合Z值"],
+            method=self.model_setting.bottom_factor_weight_method,
+            window=self.model_setting.factor_weight_window
+        )
+
+        # -3 一级因子合成
+        return self.utils.synthesis.synthesis_factor(
+            input_df=input_df,
+            factors_synthesis_table=factors_synthesis_table,
+            factors_weights=factors_weight
         )
 
     @classmethod
-    def calc_z_scores(
-            cls,
-            data: dict[str, pd.DataFrame],
-            factors_name: dict[str, list[str]],
-            weights: pd.DataFrame,
-    ) -> dict[str, pd.DataFrame]:
-        """
-        计算因子综合Z值
-        :param data: 数据
-        :param factors_name: T期因子名
-        :param weights: 权重
-        :return: 因子综合Z值
-        """
-        # -1 计算z值
-        z_score = {
-            date: filtered_df.rename("综合Z值").to_frame()
-            for date, df in data.items()
-            if not (
-                filtered_df := (
-                    df[factors_name[date]].mean(axis=1)
-                ) if weights.empty
-                else (
-                        df[factors_name[date]] * weights.loc[date]
-                ).sum(axis=1, skipna=True)
-            ).dropna().empty
-        }
-
-        # -2 标准化
-        z_score = {
-            date: processed_df
-            for date, df in z_score.items()
-            if not (
-                processed_df := cls.processor.dimensionless.standardization(df, error="ignore").dropna()
-            ).empty
-        }
-
-        return z_score
-
-    @classmethod
-    def calc_predict_return(
+    def model_training_and_predict(
             cls,
             x_value: dict[str, pd.DataFrame],
             y_value: dict[str, pd.Series],
             window: int = 12
     ) -> dict[str, pd.DataFrame]:
         """
-        滚动窗口回归预测收益率
+        模型训练与预测
         :param x_value: T期截面数据
         :param y_value: T期收益率
         :param window: 滚动窗口长度
@@ -252,34 +278,51 @@ class LinearRegressionModel:
             -5 收益率预测分组
             -6 仓位权重配比
         """
-        self.input_df = self._pre_processing(self.input_df, self.factors_setting)
-        self._bottom_dimensionality_reduction()
+        self.input_df = self._pre_processing(self.input_df)
+        print(self.input_df)
+        print(self.input_df.columns)
 
+        level_2_df = self._bottom_factors_synthesis(self.input_df)
+        print(level_2_df)
+        print(level_2_df.columns)
+
+        level_2_df = pd.concat(
+            [
+                self._bottom_factors_synthesis(self.input_df),
+                self.input_df[["date", "股票代码", "pctChg"]]
+            ],
+            axis=1,
+            keys=["date", "股票代码"]
+        )
+        print(level_2_df)
+        print(level_2_df.columns)
+        level_1_df = pd.concat(
+            [
+                self._level_2_factors_synthesis(level_2_df),
+                self.input_df[["date", "股票代码", "pctChg"]]
+            ],
+            axis=1
+        )
+        print(level_1_df)
+        comprehensive_z_value = self._comprehensive_z_value_synthesis(level_1_df)
+        print(comprehensive_z_value)
         print(dd)
 
-
-        # -2 综合Z值
-        z_score = self.calc_z_scores(
-            data=self.input_df,
-            factors_name=self.factors_name,
-            weights=factor_weights
-        )
-
         # -3 预期收益率
-        predict_return = self.calc_predict_return(
+        predict_return = self.model_training_and_predict(
             x_value=z_score,
             y_value={date: df["pctChg"] for date, df in self.input_df.items()},
             window=self.factor_weight_window
         )
 
         # -4 分组
-        grouped_data = QuantProcessor.divide_into_group(
+        grouped_data = self.processor.classification.divide_into_group(
             predict_return,
             factor_col="",
             processed_factor_col="predicted",
-            group_mode=self.group_mode,
-            group_nums=self.group_nums,
-            group_label=self.group_label,
+            group_mode=self.model_setting.group_mode,
+            group_nums=self.model_setting.group_nums,
+            group_label=self.model_setting.group_label,
         )
 
         # -5 仓位权重
