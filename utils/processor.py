@@ -9,6 +9,8 @@ from constant.type_ import ERROR, GROUP_MODE, validate_literal_params
 
 """
 Refactor中加入 对数转换、box-cox转换 等方法
+box-cox转换 也适用于严格为正的数据，0数据可以加上一个极小正值 sklearn PowerTransformer
+PowerTransformer 还支持 Yeo-Johnson转换，允许在负数上使用
 """
 
 
@@ -525,14 +527,14 @@ class Classification:
     @validate_literal_params
     def divide_into_group(
             cls,
-            factor_values: dict[str, pd.DataFrame],
+            factor_values: pd.DataFrame,
             factor_col: str,
             processed_factor_col: str,
             group_mode: GROUP_MODE,
             group_nums: int,
             group_label: list[str],
             negative: bool = False
-    ) -> dict[str, pd.DataFrame]:
+    ) -> pd.DataFrame:
         """
         分组 -1等距 distant；-2 等频 frequency
         :param factor_values: 分组数据
@@ -548,17 +550,18 @@ class Classification:
             "frequency": cls.__frequency
         }.get(group_mode, cls.__frequency)
 
-        result: dict[str, pd.DataFrame] = {}
-        for date, df in factor_values.items():
+        result_df = []
+        for date, df in factor_values.groupby("date"):
             try:
                 if df.shape[0] >= group_nums:
                     df["group"] = method(
                         df, factor_col, processed_factor_col, group_nums, group_label, negative
                     )
-                    result[date] = df
+                    result_df.append(df)
             except ValueError:
                 continue
-        return result
+
+        return pd.concat(result_df)
 
     @staticmethod
     def __distant(

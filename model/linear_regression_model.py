@@ -1,8 +1,9 @@
 """线性回归模型"""
-import pandas as pd
-
 from dataclasses import dataclass
-from itertools import chain
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+
+import pandas as pd
 
 from utils.processor import DataProcessor
 from model.model_utils import ModelUtils
@@ -31,20 +32,43 @@ class LinearRegressionModel:
         self.individual_position_limit = individual_position_limit
 
         self.factors_setting = self.model_setting.factors_setting       # 因子设置
-        self.factors_name = [                                           # 因子名
-            f"processed_{f.factor_name}"
-            for f in self.factors_setting
-        ]
-
         self.processor = DataProcessor()                                # 数据处理
         self.utils = ModelUtils()                                       # 模型工具
 
+        # self.factors_name = [                                           # 因子名
+        #     f"processed_{f.factor_name}"
+        #     for f in self.factors_setting
+        # ]
         # self.utils.factor_weight.get_factors_weights(
         #     factors_value=input_df,
         #     factors_name=self.factors_name,
         #     method=self.model_setting.bottom_factor_weight_method,
         #     window=self.model_setting.factor_weight_window
         # )
+
+    def _direction_reverse(
+            self,
+            input_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        因子方向反转（权重为负值）
+        """
+        reverse_df = input_df.copy(deep=True)
+
+        # -1 三级因子 ic
+        bottom_factors_name = [f.factor_name for f in self.factors_setting]
+        factors_ic = (
+            self.utils.factor_weight.calc_rank_ic(reverse_df, bottom_factors_name)
+            .shift(1)
+            .rolling(12, min_periods=1).mean()
+        )
+
+        # -2 因子值反转（依据因子滚动IC均值）
+        for factor_name in bottom_factors_name:
+            negative_dates = factors_ic[factors_ic[factor_name] < 0].index
+            reverse_df.loc[reverse_df["date"].isin(negative_dates), factor_name] *= -1
+
+        return reverse_df
 
     def _pre_processing(
             self,
@@ -138,7 +162,7 @@ class LinearRegressionModel:
             input_df=input_df,
             factors_synthesis_table=factors_synthesis_table,
             factors_weights=factors_weight,
-            keep_cols=["股票代码", "行业", "pctChg"]
+            keep_cols=["date", "股票代码", "行业", "pctChg"]
         )
 
     def _level_2_factors_synthesis(
@@ -169,7 +193,8 @@ class LinearRegressionModel:
         return self.utils.synthesis.synthesis_factor(
             input_df=input_df,
             factors_synthesis_table=factors_synthesis_table,
-            factors_weights=factors_weight
+            factors_weights=factors_weight,
+            keep_cols=["date", "股票代码", "行业", "pctChg"]
         )
 
     def _comprehensive_z_value_synthesis(
@@ -182,11 +207,7 @@ class LinearRegressionModel:
         """
         # -1 综合Z值构造表
         factors_synthesis_table = {
-            "综合Z值": list(
-                chain.from_iterable(
-                    self.utils.extract.get_factors_synthesis_table(self.factors_setting).values()
-                )
-            )
+            "综合Z值": list(set([f.primary_classification for f in self.factors_setting]))
         }
 
         # -2 一级因子因子权重
@@ -201,72 +222,79 @@ class LinearRegressionModel:
         return self.utils.synthesis.synthesis_factor(
             input_df=input_df,
             factors_synthesis_table=factors_synthesis_table,
-            factors_weights=factors_weight
+            factors_weights=factors_weight,
+            keep_cols=["date", "股票代码", "行业", "pctChg"]
         )
 
     @classmethod
     def model_training_and_predict(
             cls,
-            x_value: dict[str, pd.DataFrame],
-            y_value: dict[str, pd.Series],
+            input_df: pd.DataFrame,
+            x_cols: list[str],
+            y_col: str,
             window: int = 12
-    ) -> dict[str, pd.DataFrame]:
+    ) -> pd.DataFrame:
         """
         模型训练与预测
-        :param x_value: T期截面数据
-        :param y_value: T期收益率
+        :param input_df: 输入数据
+        :param x_cols: 因子列名
+        :param y_col: 目标列名
         :param window: 滚动窗口长度
         :return: 预期收益率
         """
         # 按日期排序并转换为列表
-        sorted_dates = sorted(x_value.keys())
-        result = {}
+        sorted_dates = sorted(input_df["date"].unique())
 
+        result_dfs = []
         # 滚动窗口遍历
         for i in range(window, len(sorted_dates)):
             # ====================
             # 样本内训练
             # ====================
             # 获取训练窗口数据
-            train_window = sorted_dates[i - window:i]
-
-            # 合并窗口期数据
-            train_dfs = []
-            for date in train_window:
-                df = pd.concat([x_value[date], y_value[date]], axis=1, join="inner")
-                df["date"] = date
-                train_dfs.append(df)
-            train_data = pd.concat(train_dfs).dropna()
-
-            # 准备训练数据
-            x_train = sm.add_constant(train_data["综合Z值"], has_constant="add")
-            y_train = train_data["pctChg"]
-
+            train_window = sorted_dates[i - window: i]
+            x_train, y_train = (
+                input_df.loc[input_df["date"].isin(train_window), x_cols],
+                input_df.loc[input_df["date"].isin(train_window), y_col]
+            )
             # 训练模型
             try:
-                model = sm.OLS(y_train, x_train).fit()
+                model = LinearRegression(fit_intercept=True).fit(x_train, y_train)
             except Exception as e:
                 print(str(e))
-                continue  # 处理奇异矩阵等异常情况
+                continue
 
             # ====================
             # 样本外预测
             # ====================
             # 获取预测日数据
             predict_date = sorted_dates[i]
-            predict_df = x_value[predict_date]
+            # 获取测试窗口数据
+            x_test, y_test = (
+                input_df.loc[input_df["date"] == predict_date, x_cols],
+                input_df.loc[input_df["date"] == predict_date, y_col]
+            )
+            # 模型预测
+            y_test_pred = pd.Series(
+                data=model.predict(x_test),
+                index=x_test.index,
+                name="predict"
+            )
+            # 模型评估
+            mse_test = mean_squared_error(y_test, y_test_pred)
+            mae_test = mean_absolute_error(y_test, y_test_pred)
+            r2_test = r2_score(y_test, y_test_pred)
 
-            # 生成预测特征
-            x_predict = sm.add_constant(predict_df, has_constant="add")
+            result_dfs.append(
+                pd.concat(
+                    [
+                        input_df.loc[input_df["date"] == predict_date],
+                        y_test_pred
+                    ],
+                    axis=1)
+            )
 
-            # 执行预测
-            predicted = model.predict(x_predict)
-            predicted.name = "predicted"
-
-            # 存储结果
-            result[predict_date] = predicted.to_frame()
-
-        return result
+        return pd.concat(result_dfs)
 
     def run(self):
         """
@@ -278,63 +306,43 @@ class LinearRegressionModel:
             -5 收益率预测分组
             -6 仓位权重配比
         """
+        # -1 数据处理
+        self.input_df = self._direction_reverse(self.input_df)
         self.input_df = self._pre_processing(self.input_df)
-        print(self.input_df)
-        print(self.input_df.columns)
 
+        # -2 因子合成
         level_2_df = self._bottom_factors_synthesis(self.input_df)
-        print(level_2_df)
-        print(level_2_df.columns)
-
-        level_2_df = pd.concat(
-            [
-                self._bottom_factors_synthesis(self.input_df),
-                self.input_df[["date", "股票代码", "pctChg"]]
-            ],
-            axis=1,
-            keys=["date", "股票代码"]
-        )
-        print(level_2_df)
-        print(level_2_df.columns)
-        level_1_df = pd.concat(
-            [
-                self._level_2_factors_synthesis(level_2_df),
-                self.input_df[["date", "股票代码", "pctChg"]]
-            ],
-            axis=1
-        )
-        print(level_1_df)
+        level_1_df = self._level_2_factors_synthesis(level_2_df)
         comprehensive_z_value = self._comprehensive_z_value_synthesis(level_1_df)
-        print(comprehensive_z_value)
-        print(dd)
 
-        # -3 预期收益率
-        predict_return = self.model_training_and_predict(
-            x_value=z_score,
-            y_value={date: df["pctChg"] for date, df in self.input_df.items()},
-            window=self.factor_weight_window
+        # -3 模型训练、预测
+        pred_df = self.model_training_and_predict(
+            input_df=comprehensive_z_value,
+            x_cols=["综合Z值"],
+            y_col="pctChg",
+            window=self.model_setting.factor_weight_window
         )
 
-        # -4 分组
-        grouped_data = self.processor.classification.divide_into_group(
-            predict_return,
+        # -4 模型后续处理
+        classification_df = self.processor.classification.divide_into_group(
+            pred_df,
             factor_col="",
-            processed_factor_col="predicted",
+            processed_factor_col="predict",
             group_mode=self.model_setting.group_mode,
             group_nums=self.model_setting.group_nums,
             group_label=self.model_setting.group_label,
         )
 
         # -5 仓位权重
-        position_weight = self.position_weight.get_weights(
-            grouped_data,
-            factor_name="predicted",
-            method=self.position_weight_method,
-            distribution=self.position_distribution
+        position_weight = self.utils.pos_weight.get_weights(
+            classification_df,
+            factor_name="predict",
+            method=self.model_setting.position_weight_method,
+            distribution=self.model_setting.position_distribution
         )
 
         # -6 数据合并
-        result = self.join_data(grouped_data, position_weight)
+        result = self.join_data(classification_df, position_weight)
         result = self.join_data(result, z_score)
         result = self.join_data(result, self.input_df)
 

@@ -293,22 +293,16 @@ class FactorSynthesis:
             # -2 构建当期合成因子df
             senior_dfs = pd.DataFrame(senior_dfs)
 
-            print(senior_dfs)
-            print(senior_dfs.columns)
             # -3 添加需要保留的原始列（索引自动对齐）
             if keep_cols:
                 for col in keep_cols:
                     if col in group.columns and col not in senior_dfs.columns:
-                        senior_dfs[col] = group[col].values  # 直接赋值避免索引问题
-            print(senior_dfs)
-            print(senior_dfs.columns)
-            print(dd)
+                        senior_dfs[col] = group[col].values
+
             # -4 标准化（仅对因子列处理）
             factor_cols = list(factors_synthesis_table.keys())
-            senior_dfs = processor.dimensionless.standardization(senior_dfs[factor_cols])
+            senior_dfs[factor_cols] = processor.dimensionless.standardization(senior_dfs[factor_cols])
 
-            # -5 添加日期列
-            senior_dfs.insert(0, 'date', date)
             result_dfs.append(senior_dfs)
 
         return pd.concat(result_dfs).dropna(ignore_index=True)
@@ -440,21 +434,26 @@ class PositionWeight:
     @classmethod
     def _get_equal_weight(
             cls,
-            factors_data: dict[str, pd.DataFrame],
-    ) -> dict[str, pd.Series]:
+            factors_value: pd.DataFrame,
+    ) -> pd.Series:
         """
         等权权重
-        :param factors_data: 因子数据
+        :param factors_value: 因子数据
+        :return 仓位权重
         """
-        weight = {
-            date: pd.Series(
-                1 / df.shape[0],
-                index=df.index
-            ).rename("position_weight")
-            for date, df in factors_data.items()
-        }
+        result_dfs = []
+        for date, group in factors_value.groupby("date"):
+            result_dfs.append(
+                pd.Series(
+                    1 / group.shape[0],
+                    index=group.index,
+                    name="position_weight"
+                )
+            )
+        print(pd.concat(result_dfs))
+        print(dd)
 
-        return weight
+        return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
 
     @classmethod
     def _get_group_equal_weight(
@@ -624,14 +623,14 @@ class PositionWeight:
     @validate_literal_params
     def get_weights(
             cls,
-            factors_data: dict[str, pd.DataFrame],
+            factors_value: pd.DataFrame,
             factor_name: str,
             method: POSITION_WEIGHT,
             distribution: tuple[float, float] = (1, 1)
-    ) -> dict[str, pd.Series]:
+    ) -> pd.Series:
         """
         获取仓位权重
-        :param factors_data: 因子数据
+        :param factors_value: 因子数据
         :param factor_name: 排序因子名
         :param method: 权重方法
         :param distribution 权重分布集中度
@@ -641,13 +640,15 @@ class PositionWeight:
                 p = 0	        等权重（需特殊处理）
         :return 仓位权重
         """
+        cls._get_equal_weight(factors_value)
+        print(dd)
         handlers = {
-            "equal": lambda: cls._get_equal_weight(factors_data),
-            "group_equal": lambda: cls._get_group_equal_weight(factors_data),
-            "long_only": lambda: cls._get_long_only_weight(factors_data, factor_name, distribution),
-            "group_long_only": lambda: cls._get_group_long_only_weight(factors_data, factor_name, distribution),
-            "hedge": lambda: cls._get_hedge_weight(factors_data, factor_name, distribution),
-            "group_hedge": lambda: cls._get_group_hedge_weight(factors_data, factor_name, distribution)
+            "equal": lambda: cls._get_equal_weight(factors_value),
+            "group_equal": lambda: cls._get_group_equal_weight(factors_value),
+            "long_only": lambda: cls._get_long_only_weight(factors_value, factor_name, distribution),
+            "group_long_only": lambda: cls._get_group_long_only_weight(factors_value, factor_name, distribution),
+            "hedge": lambda: cls._get_hedge_weight(factors_value, factor_name, distribution),
+            "group_hedge": lambda: cls._get_group_hedge_weight(factors_value, factor_name, distribution)
         }
 
         return handlers[method]()
