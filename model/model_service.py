@@ -242,10 +242,10 @@ class ModelAnalyzer(QuantService):
         return {
             **{
                 "coverage": self.calc_coverage(grouped_data, self.listed_nums),
-                "desc_stats": self.get_desc_stats(
-                    grouped_data,
-                    list(set(self.model_factors_name + self.DESCRIPTIVE_FACTOR))
-                )
+                # "desc_stats": self.get_desc_stats(
+                #     grouped_data,
+                #     list(set(self.model_factors_name + self.DESCRIPTIVE_FACTOR))
+                # )
             },
             **ic_stats,
             **self.calc_return_metrics(
@@ -377,19 +377,24 @@ class ModelAnalyzer(QuantService):
             model_setting=self.model_setting
         )
         grouped_data = model.run()
-
+        print(grouped_data)
+        grouped_data = {
+            str(date): group
+            for date, group in grouped_data.groupby("date")
+        }
+        print(grouped_data)
         # ---------------------------------------
         # 模型评估
         # ---------------------------------------
         self.logger.info("---------- 模型评估 ----------")
         result = {
             **self._calc_model_metrics(grouped_data),
-            **{
-                "beta_feature": beta_feature
-            },
-            **{
-                "r_squared": r_squared
-            }
+            # **{
+            #     "beta_feature": beta_feature
+            # },
+            # **{
+            #     "r_squared": r_squared
+            # }
         }
 
         # ---------------------------------------
@@ -398,7 +403,7 @@ class ModelAnalyzer(QuantService):
         self.logger.info("---------- 结果存储、可视化 ----------")
         self._draw_charts(self.storage_dir, result, self.visual_setting)
         self._store_grouped_data(grouped_data)
-        self._store_selected_factors(selected_factors)
+        # self._store_selected_factors(selected_factors)
 
     # --------------------------
     # 公开 API 方法

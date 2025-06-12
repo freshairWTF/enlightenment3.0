@@ -164,24 +164,24 @@ class ModelVisualization:
                     column="",
                     date=False
                 ),
-                "_basic_table-1": BasicChartSpecs(
-                    title="因子描述统计",
-                    data_source="desc_stats",
-                    column="",
-                    date=False
-                ),
-                "_basic_table-7": BasicChartSpecs(
-                    title="拟合系数",
-                    data_source="beta_feature",
-                    column="",
-                    date=False
-                ),
-                "_basic_line-4": BasicChartSpecs(
-                    title="r_squared",
-                    data_source="r_squared",
-                    column="",
-                    date=False
-                ),
+                # "_basic_table-1": BasicChartSpecs(
+                #     title="因子描述统计",
+                #     data_source="desc_stats",
+                #     column="",
+                #     date=False
+                # ),
+                # "_basic_table-7": BasicChartSpecs(
+                #     title="拟合系数",
+                #     data_source="beta_feature",
+                #     column="",
+                #     date=False
+                # ),
+                # "_basic_line-4": BasicChartSpecs(
+                #     title="r_squared",
+                #     data_source="r_squared",
+                #     column="",
+                #     date=False
+                # ),
                 "_basic_table-2": BasicChartSpecs(
                     title="IC统计",
                     data_source="ic_stats",

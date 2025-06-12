@@ -335,13 +335,12 @@ class PositionWeight:
                                 -2 list[str] 截面内分组操作
         :return 标准化特征排名向量
         """
-        for date, group in factors_value.groupby(group_cols, group_keys=False):
-            group["rank_score"] = processor.dimensionless.normalization(
-                group[factor_col].rank(),
+        return factors_value.groupby(group_cols, group_keys=False)[factor_col].transform(
+            lambda x: processor.dimensionless.normalization(
+                x.rank(),
                 feature_range=feature_range
             )
-
-        return factors_value["rank_score"]
+        )
 
     @staticmethod
     def __get_power_sorting_weights(
@@ -401,10 +400,16 @@ class PositionWeight:
         :param factors_value: 因子数据
         :return 仓位权重
         """
-        factors_value["position_weight"] = factors_value.groupby("date").transform(
-            lambda x: 1 / x.shape[0]
+        date_counts = factors_value.groupby("date").size()
+        # 映射权重到每个日期
+        factors_value["position_weight"] = factors_value["date"].map(
+            lambda d: 1 / date_counts[d]
         )
         return factors_value
+        # factors_value["position_weight"] = factors_value.groupby("date").transform(
+        #     lambda x: 1 / x.shape[0]
+        # )
+        # return factors_value
 
     @classmethod
     def _get_equal_weight_within_group(
@@ -415,11 +420,9 @@ class PositionWeight:
         分组组内等权权重
         :param factors_value: 因子数据
         """
-        for date, df in factors_value.groupby("date"):
-            df["position_weight"] = df.groupby("group").transform(
-                lambda x: 1 / x.shape[0]
-            )
-
+        factors_value["position_weight"] = factors_value.groupby(["date", "group"])["group"].transform(
+            lambda x: 1 / len(x)
+        )
         return factors_value
 
     @classmethod
@@ -575,9 +578,7 @@ class PositionWeight:
         :return 仓位权重
         """
         factors_value_copy = factors_value.copy(deep=True)
-        print(cls._get_equal_weight_for_pool(factors_value_copy))
-        print(cls._get_equal_weight_within_group(factors_value_copy))
-        print(dd)
+
         handlers = {
             "equal": lambda: cls._get_equal_weight_for_pool(factors_value_copy),
             "group_equal": lambda: cls._get_equal_weight_within_group(factors_value_copy),

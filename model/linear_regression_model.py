@@ -36,17 +36,8 @@ class LinearRegressionModel:
         self.factors_setting = self.model_setting.factors_setting       # 因子设置
         self.processor = DataProcessor()                                # 数据处理
         self.utils = ModelUtils()                                       # 模型工具
-
-        # self.factors_name = [                                           # 因子名
-        #     f"processed_{f.factor_name}"
-        #     for f in self.factors_setting
-        # ]
-        # self.utils.factor_weight.get_factors_weights(
-        #     factors_value=input_df,
-        #     factors_name=self.factors_name,
-        #     method=self.model_setting.bottom_factor_weight_method,
-        #     window=self.model_setting.factor_weight_window
-        # )
+        
+        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值"]     # 保留列
 
     def _direction_reverse(
             self,
@@ -132,6 +123,32 @@ class LinearRegressionModel:
         # 合并处理结果
         return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
 
+    def _factors_weighting(
+            self,
+            input_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        因子 -> 加权因子
+        :param input_df: 初始数据
+        """
+        # -1 三级因子 ic
+        bottom_factors_name = [f.factor_name for f in self.factors_setting]
+
+        # -2 三级因子因子权重
+        factors_weight = self.utils.factor_weight.get_factors_weights(
+            factors_value=input_df,
+            factors_name=bottom_factors_name,
+            method=self.model_setting.bottom_factor_weight_method,
+            window=self.model_setting.factor_weight_window
+        )
+
+        # -3 加权因子
+        return self.utils.synthesis.factors_weighting(
+            input_df,
+            bottom_factors_name,
+            factors_weight
+        )
+
     def _bottom_factors_synthesis(
             self,
             input_df: pd.DataFrame,
@@ -164,7 +181,7 @@ class LinearRegressionModel:
             input_df=input_df,
             factors_synthesis_table=factors_synthesis_table,
             factors_weights=factors_weight,
-            keep_cols=["date", "股票代码", "行业", "pctChg"]
+            keep_cols=self.keep_cols
         )
 
     def _level_2_factors_synthesis(
@@ -196,7 +213,7 @@ class LinearRegressionModel:
             input_df=input_df,
             factors_synthesis_table=factors_synthesis_table,
             factors_weights=factors_weight,
-            keep_cols=["date", "股票代码", "行业", "pctChg"]
+            keep_cols=self.keep_cols
         )
 
     def _comprehensive_z_value_synthesis(
@@ -225,7 +242,7 @@ class LinearRegressionModel:
             input_df=input_df,
             factors_synthesis_table=factors_synthesis_table,
             factors_weights=factors_weight,
-            keep_cols=["date", "股票代码", "行业", "pctChg"]
+            keep_cols=self.keep_cols
         )
 
     @classmethod
