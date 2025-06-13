@@ -1,5 +1,6 @@
 """模型工具"""
 import numpy as np
+from type_ import Literal
 from collections import defaultdict
 from scipy.stats import spearmanr
 from statsmodels.stats.outliers_influence import variance_inflation_factor
@@ -32,12 +33,14 @@ class ModelExtract:
     @staticmethod
     def get_factors_synthesis_table(
             factors_setting: list,
+            mode: Literal["THREE_TO_TWO", "TWO_TO_ONE", "ONE_TO_Z", "TWO_TO_Z", "THREE_TO_Z"],
             top_level: bool = True,
             prefix: str = "processed"
     ) -> dict[str, list[str]]:
         """
         获取一级分类因子构成字典
         :param factors_setting: 因子设置
+        :param mode: 因子生成模式
         :param top_level: 是否为一级分类因子
         :param prefix: 若为二级因子，则需加上因子前缀名
         :return
@@ -48,7 +51,32 @@ class ModelExtract:
                 result[setting.primary_classification].append(setting.secondary_classification)
             else:
                 result[setting.secondary_classification].append(f"{prefix}_{setting.factor_name}")
-        return {k: list(dict.fromkeys(v)) for k, v in result.items()}
+        # return {k: list(dict.fromkeys(v)) for k, v in result.items()}
+
+        if mode == "THREE_TO_TWO":
+            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
+                self.factors_setting,
+                top_level=False,
+                prefix="processed"
+            )
+        elif mode == "THREE_TO_TWO":
+            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(self.factors_setting)
+        elif mode == "ONE_TO_Z":
+            factors_synthesis_table = {
+                "综合Z值": list(set([f.primary_classification for f in self.factors_setting]))
+            }
+        elif mode == "TWO_TO_Z":
+            factors_synthesis_table = {
+                "综合Z值": list(set([f.secondary_classification for f in self.factors_setting]))
+            }
+        elif mode == "THREE_TO_Z":
+            factors_synthesis_table = {
+                "综合Z值": list(set([f"{f.factor_name}" for f in self.factors_setting]))
+            }
+        else:
+            raise TypeError(f"因子合成模式错误: {mode}")
+
+        return factors_synthesis_table
 
     @staticmethod
     def get_factor_setting_metric(

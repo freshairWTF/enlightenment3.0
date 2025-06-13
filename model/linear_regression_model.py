@@ -1,9 +1,11 @@
 """线性回归模型"""
 from dataclasses import dataclass
+from type_ import Literal
 
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
+from sklearn.feature_selection import SelectFromModel
 
 import pandas as pd
 
@@ -150,9 +152,9 @@ class LinearRegressionModel:
         :return 加权因子
         """
         # -1 三级因子 ic
-        bottom_factors_name = [f.factor_name for f in self.factors_setting]
+        bottom_factors_name = [f"{prefix}_{f.factor_name}" for f in self.factors_setting]
         print(bottom_factors_name)
-        print(dd)
+
         # -2 三级因子因子权重
         factors_weight = self.utils.factor_weight.get_factors_weights(
             factors_value=input_df,
@@ -171,17 +173,41 @@ class LinearRegressionModel:
     def _bottom_factors_synthesis(
             self,
             input_df: pd.DataFrame,
+            mode: Literal["THREE_TO_TWO", "TWO_TO_ONE", "ONE_TO_Z", "TWO_TO_Z", "THREE_TO_Z"]
     ) -> pd.DataFrame:
         """
         三级因子合成二级因子
+            -1 三级因子 -> 二级因子
+            -2 二级因子 -> 一级因子
+            -3 一级因子 -> 综合Z值
+            -4 二级因子 -> 综合Z值
+            -5 三级因子 -> 综合Z值
         :param input_df: 初始数据
+        :param mode: 因子生成模式
         """
         # -1 三级因子构造表
-        factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
-            self.factors_setting,
-            top_level=False,
-            prefix="processed"
-        )
+        if mode == "THREE_TO_TWO":
+            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
+                self.factors_setting,
+                top_level=False,
+                prefix="processed"
+            )
+        elif mode == "THREE_TO_TWO":
+            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(self.factors_setting)
+        elif mode == "ONE_TO_Z":
+            factors_synthesis_table = {
+                "综合Z值": list(set([f.primary_classification for f in self.factors_setting]))
+            }
+        elif mode == "TWO_TO_Z":
+            factors_synthesis_table = {
+                "综合Z值": list(set([f.secondary_classification for f in self.factors_setting]))
+            }
+        elif mode == "THREE_TO_Z":
+            factors_synthesis_table = {
+                "综合Z值": list(set([f"{f.factor_name}" for f in self.factors_setting]))
+            }
+        else:
+            raise TypeError(f"因子合成模式错误: {mode}")
 
         # -2 三级因子因子权重
         factors_weight = []
@@ -355,8 +381,8 @@ class LinearRegressionModel:
         # level_1_df = self._level_2_factors_synthesis(level_2_df)
         # comprehensive_z_value = self._comprehensive_z_value_synthesis(level_1_df)
 
-        level_1_df = self._factors_weighting(self.input_df)
-        comprehensive_z_value = self._comprehensive_z_value_synthesis(level_1_df)
+        weighting_factors_df = self._factors_weighting(self.input_df)
+        comprehensive_z_value = self._comprehensive_z_value_synthesis(weighting_factors_df)
 
         # -3 模型训练、预测
         pred_df, estimate_metric = self.model_training_and_predict(
