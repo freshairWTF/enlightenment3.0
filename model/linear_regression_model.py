@@ -10,6 +10,19 @@ import pandas as pd
 from utils.processor import DataProcessor
 from model.model_utils import ModelUtils
 
+"""
+    -1 多项式 是/否
+        是 -> 仅生成交叉项 是/否
+    -2 因子合成 是/否 
+        -> 是：二级因子/综合Z值
+            -> 二级因子 特征提取 是/否
+        -> 否：三级因子 特征提取 是/否
+    -3 线性模型
+        基础线性模型
+        lasso
+        
+"""
+
 
 ########################################################################
 class LinearRegressionModel:
@@ -65,7 +78,8 @@ class LinearRegressionModel:
 
     def _pre_processing(
             self,
-            input_df: pd.DataFrame
+            input_df: pd.DataFrame,
+            prefix: str = "processed"
     ) -> pd.DataFrame:
         """
         数据预处理
@@ -75,6 +89,7 @@ class LinearRegressionModel:
             -4 缩尾
             -5 标准化
         :param input_df: 初始数据
+        :param prefix: 预处理生成因子前缀
         :return: 处理过的数据
         """
         def __process_single_date(
@@ -83,7 +98,7 @@ class LinearRegressionModel:
             """单日数据处理"""
             for setting in self.factors_setting:
                 factor_name = setting.factor_name
-                processed_col = f"processed_{factor_name}"
+                processed_col = f"{prefix}_{factor_name}"
 
                 df_[processed_col] = df_[factor_name].copy()
                 # -1 第一次 去极值、标准化
@@ -125,15 +140,19 @@ class LinearRegressionModel:
 
     def _factors_weighting(
             self,
-            input_df: pd.DataFrame
+            input_df: pd.DataFrame,
+            prefix: str = "processed"
     ) -> pd.DataFrame:
         """
         因子 -> 加权因子
         :param input_df: 初始数据
+        :param prefix: 因子前缀
+        :return 加权因子
         """
         # -1 三级因子 ic
         bottom_factors_name = [f.factor_name for f in self.factors_setting]
-
+        print(bottom_factors_name)
+        print(dd)
         # -2 三级因子因子权重
         factors_weight = self.utils.factor_weight.get_factors_weights(
             factors_value=input_df,
@@ -160,7 +179,8 @@ class LinearRegressionModel:
         # -1 三级因子构造表
         factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
             self.factors_setting,
-            top_level=False
+            top_level=False,
+            prefix="processed"
         )
 
         # -2 三级因子因子权重
@@ -331,8 +351,11 @@ class LinearRegressionModel:
         self.input_df = self._pre_processing(self.input_df)
 
         # -2 因子合成
-        level_2_df = self._bottom_factors_synthesis(self.input_df)
-        level_1_df = self._level_2_factors_synthesis(level_2_df)
+        # level_2_df = self._bottom_factors_synthesis(self.input_df)
+        # level_1_df = self._level_2_factors_synthesis(level_2_df)
+        # comprehensive_z_value = self._comprehensive_z_value_synthesis(level_1_df)
+
+        level_1_df = self._factors_weighting(self.input_df)
         comprehensive_z_value = self._comprehensive_z_value_synthesis(level_1_df)
 
         # -3 模型训练、预测

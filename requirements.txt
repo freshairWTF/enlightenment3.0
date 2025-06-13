@@ -47,3 +47,4 @@ xmlrpclib==1.0.1
 scikit-learn==1.5.1
 yaml==0.2.5
 requests==2.32.3
+dask==2024.8.2

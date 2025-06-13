@@ -91,7 +91,7 @@ def model_factor_analysis():
     模型分析 -> 生成因子库中的因子
     注：更新指数数据 -> 更新交易日历 -> 最新数据
     """
-    storage_dir_name = "20250530-WEEK"
+    storage_dir_name = "2000-202506W"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -109,7 +109,7 @@ def model_factor_analysis():
         financial_cycle="quarter",
         start_date="2000-01-01",
         financial_end_date="2025-03-31",
-        end_date="2025-05-30",
+        end_date="2025-06-06",
 
         target_info={"全部": "三级行业"},
         index_code="000300",
@@ -154,7 +154,7 @@ def inventory_cycle_analysis():
 # ---------------------------------------------------
 if __name__ == "__main__":
     # individual_analysis()
-    normal_analysis()
+    # normal_analysis()
     # factor_analysis()
-    # model_factor_analysis()
+    model_factor_analysis()
     # inventory_cycle_analysis()

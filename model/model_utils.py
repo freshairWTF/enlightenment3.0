@@ -32,12 +32,14 @@ class ModelExtract:
     @staticmethod
     def get_factors_synthesis_table(
             factors_setting: list,
-            top_level: bool = True
+            top_level: bool = True,
+            prefix: str = "processed"
     ) -> dict[str, list[str]]:
         """
         获取一级分类因子构成字典
         :param factors_setting: 因子设置
         :param top_level: 是否为一级分类因子
+        :param prefix: 若为二级因子，则需加上因子前缀名
         :return
         """
         result = defaultdict(list)
@@ -45,7 +47,7 @@ class ModelExtract:
             if top_level:
                 result[setting.primary_classification].append(setting.secondary_classification)
             else:
-                result[setting.secondary_classification].append(f"processed_{setting.factor_name}")
+                result[setting.secondary_classification].append(f"{prefix}_{setting.factor_name}")
         return {k: list(dict.fromkeys(v)) for k, v in result.items()}
 
     @staticmethod
@@ -226,11 +228,11 @@ class FactorSynthesis:
 
         if isinstance(factors_name, list):
             for date, group in input_df_copy.groupby("date"):
-                group[factors_name] = processor.refactor.symmetric_orthogonal(group[factors_name])
+                group[factors_name] = processor.feature.symmetric_orthogonal(group[factors_name])
         elif isinstance(factors_name, dict):
             for date, group in input_df_copy.groupby("date"):
                 for group_factors in factors_name.values():
-                    group[group_factors] = processor.refactor.symmetric_orthogonal(group[group_factors])
+                    group[group_factors] = processor.feature.symmetric_orthogonal(group[group_factors])
         else:
             raise TypeError
 
@@ -307,11 +309,6 @@ class FactorSynthesis:
 
         return pd.concat(result_dfs).dropna(ignore_index=True)
 
-    # @staticmethod
-    # def
-    """
-    多项式特征提取 sklearn
-    """
 
 ###################################################
 class PositionWeight:

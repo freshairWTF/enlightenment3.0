@@ -2,6 +2,7 @@ from pathlib import Path
 from loguru import logger
 
 import pandas as pd
+import dask.dataframe as dd
 
 from evaluation import Evaluation
 from utils.drawer import Drawer
@@ -34,6 +35,42 @@ class QuantService:
     # 数据加载
     # --------------------------
     @classmethod
+    def load_factors_value_by_dask(
+            cls,
+            source_dir: Path
+    ) -> pd.DataFrame:
+        """加载因子数据并合并为单个DataFrame，日期作为新列"""
+        # 加载原始字典数据
+        data_dict = dict(sorted(
+            {
+                f.stem: dd.read_parquet(f)
+                for f in source_dir.glob("*.parquet")
+                if f.is_file()
+            }.items(),
+            key=lambda x: x[0]
+        ))
+
+        # 创建包含日期列的DataFrame列表
+        dfs_with_date = []
+        for date_str, df in data_dict.items():
+            # 添加日期列 [5](@ref)
+            df = df.copy()  # 避免修改原始DataFrame
+            df['date'] = date_str  # 添加日期列
+            dfs_with_date.append(df)
+
+        # 合并所有DataFrame
+        combined_df = dd.concat(dfs_with_date)
+        # 代码索引成列
+        combined_df = combined_df.reset_index().rename(columns={'index': '股票代码'})
+        # 转换日期
+        combined_df['date'] = dd.to_datetime(combined_df['date'], format='%Y-%m-%d').dt.date
+
+        # 实际计算
+        combined_df = combined_df.compute()
+
+        return combined_df
+
+    @classmethod
     def load_factors_value(
             cls,
             source_dir: Path
@@ -58,11 +95,7 @@ class QuantService:
             dfs_with_date.append(df)
 
         # 合并所有DataFrame
-        from dask import config
-        import dask.dataframe as dd
-        config.set({"array.copy_on_write": True})
-        combined_df = dd.concat(dfs_with_date)
-        # combined_df = pd.concat(dfs_with_date)
+        combined_df = pd.concat(dfs_with_date)
         # 代码索引成列
         combined_df = combined_df.reset_index().rename(columns={'index': '股票代码'})
         # 转换日期

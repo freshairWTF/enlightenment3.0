@@ -4,6 +4,8 @@ import pandas as pd
 import statsmodels.api as sm
 
 from typing import Callable
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.feature_selection import SelectFromModel
 
 from constant.type_ import ERROR, GROUP_MODE, validate_literal_params
 
@@ -19,11 +21,12 @@ class DataProcessor:
     """数据处理"""
 
     def __init__(self):
-        self.winsorizer = Winsorizer
-        self.dimensionless = Dimensionless
-        self.neutralization = Neutralization
-        self.refactor = Refactor
-        self.classification = Classification
+        self.winsorizer = Winsorizer                    # 缩尾
+        self.dimensionless = Dimensionless              # 无量纲
+        self.neutralization = Neutralization            # 中性化
+        self.refactor = Refactor                        # 重构
+        self.classification = Classification            # 分类
+        self.feature = FeatureEngineering               # 特征工程
 
 
 ###############################################################
@@ -426,66 +429,6 @@ class Refactor:
         return factor_value.copy().loc[residuals.index] * 0 + residuals
 
     @staticmethod
-    def symmetric_orthogonal(
-            factor_values: pd.DataFrame
-    ) -> pd.DataFrame:
-        """
-        因子对称正交，消除因子间相关性
-        :param factor_values: 因子数据
-        :return 正交化后的因子
-        """
-        # 输入数据校验
-        if factor_values.empty:
-            return factor_values.copy()
-
-        # 转换为numpy数组并中心化
-        x = factor_values.values.astype(np.float64)
-        x -= x.mean(axis=0)  # 中心化处理
-
-        # 计算协方差矩阵
-        try:
-            cov = x.T @ x / (x.shape[0] - 1)  # 无偏估计
-        except Exception as e:
-            raise ValueError(f"协方差矩阵计算失败: {str(e)}") from e
-
-        # 特征分解（使用更稳定的eigh）
-        try:
-            eigen_values, eigen_vectors = np.linalg.eigh(cov)
-        except np.linalg.LinAlgError as e:
-            raise np.linalg.LinAlgError(f"特征分解失败: {str(e)}") from e
-
-        # 处理特征值
-        idx = np.argsort(eigen_values)[::-1]  # 降序排列索引
-        eigen_values = eigen_values[idx]
-        eigen_vectors = eigen_vectors[:, idx]
-
-        # 处理负特征值（数值稳定性）
-        eigen_values = np.maximum(eigen_values, 0.0)
-
-        # 正则化处理（避免除以零）
-        epsilon = 1e-8
-        sqrt_inv = 1.0 / np.sqrt(eigen_values + epsilon)
-
-        # 构造正交变换矩阵
-        try:
-            transform = eigen_vectors @ np.diag(sqrt_inv) @ eigen_vectors.T
-        except Exception as e:
-            raise ValueError(f"变换矩阵构造失败: {str(e)}") from e
-
-        # 应用变换
-        try:
-            x_ortho = x @ transform
-        except Exception as e:
-            raise ValueError(f"矩阵乘法失败: {str(e)}") from e
-
-        # 重建DataFrame
-        return pd.DataFrame(
-            x_ortho,
-            index=factor_values.index,
-            columns=factor_values.columns
-        )
-
-    @staticmethod
     def shift_factors_value(
             factor_values: pd.DataFrame,
             fixed_col: list[str],
@@ -629,6 +572,106 @@ class Classification:
                 duplicates="drop"
             )
 
+
+###############################################################
+class FeatureEngineering:
+    """特征工程"""
+
+    @staticmethod
+    def symmetric_orthogonal(
+            factor_values: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        因子对称正交，消除因子间相关性
+        :param factor_values: 因子数据
+        :return 正交化后的因子
+        """
+        # 输入数据校验
+        if factor_values.empty:
+            return factor_values.copy()
+
+        # 转换为numpy数组并中心化
+        x = factor_values.values.astype(np.float64)
+        x -= x.mean(axis=0)  # 中心化处理
+
+        # 计算协方差矩阵
+        try:
+            cov = x.T @ x / (x.shape[0] - 1)  # 无偏估计
+        except Exception as e:
+            raise ValueError(f"协方差矩阵计算失败: {str(e)}") from e
+
+        # 特征分解（使用更稳定的eigh）
+        try:
+            eigen_values, eigen_vectors = np.linalg.eigh(cov)
+        except np.linalg.LinAlgError as e:
+            raise np.linalg.LinAlgError(f"特征分解失败: {str(e)}") from e
+
+        # 处理特征值
+        idx = np.argsort(eigen_values)[::-1]  # 降序排列索引
+        eigen_values = eigen_values[idx]
+        eigen_vectors = eigen_vectors[:, idx]
+
+        # 处理负特征值（数值稳定性）
+        eigen_values = np.maximum(eigen_values, 0.0)
+
+        # 正则化处理（避免除以零）
+        epsilon = 1e-8
+        sqrt_inv = 1.0 / np.sqrt(eigen_values + epsilon)
+
+        # 构造正交变换矩阵
+        try:
+            transform = eigen_vectors @ np.diag(sqrt_inv) @ eigen_vectors.T
+        except Exception as e:
+            raise ValueError(f"变换矩阵构造失败: {str(e)}") from e
+
+        # 应用变换
+        try:
+            x_ortho = x @ transform
+        except Exception as e:
+            raise ValueError(f"矩阵乘法失败: {str(e)}") from e
+
+        # 重建DataFrame
+        return pd.DataFrame(
+            x_ortho,
+            index=factor_values.index,
+            columns=factor_values.columns
+        )
+
+    @staticmethod
+    def _create_polynomial(
+            factor_values: pd.DataFrame,
+            degree: int = 2,
+            interaction_only: bool = False
+    ) -> pd.DataFrame:
+        """
+        创建多项式（不带截距项）
+        :param factor_values: 因子数据
+        :param degree: 最高系数
+        :param interaction_only: 仅包含交叉项
+        :return: 包含因子多项式的数据
+        """
+        poly = PolynomialFeatures(
+            degree=degree,
+            interaction_only=interaction_only,
+            include_bias=False
+        )
+        trans_df = poly.fit_transform(factor_values)
+
+        # 格式转换 list -> pd.DataFrame
+        return pd.DataFrame(
+            trans_df,
+            columns=poly.get_feature_names_out(input_features=trans_df.columns)
+        )
+
+    @staticmethod
+    def _feature_selection(
+            factor_values: pd.DataFrame,
+    ):
+        """
+        特征选择
+        :param factor_values: 因子数据
+        :return: 选择后的因子数据
+        """
 
 
 ###############################################################

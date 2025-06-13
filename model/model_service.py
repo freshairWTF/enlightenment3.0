@@ -71,7 +71,7 @@ class ModelAnalyzer(QuantService):
         # 数据
         self.industry_mapping = self.load_industry_mapping()
         self.listed_nums = self.load_listed_nums()
-        self.raw_data = self.load_factors_value(self.source_dir)
+        self.raw_data = self.load_factors_value_by_dask(self.source_dir)
 
         # 过滤因子
         self.model_setting.factors_setting = self._factor_filter()
