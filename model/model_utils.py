@@ -307,8 +307,11 @@ class FactorSynthesis:
 
         return pd.concat(result_dfs).dropna(ignore_index=True)
 
-    @staticmethod
-    def
+    # @staticmethod
+    # def
+    """
+    多项式特征提取 sklearn
+    """
 
 ###################################################
 class PositionWeight:
