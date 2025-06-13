@@ -22,13 +22,13 @@ def update_support():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="公司治理指标",
-        storage_dir="公司治理指标"
+        source_dir="20250606-WEEK-跟踪",
+        storage_dir="20250606-WEEK-跟踪"
     )
     convert.run()
 
 
 # ------------------------- 执行入口 -------------------------
 if __name__ == "__main__":
-    update_support()
-    # data_convert()
+    # update_support()
+    data_convert()

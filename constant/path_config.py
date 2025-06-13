@@ -19,12 +19,11 @@ class DataPATH:
     INDEX_KLINE_DATA = BASE_DIR / "kline_data" / "index"
     ORIGINAL_INDEX_KLINE_DATA = BASE_DIR / "kline_data" / "index" / "original_day"
 
-
-    SUPPORT_DATA = BASE_DIR / "utils"
-    LISTED_NUMS = BASE_DIR / "utils" / "Listed_Nums"
-    TRADING_CALENDAR = BASE_DIR / "utils" / "Trading_Calendar"
-    INDUSTRY_CLASSIFICATION = BASE_DIR / "utils" / "Industry_Classification_Table"
-    INDUSTRY_CLASSIFICATION_UPDATER = BASE_DIR / "utils" / "Industry_Classification_Updater_Table"
+    SUPPORT_DATA = BASE_DIR / "support_file"
+    LISTED_NUMS = BASE_DIR / "support_file" / "Listed_Nums"
+    TRADING_CALENDAR = BASE_DIR / "support_file" / "Trading_Calendar"
+    INDUSTRY_CLASSIFICATION = BASE_DIR / "support_file" / "Industry_Classification_Table"
+    INDUSTRY_CLASSIFICATION_UPDATER = BASE_DIR / "support_file" / "Industry_Classification_Updater_Table"
 
     FINANCIAL_METRICS = BASE_DIR / "analysis" / "financial_metrics"
     KLINE_METRICS = BASE_DIR / "analysis" / "kline_metrics"

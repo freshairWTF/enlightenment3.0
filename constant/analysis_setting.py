@@ -795,6 +795,7 @@ class Individual:
 
 #############################################################
 class Normal:
+
     def __init__(self):
         # 财务模块
         self.finance = self.Finance()
@@ -802,6 +803,8 @@ class Normal:
         self.valuation = self.Valuation()
         # 量价模块
         self.kline = self.Kline()
+        # 公司治理模块
+        self.governance = self.Governance()
         # 统计模块
         self.stat = self.Statistics()
         # 可视化模块
@@ -891,6 +894,10 @@ class Normal:
     class Kline:
         def __init__(self):
             self.kline = {}
+
+    class Governance:
+        def __init__(self):
+            self.governance = []
 
     class Statistics:
         def __init__(self):

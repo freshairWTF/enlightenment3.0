@@ -41,8 +41,8 @@ def normal_analysis():
         financial_end_date="2025-03-31",
         end_date="2025-05-08",
 
-        storage_dir_name="风电零部件25Q1",
-        target_info={"风电零部件": "三级行业"},
+        storage_dir_name="汽车零部件25Q1",
+        target_info={"汽车零部件": "二级行业"},
         draw_filter=True,
         debug=False
     )
@@ -154,7 +154,7 @@ def inventory_cycle_analysis():
 # ---------------------------------------------------
 if __name__ == "__main__":
     # individual_analysis()
-    # normal_analysis()
+    normal_analysis()
     # factor_analysis()
-    model_factor_analysis()
+    # model_factor_analysis()
     # inventory_cycle_analysis()

@@ -307,6 +307,8 @@ class FactorSynthesis:
 
         return pd.concat(result_dfs).dropna(ignore_index=True)
 
+    @staticmethod
+    def
 
 ###################################################
 class PositionWeight:

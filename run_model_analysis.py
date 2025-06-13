@@ -58,7 +58,7 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250530-WEEK-跟踪"
+    source_dir = "20250530-WEEK"
     storage_dir = "大剧变测试/linear-20250530W-ir衰减-旧因子库-流通市值中性化"
 
     """
@@ -68,6 +68,14 @@ if __name__ == "__main__":
     因子暴露控制！！！
     barra风格中性化！！！
     """
+
+    """
+    扩展窗口 捕捉长期趋势 ！！！
+    很多因子可以试一下
+    相较于滚动窗口
+    """
+    from sklearn.model_selection import TimeSeriesSplit
+
     filter_mode: FILTER_MODE = "_entire_filter"
 
     # 模型参数设置

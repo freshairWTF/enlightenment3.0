@@ -58,7 +58,11 @@ class QuantService:
             dfs_with_date.append(df)
 
         # 合并所有DataFrame
-        combined_df = pd.concat(dfs_with_date)
+        from dask import config
+        import dask.dataframe as dd
+        config.set({"array.copy_on_write": True})
+        combined_df = dd.concat(dfs_with_date)
+        # combined_df = pd.concat(dfs_with_date)
         # 代码索引成列
         combined_df = combined_df.reset_index().rename(columns={'index': '股票代码'})
         # 转换日期

@@ -376,19 +376,17 @@ class ModelAnalyzer(QuantService):
             input_df=pre_processing_df,
             model_setting=self.model_setting
         )
-        grouped_data = model.run()
-        print(grouped_data)
-        grouped_data = {
+        model_data = {
             str(date): group
-            for date, group in grouped_data.groupby("date")
+            for date, group in model.run().groupby("date")
         }
-        print(grouped_data)
+
         # ---------------------------------------
         # 模型评估
         # ---------------------------------------
         self.logger.info("---------- 模型评估 ----------")
         result = {
-            **self._calc_model_metrics(grouped_data),
+            **self._calc_model_metrics(model_data),
             # **{
             #     "beta_feature": beta_feature
             # },
@@ -402,7 +400,7 @@ class ModelAnalyzer(QuantService):
         # ---------------------------------------
         self.logger.info("---------- 结果存储、可视化 ----------")
         self._draw_charts(self.storage_dir, result, self.visual_setting)
-        self._store_grouped_data(grouped_data)
+        self._store_grouped_data(model_data)
         # self._store_selected_factors(selected_factors)
 
     # --------------------------
