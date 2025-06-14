@@ -74,7 +74,7 @@ if __name__ == "__main__":
     很多因子可以试一下
     相较于滚动窗口
     """
-    from sklearn.model_selection import TimeSeriesSplit
+    # from sklearn.model_selection import TimeSeriesSplit
 
 
     filter_mode: FILTER_MODE = "_entire_filter"
