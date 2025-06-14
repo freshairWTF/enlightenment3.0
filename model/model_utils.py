@@ -861,7 +861,7 @@ class FeatureEngineering:
         return input_df_copy
 
     @staticmethod
-    def _create_polynomial(
+    def create_polynomial(
             factor_values: pd.DataFrame,
             degree: int = 2,
             interaction_only: bool = False
@@ -887,7 +887,7 @@ class FeatureEngineering:
         )
 
     @staticmethod
-    def _feature_selection(
+    def feature_selection(
             factor_values: pd.DataFrame,
     ):
         """

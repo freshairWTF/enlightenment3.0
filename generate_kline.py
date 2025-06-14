@@ -8,7 +8,7 @@ def download_kline():
         dir_path=DataPATH.KLINE_DATA,
         download_object="stock",            # 可选：stock/index
         category="day",                     # 指数仅支持 day
-        adjust_flag="2",                    # 复权模式
+        adjust_flag="3",                    # 复权模式
         start_date="2025-06-09",            # 起始时间
         end_date="2025-06-13",              # 结束时间
         code="sh.601002",                   # 代码：需要sh/sz前缀
