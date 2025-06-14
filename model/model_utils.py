@@ -5,6 +5,8 @@ from collections import defaultdict
 from scipy.stats import spearmanr
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import PolynomialFeatures
+# from sklearn.feature_selection import SelectFromModel
 
 import pandas as pd
 import statsmodels.api as sm
@@ -20,11 +22,12 @@ processor = DataProcessor()
 class ModelUtils:
 
     def __init__(self):
-        self.extract = ModelExtract
-        self.dimension = DimensionalityReduction
-        self.synthesis = FactorSynthesis
-        self.pos_weight = PositionWeight
-        self.factor_weight = FactorWeight
+        self.extract = ModelExtract                     # 参数提取
+        self.dimension = DimensionalityReduction        # 因子降维
+        self.synthesis = FactorSynthesis                # 因子合成
+        self.pos_weight = PositionWeight                # 仓位权重
+        self.factor_weight = FactorWeight               # 因子权重
+        self.feature = FeatureEngineering               # 特征工程
 
 
 ###################################################
@@ -232,31 +235,6 @@ class DimensionalityReduction:
 ###################################################
 class FactorSynthesis:
     """因子合成"""
-
-    @staticmethod
-    def factors_orthogonal(
-            input_df: pd.DataFrame,
-            factors_name: list[str] | dict[str, list[str]],
-    ) -> pd.DataFrame:
-        """
-        因子正交 / 因子分组正交
-        :param input_df: 因子数据
-        :param factors_name: 因子名 -1 因子列表 -2 因子分组字典
-        :return 对称正交后的因子
-        """
-        input_df_copy = input_df.copy(deep=True)
-
-        if isinstance(factors_name, list):
-            for date, group in input_df_copy.groupby("date"):
-                group[factors_name] = processor.feature.symmetric_orthogonal(group[factors_name])
-        elif isinstance(factors_name, dict):
-            for date, group in input_df_copy.groupby("date"):
-                for group_factors in factors_name.values():
-                    group[group_factors] = processor.feature.symmetric_orthogonal(group[group_factors])
-        else:
-            raise TypeError
-
-        return input_df_copy
 
     @staticmethod
     def factors_weighting(
@@ -890,4 +868,70 @@ class FactorWeight:
         }
 
         return handlers[method]()
+
+
+###############################################################
+class FeatureEngineering:
+    """特征工程"""
+
+    @staticmethod
+    def factors_orthogonal(
+            input_df: pd.DataFrame,
+            factors_name: list[str] | dict[str, list[str]],
+    ) -> pd.DataFrame:
+        """
+        因子正交 / 因子分组正交
+        :param input_df: 因子数据
+        :param factors_name: 因子名 -1 因子列表 -2 因子分组字典
+        :return 对称正交后的因子
+        """
+        input_df_copy = input_df.copy(deep=True)
+
+        if isinstance(factors_name, list):
+            for date, group in input_df_copy.groupby("date"):
+                group[factors_name] = processor.refactor.symmetric_orthogonal(group[factors_name])
+        elif isinstance(factors_name, dict):
+            for date, group in input_df_copy.groupby("date"):
+                for group_factors in factors_name.values():
+                    group[group_factors] = processor.refactor.symmetric_orthogonal(group[group_factors])
+        else:
+            raise TypeError
+
+        return input_df_copy
+
+    @staticmethod
+    def _create_polynomial(
+            factor_values: pd.DataFrame,
+            degree: int = 2,
+            interaction_only: bool = False
+    ) -> pd.DataFrame:
+        """
+        创建多项式（不带截距项）
+        :param factor_values: 因子数据
+        :param degree: 最高系数
+        :param interaction_only: 仅包含交叉项
+        :return: 包含因子多项式的数据
+        """
+        poly = PolynomialFeatures(
+            degree=degree,
+            interaction_only=interaction_only,
+            include_bias=False
+        )
+        trans_df = poly.fit_transform(factor_values)
+
+        # 格式转换 list -> pd.DataFrame
+        return pd.DataFrame(
+            trans_df,
+            columns=poly.get_feature_names_out(input_features=trans_df.columns)
+        )
+
+    @staticmethod
+    def _feature_selection(
+            factor_values: pd.DataFrame,
+    ):
+        """
+        特征选择
+        :param factor_values: 因子数据
+        :return: 选择后的因子数据
+        """
 

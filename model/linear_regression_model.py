@@ -5,7 +5,7 @@ from type_ import Literal
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
-from sklearn.feature_selection import SelectFromModel
+# from sklearn.feature_selection import SelectFromModel
 
 import pandas as pd
 
@@ -287,15 +287,15 @@ class LinearRegressionModel:
         """
         线性模型处理流程：
             -1 因子数值处理
-            -2 三级因子降维 -> 二级因子
-            -3 二级因子降维 -> 综合Z值
-            -4 模型训练、预测
-            -5 收益率预测分组
-            -6 仓位权重配比
+            -2 因子降维
+            -3 模型训练、预测
+            -4 收益率预测分组
+            -5 仓位权重配比
         """
         # -1 数据处理
         self.input_df = self._direction_reverse(self.input_df)
         self.input_df = self._pre_processing(self.input_df)
+        # self.input_df = self.utils.
 
         # -2 因子合成
         level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
