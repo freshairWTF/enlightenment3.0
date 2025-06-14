@@ -519,6 +519,60 @@ class Refactor:
 
         return result_data
 
+    @classmethod
+    def shift_factors_value_for_dict(
+            cls,
+            raw_data: dict[str, pd.DataFrame],
+            lag_periods: int,
+            factors_col: list[str] | None = None,
+    ) -> dict[str, pd.DataFrame]:
+        """
+        将每个DataFrame中的因子向后移指定期数，用于 T-N期因子 与 T期涨跌幅 的拟合回归
+        :param raw_data: 原始数据
+        :param lag_periods: 滞后期数
+        :param factors_col: 因子名
+        :return: 平移后的数据
+        """
+        # 深拷贝原始数据
+        copied_data = {k: v.copy(deep=True) for k, v in raw_data.items()}
+
+        # 确定需要平移的列
+        if factors_col is None:
+            sample_df = next(iter(copied_data.values()))
+            factors_col = sample_df.columns.difference(["pctChg"]).tolist()
+        else:
+            factors_col = [f for f in factors_col if f != "pctChg"]
+
+        # 无有效列直接返回
+        if not factors_col:
+            return copied_data
+
+        # 合并所有数据并添加临时日期标记
+        combined = pd.concat(
+            {date: df[factors_col] for date, df in copied_data.items()},
+            names=["date"]
+        ).reset_index(level="date")
+
+        # 按资产分组，滞后平移
+        shifted = combined.groupby(combined.index)[factors_col].shift(lag_periods)
+        combined[factors_col] = shifted
+
+        # 按日期拆分回字典
+        result = {}
+        sorted_dates = sorted(copied_data.keys(), key=lambda x: pd.to_datetime(x))
+        for date in sorted_dates:
+            df = combined[combined.date == date].drop(columns="date")
+            df = df.reindex(copied_data[date].index)
+
+            result_date = copied_data[date].copy()
+            result_date[factors_col] = df[factors_col]
+            result_date = result_date.dropna(subset=factors_col, how="any")
+
+            if not result_date.empty:
+                result[date] = result_date
+
+        return result
+
 
 ###############################################################
 class Classification:

@@ -446,7 +446,7 @@ class ICMetrics:
         decay = {}
         for i in range(1, 13, 1):
             try:
-                shifted_data = DataProcessor().refactor.shift_factors_value(data, i)
+                shifted_data = DataProcessor().refactor.shift_factors_value_for_dict(data, i)
                 ic = cls.calc_ic(
                     shifted_data,
                     factor_col,

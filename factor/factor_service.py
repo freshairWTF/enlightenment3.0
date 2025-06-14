@@ -25,7 +25,8 @@ from constant.type_ import (
     CYCLE, CLASS_LEVEL, FILTER_MODE,
     GROUP_MODE, validate_literal_params
 )
-from storage import DataStorage
+from utils.storage import DataStorage
+from utils.processor import DataProcessor
 
 
 warnings.filterwarnings("ignore")
@@ -106,7 +107,8 @@ class FactorAnalyzer(QuantService):
         # 初始化配置参数
         # --------------------------
         # 工具类
-        self.filter = StockPoolFilter
+        self.processor = DataProcessor()                        # 数据处理实例
+        self.stock_pool_filter = StockPoolFilter                # 标的池过滤类
         # 初始化其他配置
         self._initialize_config()
         # 日志
@@ -130,7 +132,7 @@ class FactorAnalyzer(QuantService):
         # --------------------------
         self.industry_mapping = self.load_industry_mapping()
         self.listed_nums = self.load_listed_nums()
-        self.raw_data = self.load_factors_value(self.source_dir)
+        self.raw_data = self.load_factors_value_by_dask(self.source_dir)
 
         # --------------------------
         # 其他参数
@@ -171,7 +173,8 @@ class FactorAnalyzer(QuantService):
             [self.double_sort_factor_name]
             + self.DESCRIPTIVE_FACTOR
             + self.CORE_FACTOR
-            + self.filter.PARAMETERS
+            + self.stock_pool_filter.PARAMETERS
+            + ["date", "股票代码"]
         )
         return [f for f in set(factors) if f]
     
@@ -211,75 +214,128 @@ class FactorAnalyzer(QuantService):
     # 数据处理
     # --------------------------
     @validate_literal_params
-    def _data_process(
+    def _pre_processing(
             self,
-            raw_data: dict[str, pd.DataFrame],
-            valid_factors: list[str],
+            raw_data: pd.DataFrame,
+            backtest_factors: list[str],
             filter_mode: FILTER_MODE,
             group_mode: GROUP_MODE,
             factor_name: str,
             processed_factor_col: str, 
-    ) -> dict[str, pd.DataFrame]:
+    ) -> pd.DataFrame:
         """
         数据处理 
             -1 截取（全部因子） -2 平移（除 pctChg 之外） -3 过滤（过滤因子） 
             -4 预处理（回测因子） -5 分组（预处理因子、使用过去的因子给当下分组，无未来函数）
         :param raw_data: 原始数据
-        :param valid_factors: 所需全部因子
+        :param backtest_factors: 回测所需全部因子
         :param filter_mode: 过滤模式
         :param group_mode: 分组模式
         :param factor_name: 因子名
         :param processed_factor_col: 预处理因子名
         :return: 处理后的数据
         """
-        valid_data = self.valid_factors_filter(raw_data, valid_factors)
-
-        add_industry_data = self.add_industry(
-            valid_data,
-            self.industry_mapping,
-            self.class_level
+        return (
+            raw_data
+            .pipe(self.valid_factors_filter,
+                  valid_factors=backtest_factors)
+            .pipe(self.add_industry,
+                  industry_mapping=self.industry_mapping,
+                  class_level=self.class_level)
+            .pipe(self.processor.refactor.shift_factors_value,
+                  fixed_col=["股票代码", "行业", "pctChg", "date"],
+                  lag_periods=self.lag_period)
+            .pipe(self.stock_pool_filter(filter_mode=filter_mode, cycle=self.cycle))
+            .pipe(self._quantity_check)
+            .pipe(self._preprocessing_factor_data,
+                  factor_name=factor_name)
+            .pipe(self.processor.classification.divide_into_group,
+                  factor_col=factor_name,
+                  processed_factor_col=processed_factor_col,
+                  group_mode=group_mode,
+                  group_nums=self.group_nums,
+                  group_label=self.group_label,
+                  negative=True if factor_name in NEGATIVE_SINGLE_COLUMN else False)
         )
 
-        shifted_data = self.processor.shift_factors(
-            add_industry_data, self.lag_period
-        )
+    def _quantity_check(
+            self,
+            input_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """行数检查 -> 行数大于分组数"""
+        # 按日期分组处理
+        grouped = input_df.groupby('date')
+        result_dfs = []
 
-        filtered_data = self.filter(
-            target_data=shifted_data,
-            filter_mode=filter_mode,
-            cycle=self.cycle
-        ).run()
+        for date, group_df in grouped:
+            # 检查当前日期组行数是否满足要求
+            if len(group_df) >= self.group_nums:
+                result_dfs.append(group_df)
 
-        filtered_data = {
-            date: df
-            for date, df in filtered_data.items()
-            if df.shape[0] > self.min_nums
-        }
+        # 合并结果
+        return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
 
-        processed_data = self.processor.preprocessing_factor_data(
-            filtered_data,
-            factor_name,
-            self.standardization,
-            self.mv_neutral,
-            self.industry_neutral,
-            self.restructure
-        )
-        if not processed_data:
-            raise ValueError("数据处理异常")
+    def _preprocessing_factor_data(
+            self,
+            input_df: pd.DataFrame,
+            factor_name: str,
+            prefix: str = "processed"
+    ) -> pd.DataFrame:
+        """
+        数据预处理
+            -1 缩尾
+            -2 标准化
+            -3 中性化
+            -4 缩尾
+            -5 标准化
+        :param input_df: 初始数据
+        :param factor_name: 因子名
+        :param prefix: 预处理生成因子前缀
+        :return: 处理过的数据
+        """
+        def __process_single_date(
+                df_: pd.DataFrame,
+        ) -> pd.DataFrame:
+            """单日数据处理"""
+            processed_col = f"{prefix}_{factor_name}"
 
-        grouped_data = self.processor.divide_into_group(
-            factor_values=processed_data,
-            factor_col=factor_name,
-            processed_factor_col=processed_factor_col,
-            group_mode=group_mode,
-            group_nums=self.group_nums,
-            group_label=self.group_label,
-            negative=True if factor_name in NEGATIVE_SINGLE_COLUMN else False
-        )
-        if not grouped_data:
-            raise ValueError("数据分组异常")
+            df_[processed_col] = df_[factor_name].copy()
+            # -1 第一次 去极值、标准化
+            df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
+            if self.standardization:
+                df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
 
-        return grouped_data
+            # -2 中性化
+            if self.mv_neutral:
+                df_[processed_col] = self.processor.neutralization.market_value_neutral(
+                    df_[processed_col],
+                    df_["对数市值"],
+                    winsorizer=self.processor.winsorizer.percentile,
+                    dimensionless=self.processor.dimensionless.standardization
+                )
+            if self.industry_neutral:
+                df_[processed_col] = self.processor.neutralization.industry_neutral(
+                    df_[processed_col],
+                    df_["行业"]
+                )
+
+            # -3 第二次 去极值、标准化
+            df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
+            if self.standardization:
+                df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
+
+            return df_
+
+        result_dfs = []
+        for date, group_df in input_df.groupby("date"):
+            try:
+                processed_df = __process_single_date(group_df)
+                result_dfs.append(processed_df)
+            except ValueError:
+                continue
+
+        # 合并处理结果
+        return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
 
     # --------------------------
     # 指标计算
@@ -517,7 +573,7 @@ class FactorAnalyzer(QuantService):
     @validate_literal_params
     def _analyze_single_factor(
             self,
-            raw_data: dict[str, pd.DataFrame],
+            raw_data: pd.DataFrame,
             factor_name: str,
             filter_mode: FILTER_MODE,
             lock: Lock = None
@@ -528,126 +584,7 @@ class FactorAnalyzer(QuantService):
         :param factor_name: 因子名
         :param filter_mode: 过滤模式
         """
-        try:
-            self.logger.info(f"start: {factor_name} - {self.group_mode} - {filter_mode}")
-            # --------------------------
-            # 初始化
-            # --------------------------
-            storage_dir = self._get_storage_dir(factor_name, filter_mode)
-            processed_factor_col = f"processed_{factor_name}"
-            valid_factors = self._get_valid_factor(factor_name)
-
-            # --------------------------
-            # 数据处理
-            # --------------------------
-            grouped_data = self._data_process(
-                raw_data,
-                valid_factors,
-                filter_mode,
-                self.group_mode,
-                factor_name,
-                processed_factor_col
-            )
-
-            # ---------------------------------------
-            # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
-            # ---------------------------------------
-            # ic类统计
-            ic_stats = self.calc_ic_metrics(
-                grouped_data,
-                processed_factor_col,
-                self.cycle
-            )
-            # ic均值
-            ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
-            # 是否为反转因子
-            reverse = True if ic_mean < 0 else False
-
-            result = {
-                **{
-                    "coverage": self.calc_coverage(grouped_data, self.listed_nums),
-                    "desc_stats": self.get_desc_stats(
-                        grouped_data,
-                        list(set([factor_name, processed_factor_col] + self.DESCRIPTIVE_FACTOR))
-                    ),
-                },
-                **ic_stats,
-                **self.calc_return_metrics(
-                    grouped_data,
-                    self.cycle,
-                    self.group_label,
-                    reverse=reverse
-                ),
-                **self.calc_return_metrics(
-                    grouped_data,
-                    self.cycle,
-                    self.group_label,
-                    mode="mv_weight", reverse=reverse, prefix="mw"
-                ),
-            }
-
-            # 识别不同市场下的因子表现
-            dm_result = DifferentMarketAnalyzer(
-                factor_ic=result["ic"]["ic"],
-                month_market_metrics=self.index_month_data,
-                day_market_metrics=self.index_day_data,
-                cycle=self.cycle
-            ).run()
-            result.update(
-                {"different_market_result": dm_result}
-            )
-
-            # 因子综合评价
-            measure_metrics = self._get_measure_indicator(
-                factor_name,
-                filter_mode,
-                self.group_mode,
-                self.group_label[0] if ic_mean < 0 else self.group_label[-1],
-                result
-            )
-
-            # ---------------------------------------
-            # 存储、可视化
-            # ---------------------------------------
-            # excel 因子判断
-            self._save_measure_indicator(
-                measure_metrics,
-                lock
-            )
-            # pycharts IC 收益率
-            self._draw_charts(
-                storage_dir,
-                result,
-                self.setting.visualization
-            )
-            # png 因子分布
-            self._calc_and_save_pdf(
-                grouped_data,
-                factor_name,
-                storage_dir
-            )
-            # parquet 分组数据
-            # self._store_results(grouped_data, storage_dir)
-        except Exception as e:
-            self.logger.error(
-                f"错误信息: {factor_name} {self.group_mode} {filter_mode}|"
-                f"异常类型: {type(e).__name__}, 错误详情: {str(e)}, 堆栈跟踪:\n{traceback.format_exc()}"
-            )
-
-    @validate_literal_params
-    def _analyze_single_factor_debug(
-            self,
-            raw_data: dict[str, pd.DataFrame],
-            factor_name: str,
-            filter_mode: FILTER_MODE,
-            lock: Lock = None
-    ) -> None:
-        """
-        单个因子分析
-        :param raw_data: 原始数据
-        :param factor_name: 因子名
-        :param filter_mode: 过滤模式
-        """
+        # try:
         self.logger.info(f"start: {factor_name} - {self.group_mode} - {filter_mode}")
         # --------------------------
         # 初始化
@@ -659,7 +596,7 @@ class FactorAnalyzer(QuantService):
         # --------------------------
         # 数据处理
         # --------------------------
-        grouped_data = self._data_process(
+        preprocessing_df = self._pre_processing(
             raw_data,
             valid_factors,
             filter_mode,
@@ -667,13 +604,17 @@ class FactorAnalyzer(QuantService):
             factor_name,
             processed_factor_col
         )
+        preprocessing_dict = {
+            str(date): group.drop("date", axis=1)
+            for date, group in preprocessing_df.groupby("date")
+        }
 
         # ---------------------------------------
         # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
         # ---------------------------------------
         # ic类统计
         ic_stats = self.calc_ic_metrics(
-            grouped_data,
+            preprocessing_dict,
             processed_factor_col,
             self.cycle
         )
@@ -684,21 +625,21 @@ class FactorAnalyzer(QuantService):
 
         result = {
             **{
-                "coverage": self.calc_coverage(grouped_data, self.listed_nums),
+                "coverage": self.calc_coverage(preprocessing_dict, self.listed_nums),
                 "desc_stats": self.get_desc_stats(
-                    grouped_data,
+                    preprocessing_dict,
                     list(set([factor_name, processed_factor_col] + self.DESCRIPTIVE_FACTOR))
                 ),
             },
             **ic_stats,
             **self.calc_return_metrics(
-                grouped_data,
+                preprocessing_dict,
                 self.cycle,
                 self.group_label,
                 reverse=reverse
             ),
             **self.calc_return_metrics(
-                grouped_data,
+                preprocessing_dict,
                 self.cycle,
                 self.group_label,
                 mode="mv_weight", reverse=reverse, prefix="mw"
@@ -741,7 +682,130 @@ class FactorAnalyzer(QuantService):
         )
         # png 因子分布
         self._calc_and_save_pdf(
-            grouped_data,
+            preprocessing_dict,
+            factor_name,
+            storage_dir
+        )
+        # parquet 分组数据
+        # self._store_results(grouped_data, storage_dir)
+        # except Exception as e:
+        #     self.logger.error(
+        #         f"错误信息: {factor_name} {self.group_mode} {filter_mode}|"
+        #         f"异常类型: {type(e).__name__}, 错误详情: {str(e)}, 堆栈跟踪:\n{traceback.format_exc()}"
+        #     )
+
+    @validate_literal_params
+    def _analyze_single_factor_debug(
+            self,
+            raw_data: pd.DataFrame,
+            factor_name: str,
+            filter_mode: FILTER_MODE,
+            lock: Lock = None
+    ) -> None:
+        """
+        单个因子分析
+        :param raw_data: 原始数据
+        :param factor_name: 因子名
+        :param filter_mode: 过滤模式
+        """
+        self.logger.info(f"start: {factor_name} - {self.group_mode} - {filter_mode}")
+        # --------------------------
+        # 初始化
+        # --------------------------
+        storage_dir = self._get_storage_dir(factor_name, filter_mode)
+        processed_factor_col = f"processed_{factor_name}"
+        valid_factors = self._get_valid_factor(factor_name)
+
+        # --------------------------
+        # 数据处理
+        # --------------------------
+        preprocessing_df = self._pre_processing(
+            raw_data,
+            valid_factors,
+            filter_mode,
+            self.group_mode,
+            factor_name,
+            processed_factor_col
+        )
+        preprocessing_dict = {
+            str(date): group
+            for date, group in preprocessing_df.groupby("date")
+        }
+
+        # ---------------------------------------
+        # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
+        # ---------------------------------------
+        # ic类统计
+        ic_stats = self.calc_ic_metrics(
+            preprocessing_dict,
+            processed_factor_col,
+            self.cycle
+        )
+        # ic均值
+        ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
+        # 是否为反转因子
+        reverse = True if ic_mean < 0 else False
+
+        result = {
+            **{
+                "coverage": self.calc_coverage(preprocessing_dict, self.listed_nums),
+                "desc_stats": self.get_desc_stats(
+                    preprocessing_dict,
+                    list(set([factor_name, processed_factor_col] + self.DESCRIPTIVE_FACTOR))
+                ),
+            },
+            **ic_stats,
+            **self.calc_return_metrics(
+                preprocessing_dict,
+                self.cycle,
+                self.group_label,
+                reverse=reverse
+            ),
+            **self.calc_return_metrics(
+                preprocessing_dict,
+                self.cycle,
+                self.group_label,
+                mode="mv_weight", reverse=reverse, prefix="mw"
+            ),
+        }
+
+        # 识别不同市场下的因子表现
+        dm_result = DifferentMarketAnalyzer(
+            factor_ic=result["ic"]["ic"],
+            month_market_metrics=self.index_month_data,
+            day_market_metrics=self.index_day_data,
+            cycle=self.cycle
+        ).run()
+        result.update(
+            {"different_market_result": dm_result}
+        )
+
+        # 因子综合评价
+        measure_metrics = self._get_measure_indicator(
+            factor_name,
+            filter_mode,
+            self.group_mode,
+            self.group_label[0] if ic_mean < 0 else self.group_label[-1],
+            result
+        )
+
+        # ---------------------------------------
+        # 存储、可视化
+        # ---------------------------------------
+        # excel 因子判断
+        self._save_measure_indicator(
+            measure_metrics,
+            lock
+        )
+        # pycharts IC 收益率
+        self._draw_charts(
+            storage_dir,
+            result,
+            self.setting.visualization
+        )
+        # png 因子分布
+        self._calc_and_save_pdf(
+            preprocessing_dict,
             factor_name,
             storage_dir
         )
