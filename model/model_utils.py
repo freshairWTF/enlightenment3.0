@@ -34,49 +34,41 @@ class ModelExtract:
     def get_factors_synthesis_table(
             factors_setting: list,
             mode: Literal["THREE_TO_TWO", "TWO_TO_ONE", "ONE_TO_Z", "TWO_TO_Z", "THREE_TO_Z"],
-            top_level: bool = True,
             prefix: str = "processed"
     ) -> dict[str, list[str]]:
         """
         获取一级分类因子构成字典
         :param factors_setting: 因子设置
         :param mode: 因子生成模式
-        :param top_level: 是否为一级分类因子
-        :param prefix: 若为二级因子，则需加上因子前缀名
+        :param prefix: 若包含三级因子，则需加上因子前缀名
         :return
         """
-        result = defaultdict(list)
-        for setting in factors_setting:
-            if top_level:
-                result[setting.primary_classification].append(setting.secondary_classification)
-            else:
-                result[setting.secondary_classification].append(f"{prefix}_{setting.factor_name}")
-        # return {k: list(dict.fromkeys(v)) for k, v in result.items()}
-
         if mode == "THREE_TO_TWO":
-            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
-                self.factors_setting,
-                top_level=False,
-                prefix="processed"
-            )
-        elif mode == "THREE_TO_TWO":
-            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(self.factors_setting)
+            result = defaultdict(list)
+            for setting in factors_setting:
+                result[setting.secondary_classification].append(f"{prefix}_{setting.factor_name}")
+            result = {k: list(dict.fromkeys(v)) for k, v in result.items()}
+        elif mode == "TWO_TO_ONE":
+            result = defaultdict(list)
+            for setting in factors_setting:
+                result[setting.primary_classification].append(setting.secondary_classification)
+            result = {k: list(dict.fromkeys(v)) for k, v in result.items()}
         elif mode == "ONE_TO_Z":
-            factors_synthesis_table = {
-                "综合Z值": list(set([f.primary_classification for f in self.factors_setting]))
+            result = {
+                "综合Z值": list(set([f.primary_classification for f in factors_setting]))
             }
         elif mode == "TWO_TO_Z":
-            factors_synthesis_table = {
-                "综合Z值": list(set([f.secondary_classification for f in self.factors_setting]))
+            result = {
+                "综合Z值": list(set([f.secondary_classification for f in factors_setting]))
             }
         elif mode == "THREE_TO_Z":
-            factors_synthesis_table = {
-                "综合Z值": list(set([f"{f.factor_name}" for f in self.factors_setting]))
+            result = {
+                "综合Z值": list(set([f"{prefix}_{f.factor_name}" for f in factors_setting]))
             }
         else:
             raise TypeError(f"因子合成模式错误: {mode}")
 
-        return factors_synthesis_table
+        return result
 
     @staticmethod
     def get_factor_setting_metric(

@@ -153,7 +153,6 @@ class LinearRegressionModel:
         """
         # -1 三级因子 ic
         bottom_factors_name = [f"{prefix}_{f.factor_name}" for f in self.factors_setting]
-        print(bottom_factors_name)
 
         # -2 三级因子因子权重
         factors_weight = self.utils.factor_weight.get_factors_weights(
@@ -170,7 +169,7 @@ class LinearRegressionModel:
             factors_weight
         )
 
-    def _bottom_factors_synthesis(
+    def _factors_synthesis(
             self,
             input_df: pd.DataFrame,
             mode: Literal["THREE_TO_TWO", "TWO_TO_ONE", "ONE_TO_Z", "TWO_TO_Z", "THREE_TO_Z"]
@@ -185,31 +184,14 @@ class LinearRegressionModel:
         :param input_df: 初始数据
         :param mode: 因子生成模式
         """
-        # -1 三级因子构造表
-        if mode == "THREE_TO_TWO":
-            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
-                self.factors_setting,
-                top_level=False,
-                prefix="processed"
-            )
-        elif mode == "THREE_TO_TWO":
-            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(self.factors_setting)
-        elif mode == "ONE_TO_Z":
-            factors_synthesis_table = {
-                "综合Z值": list(set([f.primary_classification for f in self.factors_setting]))
-            }
-        elif mode == "TWO_TO_Z":
-            factors_synthesis_table = {
-                "综合Z值": list(set([f.secondary_classification for f in self.factors_setting]))
-            }
-        elif mode == "THREE_TO_Z":
-            factors_synthesis_table = {
-                "综合Z值": list(set([f"{f.factor_name}" for f in self.factors_setting]))
-            }
-        else:
-            raise TypeError(f"因子合成模式错误: {mode}")
+        # -1 因子构造表
+        factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
+            self.factors_setting,
+            mode=mode,
+            prefix="processed"
+        )
 
-        # -2 三级因子因子权重
+        # -2 因子权重
         factors_weight = []
         for group_factors in factors_synthesis_table.values():
             factors_weight.append(
@@ -222,68 +204,7 @@ class LinearRegressionModel:
             )
         factors_weight = pd.concat(factors_weight, axis=1)
 
-        # -3 二级因子合成
-        return self.utils.synthesis.synthesis_factor(
-            input_df=input_df,
-            factors_synthesis_table=factors_synthesis_table,
-            factors_weights=factors_weight,
-            keep_cols=self.keep_cols
-        )
-
-    def _level_2_factors_synthesis(
-            self,
-            input_df: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """
-        二级因子合成一级因子
-        :param input_df: 初始数据
-        """
-        # -1 二级因子构造表
-        factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(self.factors_setting)
-
-        # -2 二级因子因子权重
-        factors_weight = []
-        for group_factors in factors_synthesis_table.values():
-            factors_weight.append(
-                self.utils.factor_weight.get_factors_weights(
-                    factors_value=input_df,
-                    factors_name=group_factors,
-                    method=self.model_setting.bottom_factor_weight_method,
-                    window=self.model_setting.factor_weight_window
-                )
-            )
-        factors_weight = pd.concat(factors_weight, axis=1)
-
-        # -3 一级因子合成
-        return self.utils.synthesis.synthesis_factor(
-            input_df=input_df,
-            factors_synthesis_table=factors_synthesis_table,
-            factors_weights=factors_weight,
-            keep_cols=self.keep_cols
-        )
-
-    def _comprehensive_z_value_synthesis(
-            self,
-            input_df: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """
-        一级因子合成综合Z值
-        :param input_df: 初始数据
-        """
-        # -1 综合Z值构造表
-        factors_synthesis_table = {
-            "综合Z值": list(set([f.primary_classification for f in self.factors_setting]))
-        }
-
-        # -2 一级因子因子权重
-        factors_weight = self.utils.factor_weight.get_factors_weights(
-            factors_value=input_df,
-            factors_name=factors_synthesis_table["综合Z值"],
-            method=self.model_setting.bottom_factor_weight_method,
-            window=self.model_setting.factor_weight_window
-        )
-
-        # -3 一级因子合成
+        # -3 因子合成
         return self.utils.synthesis.synthesis_factor(
             input_df=input_df,
             factors_synthesis_table=factors_synthesis_table,
@@ -377,16 +298,15 @@ class LinearRegressionModel:
         self.input_df = self._pre_processing(self.input_df)
 
         # -2 因子合成
-        # level_2_df = self._bottom_factors_synthesis(self.input_df)
-        # level_1_df = self._level_2_factors_synthesis(level_2_df)
-        # comprehensive_z_value = self._comprehensive_z_value_synthesis(level_1_df)
+        level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
+        level_1_df = self._factors_synthesis(level_2_df, mode="TWO_TO_ONE")
+        comprehensive_z_df = self._factors_synthesis(level_1_df, mode="ONE_TO_Z")
 
-        weighting_factors_df = self._factors_weighting(self.input_df)
-        comprehensive_z_value = self._comprehensive_z_value_synthesis(weighting_factors_df)
+        # weighting_factors_df = self._factors_weighting(self.input_df)
 
         # -3 模型训练、预测
         pred_df, estimate_metric = self.model_training_and_predict(
-            input_df=comprehensive_z_value,
+            input_df=comprehensive_z_df,
             x_cols=["综合Z值"],
             y_col="pctChg",
             window=self.model_setting.factor_weight_window

@@ -58,7 +58,7 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250530-WEEK-跟踪"
+    source_dir = "20250530-WEEK"
     storage_dir = "大剧变测试/linear-测试"
 
     """
