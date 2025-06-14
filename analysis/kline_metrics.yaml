@@ -1,0 +1,28 @@
+# ========== k线指标映射文件 ==========
+
+FUNCTION_OF_KLINE:
+    市场贝塔: _market_beta
+    累加收益率: _accumulated_yield
+    异常换手率: _abnormal_turn
+    真实波幅: _tr
+
+    收盘价均线: _ma_close
+    成交量均线: _ma_volume
+    换手率均线: _ma_turn
+    真实波幅均线: _ma_atr
+
+    收益率标准差: _std_yield
+    换手率标准差: _std_turn
+    真实波幅标准差: _std_atr
+
+    斜率: _slope
+    涨停次数: _limit_up_number
+    跌停次数: _limit_down_number
+    阳线次数: _positive_line_number
+    阴线次数: _negative_line_number
+
+    k线中继形态: _ch_relay_form
+
+FUNCTION_OF_SPECIAL:
+    资本回报率_5年滚动均值: _roic_rolling_mean_5y
+    资本回报率1_5年滚动均值: _roic1_rolling_mean_5y
