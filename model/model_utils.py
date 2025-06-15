@@ -865,12 +865,14 @@ class FeatureEngineering:
     @staticmethod
     def create_polynomial(
             factor_values: pd.DataFrame,
+            factors_name: list[str],
             degree: int = 2,
             interaction_only: bool = False
     ) -> pd.DataFrame:
         """
         创建多项式（不带截距项）
         :param factor_values: 因子数据
+        :param factors_name: 多项式因子名
         :param degree: 最高系数
         :param interaction_only: 仅包含交叉项
         :return: 包含因子多项式的数据
@@ -880,7 +882,7 @@ class FeatureEngineering:
             interaction_only=interaction_only,
             include_bias=False
         )
-        trans_df = poly.fit_transform(factor_values)
+        trans_df = poly.fit_transform(factor_values[factors_name])
 
         # 格式转换 list -> pd.DataFrame
         return pd.DataFrame(
