@@ -1,29 +1,17 @@
-"""线性回归模型"""
+"""xgboost回归模型"""
 from dataclasses import dataclass
+
 from type_ import Literal
 
 import numpy as np
-from sklearn.linear_model import LinearRegression
+from xgboost import XGBRegressor
 from sklearn.metrics import r2_score
-# from sklearn.feature_selection import SelectFromModel
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 
 import pandas as pd
 
 from utils.processor import DataProcessor
 from model.model_utils import ModelUtils
-
-"""
-    -1 多项式 是/否
-        是 -> 仅生成交叉项 是/否
-    -2 因子合成 是/否 
-        -> 是：二级因子/综合Z值
-            -> 二级因子 特征提取 是/否
-        -> 否：三级因子 特征提取 是/否
-    -3 线性模型
-        基础线性模型
-        lasso
-
-"""
 
 
 ########################################################################
@@ -53,6 +41,13 @@ class XGBoostRegressionModel:
         self.utils = ModelUtils()  # 模型工具
 
         self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值"]  # 保留列
+
+        # 超参数网格
+        self.model_param_grid = {
+            'max_depth': [3, 5],
+            'learning_rate': [0.01, 0.1],
+            'n_estimators': [50, 100]
+        }
 
     def _direction_reverse(
             self,
@@ -219,9 +214,8 @@ class XGBoostRegressionModel:
             keep_cols=self.keep_cols
         )
 
-    @classmethod
     def model_training_and_predict(
-            cls,
+            self,
             input_df: pd.DataFrame,
             x_cols: list[str],
             y_col: str,
@@ -251,13 +245,21 @@ class XGBoostRegressionModel:
                 input_df.loc[input_df["date"].isin(train_window), x_cols],
                 input_df.loc[input_df["date"].isin(train_window), y_col]
             )
-            # 训练模型
-            try:
-                model = LinearRegression(fit_intercept=True)
-                model.fit(x_train, y_train)
-            except Exception as e:
-                print(str(e))
-                continue
+
+            # 3.1 时间序列交叉验证 + 超参数优化
+            tscv = TimeSeriesSplit(n_splits=5, gap=1)
+            model = XGBRegressor(objective='reg:squarederror')
+
+            # 网格搜索寻优（引用[6,8](@ref)）
+            grid_search = GridSearchCV(
+                estimator=model,
+                param_grid=self.model_param_grid,
+                cv=tscv,
+                scoring='neg_mean_squared_error',
+                n_jobs=-1  # 并行加速
+            )
+            grid_search.fit(x_train, y_train)
+            best_model = grid_search.best_estimator_
 
             # ====================
             # 样本外预测
@@ -271,7 +273,7 @@ class XGBoostRegressionModel:
             )
             # 模型预测
             y_test_pred = pd.Series(
-                data=model.predict(x_test),
+                data=best_model.predict(x_test),
                 index=x_test.index,
                 name="predict"
             )
@@ -302,19 +304,17 @@ class XGBoostRegressionModel:
         # -1 数据处理
         self.input_df = self._direction_reverse(self.input_df)
         self.input_df = self._pre_processing(self.input_df)
-        # self.input_df = self.utils.feature.create_polynomial(self.input_df, interaction_only=False)
 
         # -2 因子合成
-        # level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
-        # level_1_df = self._factors_synthesis(level_2_df, mode="TWO_TO_ONE")
-        # comprehensive_z_df = self._factors_synthesis(level_1_df, mode="ONE_TO_Z")
-
-        weighting_factors_df = self._factors_weighting(self.input_df)
+        level_2_df = self._factors_synthesis(
+            self.input_df,
+            mode="THREE_TO_TWO"
+        )
 
         # -3 模型训练、预测
         pred_df, estimate_metric = self.model_training_and_predict(
-            input_df=weighting_factors_df,
-            x_cols=["综合Z值"],
+            input_df=level_2_df,
+            x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
             y_col="pctChg",
             window=self.model_setting.factor_weight_window
         )
