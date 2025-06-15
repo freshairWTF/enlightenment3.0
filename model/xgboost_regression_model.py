@@ -1,257 +1,340 @@
+"""线性回归模型"""
+from dataclasses import dataclass
+from type_ import Literal
+
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+# from sklearn.feature_selection import SelectFromModel
+
 import pandas as pd
 
-from constant.type_ import GROUP_MODE, FACTOR_WEIGHT, POSITION_WEIGHT, validate_literal_params
 from utils.processor import DataProcessor
+from model.model_utils import ModelUtils
+
+"""
+    -1 多项式 是/否
+        是 -> 仅生成交叉项 是/否
+    -2 因子合成 是/否 
+        -> 是：二级因子/综合Z值
+            -> 二级因子 特征提取 是/否
+        -> 否：三级因子 特征提取 是/否
+    -3 线性模型
+        基础线性模型
+        lasso
+
+"""
 
 
 ########################################################################
 class XGBoostRegressionModel:
-    """xgboost回归模型"""
+    """XGBoost回归模型"""
 
-    model_name: str = "xgboost回归模型"
-
-    @validate_literal_params
     def __init__(
             self,
-            raw_data: dict[str, pd.DataFrame],
-            factors_name: dict[str, list[str]],
-            group_nums: int,
-            group_label: list[str],
-            group_mode: GROUP_MODE = "frequency",
-            factor_weight_method: FACTOR_WEIGHT = "equal",
-            factor_weight_window: int = 12,
-            position_weight_method: POSITION_WEIGHT = "equal",
-            position_distribution: tuple[float, float] = (1, 1),
+            input_df: pd.DataFrame,
+            model_setting: dataclass,
             individual_position_limit: float = 0.1,
             index_data: dict[str, pd.DataFrame] | None = None,
     ):
         """
-        :param raw_data: 数据
-        :param factors_name: 因子名
-        :param group_nums: 分组数
-        :param group_mode: 分组模式
-        :param factor_weight_method: 因子权重方法
-        :param factor_weight_window: 因子权重窗口数
-        :param position_weight_method: 仓位权重方法
-        :param position_distribution: 仓位集中度
+        :param input_df: 数据
+        :param model_setting: 模型设置
         :param individual_position_limit: 单一持仓上限
         :param index_data: 指数数据
         """
-        self.raw_data = raw_data
-        self.factors_name = factors_name
-        self.group_nums = group_nums
-        self.group_label = group_label
-        self.group_mode = group_mode
+        self.input_df = input_df
+        self.model_setting = model_setting
         self.index_data = index_data
-        self.factor_weight_method = factor_weight_method
-        self.factor_weight_window = factor_weight_window
-        self.position_weight_method = position_weight_method
-        self.position_distribution = position_distribution
+        self.individual_position_limit = individual_position_limit
 
-        self.individual_position_limit = individual_position_limit,
+        self.factors_setting = self.model_setting.factors_setting  # 因子设置
+        self.processor = DataProcessor()  # 数据处理
+        self.utils = ModelUtils()  # 模型工具
 
+        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值"]  # 保留列
 
-    @classmethod
-    def calc_predict_return_by_xgboost(
-            cls,
-            x_value: dict[str, pd.DataFrame | pd.Series],
-            y_value: dict[str, pd.Series],
-            window: int = 12
-    ) -> dict[str, pd.DataFrame]:
+    def _direction_reverse(
+            self,
+            input_df: pd.DataFrame
+    ) -> pd.DataFrame:
         """
-        滚动窗口回归预测收益率（集成Hyperopt自动调参）
-        :param x_value: T期截面数据
-        :param y_value: T期收益率
-        :param window: 滚动窗口长度
-        :return: 预期收益率
+        因子方向反转（权重为负值）
         """
+        reverse_df = input_df.copy(deep=True)
 
-        # 定义XGBoost参数搜索空间 [1,6](@ref)
-        # def get_param_space():
-        #     return {
-        #         'learning_rate': hp.loguniform('learning_rate', np.log(0.01), np.log(0.2)),
-        #         'max_depth': hp.quniform('max_depth', 3, 12, 1),  # 加深深度
-        #         'subsample': hp.uniform('subsample', 0.5, 0.95),
-        #         'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 0.95),
-        #         'reg_alpha': hp.uniform('reg_alpha', 0, 1),  # L1上限降至0.3
-        #         'reg_lambda': hp.uniform('reg_lambda', 0, 1),  # L2下限提升
-        #         'gamma': hp.uniform('gamma', 0, 0.5)  # 分裂阈值压缩
-        #     }
-
-        def get_param_space():
-            base_space = {
-                'learning_rate': hp.loguniform('learning_rate', np.log(0.01), np.log(0.2)),
-                'subsample': hp.uniform('subsample', 0.7, 0.9)
-            }
-            if prev_model is None:  # 首期全量调参
-                full_space = {
-                    'max_depth': hp.quniform('max_depth', 3, 12, 1),
-                    'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 0.95),
-                    'reg_alpha': hp.uniform('reg_alpha', 0, 0.3),  # L1上限压缩
-                    'reg_lambda': hp.uniform('reg_lambda', 0.7, 1),  # L2下限提升
-                    'gamma': hp.uniform('gamma', 0, 0.3)
-                }
-                return {**base_space, **full_space}
-            return base_space  # 后续仅优化关键参数
-
-        # 目标函数（含时间序列验证）[2,7](@ref)
-        def objective(params, X_train, y_train):
-
-            tscv = TimeSeriesSplit(n_splits=3)
-            losses = []
-
-            # 时间序列交叉验证
-            for train_idx, val_idx in tscv.split(X_train):
-                X_tr, X_val = X_train.iloc[train_idx], X_train.iloc[val_idx]
-                y_tr, y_val = y_train.iloc[train_idx], y_train.iloc[val_idx]
-
-                try:
-                    model = xgb.XGBRegressor(
-                        objective='reg:squarederror',
-                        ** {k: int(v) if k in ['max_depth'] else v for k, v in params.items()}
-                    ).fit(X_tr, y_tr)
-                    pred = model.predict(X_val)
-                    losses.append(mean_squared_error(y_val, pred))
-                except:
-                    return {'loss': np.inf, 'status': STATUS_OK}
-
-            return {'loss': np.mean(losses), 'status': STATUS_OK}
-
-        def ic_score(y_true, y_pred):
-            return np.corrcoef(y_true, y_pred)[0, 1]
-
-        # 主流程
-        sorted_dates = sorted(x_value.keys())
-        result = {}
-        trials_cache = None  # 用于增量调参的缓存
-        prev_model = None
-
-        for i in range(window, len(sorted_dates)):
-            # ====================
-            # 样本内数据准备
-            # ====================
-            train_window = sorted_dates[i - window:i]
-
-            # 拼接训练数据（保持原有逻辑）
-            train_dfs = []
-            for date in train_window:
-                df = pd.concat([x_value[date], y_value[date]], axis=1, join="inner")
-                df["date"] = date
-                train_dfs.append(df)
-            train_data = pd.concat(train_dfs).dropna()
-
-            # xgboost2.0之后的版本，不需手动添加截距项
-            y_train = train_data["pctChg"]
-            x_train = train_data.drop(["pctChg", "date"], axis=1)
-
-            # ====================
-            # Hyperopt参数优化 [3,8](@ref)
-            # ====================
-            trials = Trials()
-
-            best_params = fmin(
-                fn=lambda p: objective(p, x_train, y_train),
-                space=get_param_space(),
-                algo=tpe.suggest,
-                max_evals=50,  # 每期评估次数
-                trials=trials,
-                rstate=np.random.default_rng(seed=42) ,
-                verbose=False
-            )
-
-            # 参数类型转换
-            best_params = {
-                'objective': 'reg:quantileerror',
-                'quantile_alpha': 0.5,
-                'learning_rate': best_params['learning_rate'],
-                'max_depth': int(best_params['max_depth']),
-                'subsample': best_params['subsample'],
-                'colsample_bytree': best_params['colsample_bytree'],
-                'reg_alpha': best_params['reg_alpha'],
-                'reg_lambda': best_params['reg_lambda'],
-                'gamma': best_params['gamma'],
-                'eval_metric': ic_score,
-            }
-
-            # ====================
-            # 模型训练与预测
-            # ====================
-            model = xgb.XGBRegressor(**best_params)
-            model.fit(x_train, y_train, xgb_model=prev_model)
-            prev_model = model.get_booster()
-
-            # 预测处理（保持原有逻辑）
-            predict_date = sorted_dates[i]
-            predict_df = x_value[predict_date]
-            predicted = pd.Series(
-                model.predict(predict_df),
-                index=predict_df.index,
-                name="predicted"
-            )
-            print(predict_date)
-            result[predict_date] = predicted.to_frame()
-
-        return result
-
-    def run(self):
-        """
-        xgboost非线性模型（因子数量要一致）：
-            1）因子加权；
-            2）模型训练/回测；
-            3）分组；
-            4）仓位权重；
-        """
-        # -1 因子权重
-        factor_weights = self.factor_weight.get_factors_weights(
-            factors_data=self.raw_data,
-            factors_name=self.factors_name,
-            method=self.factor_weight_method,
-            window=self.factor_weight_window
+        # -1 三级因子 ic
+        bottom_factors_name = [f.factor_name for f in self.factors_setting]
+        factors_ic = (
+            self.utils.factor_weight.calc_rank_ic(reverse_df, bottom_factors_name)
+            .shift(1)
+            .rolling(12, min_periods=1).mean()
         )
 
-        # -2 综合Z值
-        z_score = self.calc_z_scores(
-            data=self.raw_data,
-            factors_name=self.factors_name,
-            weights=factor_weights
+        # -2 因子值反转（依据因子滚动IC均值）
+        for factor_name in bottom_factors_name:
+            negative_dates = factors_ic[factors_ic[factor_name] < 0].index
+            reverse_df.loc[reverse_df["date"].isin(negative_dates), factor_name] *= -1
+
+        return reverse_df
+
+    def _pre_processing(
+            self,
+            input_df: pd.DataFrame,
+            prefix: str = "processed"
+    ) -> pd.DataFrame:
+        """
+        数据预处理
+            -1 缩尾
+            -2 标准化
+            -3 中性化
+            -4 缩尾
+            -5 标准化
+        :param input_df: 初始数据
+        :param prefix: 预处理生成因子前缀
+        :return: 处理过的数据
+        """
+
+        def __process_single_date(
+                df_: pd.DataFrame,
+        ) -> pd.DataFrame:
+            """单日数据处理"""
+            for setting in self.factors_setting:
+                factor_name = setting.factor_name
+                processed_col = f"{prefix}_{factor_name}"
+
+                df_[processed_col] = df_[factor_name].copy()
+                # -1 第一次 去极值、标准化
+                df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
+                if setting.standardization:
+                    df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
+
+                # -2 中性化
+                if setting.market_value_neutral:
+                    df_[processed_col] = self.processor.neutralization.market_value_neutral(
+                        df_[processed_col],
+                        df_["对数市值"],
+                        winsorizer=self.processor.winsorizer.percentile,
+                        dimensionless=self.processor.dimensionless.standardization
+                    )
+                if setting.industry_neutral:
+                    df_[processed_col] = self.processor.neutralization.industry_neutral(
+                        df_[processed_col],
+                        df_["行业"]
+                    )
+
+                # -3 第二次 去极值、标准化
+                df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
+                if setting.standardization:
+                    df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
+
+            return df_
+
+        result_dfs = []
+        for date, group_df in input_df.groupby("date"):
+            try:
+                processed_df = __process_single_date(group_df)
+                result_dfs.append(processed_df)
+            except ValueError:
+                continue
+
+        # 合并处理结果
+        return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
+
+    def _factors_weighting(
+            self,
+            input_df: pd.DataFrame,
+            prefix: str = "processed"
+    ) -> pd.DataFrame:
+        """
+        因子 -> 加权因子
+        :param input_df: 初始数据
+        :param prefix: 因子前缀
+        :return 加权因子
+        """
+        # -1 三级因子 ic
+        bottom_factors_name = [f"{prefix}_{f.factor_name}" for f in self.factors_setting]
+
+        # -2 三级因子因子权重
+        factors_weight = self.utils.factor_weight.get_factors_weights(
+            factors_value=input_df,
+            factors_name=bottom_factors_name,
+            method=self.model_setting.bottom_factor_weight_method,
+            window=self.model_setting.factor_weight_window
         )
 
         # -3 加权因子
-        weight_factors = self.calc_weight_factors(
-            data=self.raw_data,
-            factors_name=self.factors_name,
-            weights=factor_weights
+        return self.utils.synthesis.factors_weighting(
+            input_df,
+            bottom_factors_name,
+            factors_weight
         )
 
-        # -4 预期收益率
-        predict_return = self.calc_predict_return_by_xgboost(
-            x_value=weight_factors,
-            y_value={date: df["pctChg"] for date, df in self.raw_data.items()},
-            window=self.factor_weight_window
+    def _factors_synthesis(
+            self,
+            input_df: pd.DataFrame,
+            synthesis_table: dict[str, list[str]] | None = None,
+            mode: Literal["THREE_TO_TWO", "TWO_TO_ONE", "ONE_TO_Z", "TWO_TO_Z", "THREE_TO_Z"] | None = None
+    ) -> pd.DataFrame:
+        """
+        三级因子合成二级因子
+            -1 三级因子 -> 二级因子
+            -2 二级因子 -> 一级因子
+            -3 一级因子 -> 综合Z值
+            -4 二级因子 -> 综合Z值
+            -5 三级因子 -> 综合Z值
+        :param input_df: 初始数据
+        :param mode: 因子生成模式
+        """
+        # -1 因子构造表
+        if mode:
+            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
+                self.factors_setting,
+                mode=mode,
+                prefix="processed"
+            )
+        elif synthesis_table:
+            factors_synthesis_table = synthesis_table
+        else:
+            raise TypeError(f"输入有效参数: {synthesis_table} | {mode}")
+
+        # -2 因子权重
+        factors_weight = []
+        for group_factors in factors_synthesis_table.values():
+            factors_weight.append(
+                self.utils.factor_weight.get_factors_weights(
+                    factors_value=input_df,
+                    factors_name=group_factors,
+                    method=self.model_setting.bottom_factor_weight_method,
+                    window=self.model_setting.factor_weight_window
+                )
+            )
+        factors_weight = pd.concat(factors_weight, axis=1)
+
+        # -3 因子合成
+        return self.utils.synthesis.synthesis_factor(
+            input_df=input_df,
+            factors_synthesis_table=factors_synthesis_table,
+            factors_weights=factors_weight,
+            keep_cols=self.keep_cols
         )
-        print(predict_return['2018-05-25'])
-        # -4 分组
-        grouped_data = QuantProcessor.divide_into_group(
-            predict_return,
+
+    @classmethod
+    def model_training_and_predict(
+            cls,
+            input_df: pd.DataFrame,
+            x_cols: list[str],
+            y_col: str,
+            window: int = 12
+    ) -> tuple[pd.DataFrame, float]:
+        """
+        模型训练与预测
+        :param input_df: 输入数据
+        :param x_cols: 因子列名
+        :param y_col: 目标列名
+        :param window: 滚动窗口长度
+        :return: 预期收益率
+        """
+        # 按日期排序并转换为列表
+        sorted_dates = sorted(input_df["date"].unique())
+
+        result_dfs = []
+        metric = []
+        # 滚动窗口遍历
+        for i in range(window, len(sorted_dates)):
+            # ====================
+            # 样本内训练
+            # ====================
+            # 获取训练窗口数据
+            train_window = sorted_dates[i - window: i]
+            x_train, y_train = (
+                input_df.loc[input_df["date"].isin(train_window), x_cols],
+                input_df.loc[input_df["date"].isin(train_window), y_col]
+            )
+            # 训练模型
+            try:
+                model = LinearRegression(fit_intercept=True)
+                model.fit(x_train, y_train)
+            except Exception as e:
+                print(str(e))
+                continue
+
+            # ====================
+            # 样本外预测
+            # ====================
+            # 获取预测日数据
+            predict_date = sorted_dates[i]
+            # 获取测试窗口数据
+            x_test, y_test = (
+                input_df.loc[input_df["date"] == predict_date, x_cols],
+                input_df.loc[input_df["date"] == predict_date, y_col]
+            )
+            # 模型预测
+            y_test_pred = pd.Series(
+                data=model.predict(x_test),
+                index=x_test.index,
+                name="predict"
+            )
+            # 模型评估
+            r2_test = r2_score(y_test, y_test_pred)
+            metric.append(r2_test)
+
+            result_dfs.append(
+                pd.concat(
+                    [
+                        input_df.loc[input_df["date"] == predict_date],
+                        y_test_pred
+                    ],
+                    axis=1)
+            )
+
+        return pd.concat(result_dfs).reset_index(drop=True), np.mean(metric, dtype=np.float64)
+
+    def run(self):
+        """
+        线性模型处理流程：
+            -1 因子数值处理
+            -2 因子降维
+            -3 模型训练、预测
+            -4 收益率预测分组
+            -5 仓位权重配比
+        """
+        # -1 数据处理
+        self.input_df = self._direction_reverse(self.input_df)
+        self.input_df = self._pre_processing(self.input_df)
+        # self.input_df = self.utils.feature.create_polynomial(self.input_df, interaction_only=False)
+
+        # -2 因子合成
+        # level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
+        # level_1_df = self._factors_synthesis(level_2_df, mode="TWO_TO_ONE")
+        # comprehensive_z_df = self._factors_synthesis(level_1_df, mode="ONE_TO_Z")
+
+        weighting_factors_df = self._factors_weighting(self.input_df)
+
+        # -3 模型训练、预测
+        pred_df, estimate_metric = self.model_training_and_predict(
+            input_df=weighting_factors_df,
+            x_cols=["综合Z值"],
+            y_col="pctChg",
+            window=self.model_setting.factor_weight_window
+        )
+
+        # -4 模型后续处理
+        classification_df = self.processor.classification.divide_into_group(
+            pred_df,
             factor_col="",
-            processed_factor_col="predicted",
-            group_mode=self.group_mode,
-            group_nums=self.group_nums,
-            group_label=self.group_label,
-        )
-        print(grouped_data['2018-05-25'])
-        # -5 仓位权重
-        position_weight = self.position_weight.get_weights(
-            grouped_data,
-            factor_col="predicted",
-            method=self.position_weight_method,
-            distribution=self.position_distribution
+            processed_factor_col="predict",
+            group_mode=self.model_setting.group_mode,
+            group_nums=self.model_setting.group_nums,
+            group_label=self.model_setting.group_label,
         )
 
-        # -6 数据合并
-        result = self.join_data(grouped_data, position_weight)
-        result = self.join_data(result, z_score)
-        result = self.join_data(result, self.raw_data)
-        print(result['2018-05-25'])
-        print(result['2018-05-25'].columns)
-        return result
+        # -5 仓位权重
+        position_weight = self.utils.pos_weight.get_weights(
+            classification_df,
+            factor_col="predict",
+            method=self.model_setting.position_weight_method,
+            distribution=self.model_setting.position_distribution
+        )
+
+        return position_weight
