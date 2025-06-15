@@ -241,6 +241,8 @@ class LinearRegressionModel:
         metric = []
         # 滚动窗口遍历
         for i in range(window, len(sorted_dates)):
+            print(sorted_dates[i - window: i])
+            print(sorted_dates[i])
             # ====================
             # 样本内训练
             # ====================
@@ -320,6 +322,7 @@ class LinearRegressionModel:
 
         level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
         print(level_2_df)
+        print(level_2_df["date"])
         level_2_df = self.utils.feature.pca(
             level_2_df,
             self.utils.extract.get_factors_synthesis_table(
@@ -329,13 +332,14 @@ class LinearRegressionModel:
             keep_cols=self.keep_cols
         )
         print(level_2_df)
-        print(level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist())
-
+        print(level_2_df["date"])
+        print({"综合Z值": level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist()})
         comprehensive_z_df = self._factors_synthesis(
             level_2_df,
             synthesis_table={"综合Z值": level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist()}
         )
         print(comprehensive_z_df)
+        print(comprehensive_z_df["date"])
         # comprehensive_z_df = self._factors_synthesis(level_2_df, mode="TWO_TO_Z")
 
         # -3 模型训练、预测

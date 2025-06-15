@@ -144,7 +144,7 @@ class FactorSynthesis:
 
             # -1 计算合成因子
             for senior, component in factors_synthesis_table.items():
-                senior_df = (group[component] * factors_weights.loc[date, component]).sum(axis=1, skipna=False)
+                senior_df = (group[component] * factors_weights.loc[date, component]).sum(axis=1, skipna=True)
                 senior_dfs[senior] = senior_df
 
             # -2 构建当期合成因子df
@@ -819,16 +819,18 @@ class FeatureEngineering:
                     index=df.index,
                     columns=[f"{senior}{i+1}" for i in range(pca.n_components_)]
                 )
-                # -2 添加保留列
-                if keep_cols:
-                    for col in keep_cols:
-                        if col in df.columns and col not in pca_df.columns:
-                            pca_df[col] = df[col].values
-
-                # -3 截面数据合并
                 section_dfs.append(pca_df)
 
-            result_dfs.append(pd.concat(section_dfs))
+            # -2 截面数据合并
+            section_dfs = pd.concat(section_dfs, axis=1)
+
+            # -3 添加保留列
+            if keep_cols:
+                for col in keep_cols:
+                    if col in df.columns and col not in section_dfs.columns:
+                        section_dfs[col] = df[col].values
+
+            result_dfs.append(section_dfs)
 
         # ------------------------------
         # T期截面数据合并
