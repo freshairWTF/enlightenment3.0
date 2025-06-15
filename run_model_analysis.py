@@ -59,7 +59,7 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250530-WEEK"
-    storage_dir = "大剧变测试/linear-测试"
+    storage_dir = "大剧变测试/linear-因子正交-因子合成二级Z值"
 
     """
     阿尔法因子   直接ir加权
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     很多因子可以试一下
     相较于滚动窗口
     """
-    from sklearn.model_selection import TimeSeriesSplit
+    # from sklearn.model_selection import TimeSeriesSplit
 
 
     filter_mode: FILTER_MODE = "_entire_filter"

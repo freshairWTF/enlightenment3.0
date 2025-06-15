@@ -1,0 +1,6 @@
+2025-06-02 10:05:31.684 | INFO     | model.model_service:run:504 - start: <class 'model.linear_multi_factors_model.LinearMultiFactors'> | _entire_filter
+2025-06-02 10:05:31.720 | INFO     | model.model_service:_analyze:424 - ---------- 数据处理 ----------
+2025-06-02 11:24:53.116 | INFO     | model.model_service:_analyze:441 - ---------- 因子降维 ----------
+2025-06-02 11:27:26.306 | INFO     | model.model_service:_analyze:460 - ---------- 模型生成 ----------
+2025-06-02 11:27:49.809 | INFO     | model.model_service:_analyze:480 - ---------- 模型评估 ----------
+2025-06-02 11:31:38.103 | INFO     | model.model_service:_analyze:494 - ---------- 结果存储、可视化 ----------
