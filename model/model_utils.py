@@ -144,7 +144,7 @@ class FactorSynthesis:
 
             # -1 计算合成因子
             for senior, component in factors_synthesis_table.items():
-                senior_df = (group[component] * factors_weights.loc[date, component]).sum(axis=1, skipna=True)
+                senior_df = (group[component] * factors_weights.loc[date, component]).sum(axis=1, skipna=True, min_count=1)
                 senior_dfs[senior] = senior_df
 
             # -2 构建当期合成因子df
