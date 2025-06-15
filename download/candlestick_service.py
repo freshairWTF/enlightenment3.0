@@ -133,7 +133,6 @@ class Downloader:
             sort_by=["date"]
         )
 
-
     # --------------------------
     # 下载主逻辑
     # --------------------------
@@ -167,11 +166,11 @@ class Downloader:
     # --------------------------
     def run(self):
         """执行批量下载"""
-        self.logger.info(f"开始下载 | 总数: {len(self.code_list)} | 类型: {self.download_object}")
+        self.logger.info(f"开始下载 | 总数: {len(self.code_list)} | 类型: {self.download_object} | {self.adjust_flag}")
 
         with self.source() as source:
             for idx, code in enumerate(self.code_list, 1):
-                self.logger.info(f"开始下载 | {idx}: {code} | 类型: {self.download_object}")
+                self.logger.info(f"开始下载 | {idx}: {code} | 类型: {self.download_object} | {self.adjust_flag}")
                 result = self._download_single(source, code)
                 if result:
                     time.sleep(self.pause_time)

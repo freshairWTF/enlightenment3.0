@@ -295,14 +295,25 @@ class LinearRegressionModel:
         # -1 数据处理
         self.input_df = self._direction_reverse(self.input_df)
         self.input_df = self._pre_processing(self.input_df)
-        # self.input_df = self.utils.
+        # self.input_df = self.utils.feature.create_polynomial(self.input_df, interaction_only=False)
 
         # -2 因子合成
-        level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
-        level_1_df = self._factors_synthesis(level_2_df, mode="TWO_TO_ONE")
-        comprehensive_z_df = self._factors_synthesis(level_1_df, mode="ONE_TO_Z")
+        # level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
+        # level_1_df = self._factors_synthesis(level_2_df, mode="TWO_TO_ONE")
+        # comprehensive_z_df = self._factors_synthesis(level_1_df, mode="ONE_TO_Z")
 
         # weighting_factors_df = self._factors_weighting(self.input_df)
+        # comprehensive_z_df = self._factors_synthesis(weighting_factors_df, mode="THREE_TO_Z")
+        self.input_df = self.utils.feature.factors_orthogonal(
+            self.input_df,
+            self.utils.extract.get_factors_synthesis_table(
+                self.factors_setting,
+                mode="THREE_TO_TWO",
+                prefix="processed"
+            )
+        )
+        level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
+        comprehensive_z_df = self._factors_synthesis(level_2_df, mode="TWO_TO_Z")
 
         # -3 模型训练、预测
         pred_df, estimate_metric = self.model_training_and_predict(
