@@ -796,44 +796,44 @@ class FeatureEngineering:
     def pca(
             input_df: pd.DataFrame,
             factors_synthesis_table: dict[str, list[str]],
+            keep_cols: list[str] = None,
             n_components: float = 0.95
     ) -> pd.DataFrame:
         """
         PCA降维
         :param input_df: 因子数据
         :param factors_synthesis_table: 因子合成字典
+        :param keep_cols: 需要保留的原始列名列表
         :param n_components: 解释方差
         :return 降维因子
         """
-        result = []
+        result_dfs = []
         for date, df in input_df.groupby("date"):
-            # ------------------------------
-            # 截面PCA降维
-            # ------------------------------
-            section_df = pd.DataFrame()
+
+            section_dfs = []
             for senior, component_factors in factors_synthesis_table.items():
-                # -1 二级因子分类PCA降维
+                # -1 分类 PCA降维
                 pca = PCA(n_components=n_components)
-                pca_result = pd.DataFrame(
+                pca_df = pd.DataFrame(
                     pca.fit_transform(df[component_factors]),
                     index=df.index,
                     columns=[f"{senior}{i+1}" for i in range(pca.n_components_)]
                 )
-                pca_result[["index", "date"]] = df[["index", "date"]]
+                # -2 添加保留列
+                if keep_cols:
+                    for col in keep_cols:
+                        if col in df.columns and col not in pca_df.columns:
+                            pca_df[col] = df[col].values
 
-                # -2 截面数据合并
-                if section_df.empty:
-                    section_df = pca_result
-                else:
-                    section_df = section_df.merge(pca_result, on=['index', 'date'], how='inner')
+                # -3 截面数据合并
+                section_dfs.append(pca_df)
 
-            # -3 添加数据集
-            result.append(section_df)
+            result_dfs.append(pd.concat(section_dfs))
 
         # ------------------------------
         # T期截面数据合并
         # ------------------------------
-        return pd.concat(result, ignore_index=True)
+        return pd.concat(result_dfs, ignore_index=True)
 
     @staticmethod
     def factors_orthogonal(

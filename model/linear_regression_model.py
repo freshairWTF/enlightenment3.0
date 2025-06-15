@@ -172,7 +172,8 @@ class LinearRegressionModel:
     def _factors_synthesis(
             self,
             input_df: pd.DataFrame,
-            mode: Literal["THREE_TO_TWO", "TWO_TO_ONE", "ONE_TO_Z", "TWO_TO_Z", "THREE_TO_Z"]
+            synthesis_table: dict[str, list[str]] | None = None,
+            mode: Literal["THREE_TO_TWO", "TWO_TO_ONE", "ONE_TO_Z", "TWO_TO_Z", "THREE_TO_Z"] | None = None
     ) -> pd.DataFrame:
         """
         三级因子合成二级因子
@@ -185,11 +186,16 @@ class LinearRegressionModel:
         :param mode: 因子生成模式
         """
         # -1 因子构造表
-        factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
-            self.factors_setting,
-            mode=mode,
-            prefix="processed"
-        )
+        if mode:
+            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
+                self.factors_setting,
+                mode=mode,
+                prefix="processed"
+            )
+        elif synthesis_table:
+            factors_synthesis_table = synthesis_table
+        else:
+            raise TypeError(f"输入有效参数: {synthesis_table} | {mode}")
 
         # -2 因子权重
         factors_weight = []
@@ -308,12 +314,29 @@ class LinearRegressionModel:
             self.input_df,
             self.utils.extract.get_factors_synthesis_table(
                 self.factors_setting,
-                mode="THREE_TO_TWO",
-                prefix="processed"
+                mode="THREE_TO_TWO"
             )
         )
+
         level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
-        comprehensive_z_df = self._factors_synthesis(level_2_df, mode="TWO_TO_Z")
+        print(level_2_df)
+        level_2_df = self.utils.feature.pca(
+            level_2_df,
+            self.utils.extract.get_factors_synthesis_table(
+                self.factors_setting,
+                mode="TWO_TO_ONE"
+            ),
+            keep_cols=self.keep_cols
+        )
+        print(level_2_df)
+        print(level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist())
+
+        comprehensive_z_df = self._factors_synthesis(
+            level_2_df,
+            synthesis_table={"综合Z值": level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist()}
+        )
+        print(comprehensive_z_df)
+        # comprehensive_z_df = self._factors_synthesis(level_2_df, mode="TWO_TO_Z")
 
         # -3 模型训练、预测
         pred_df, estimate_metric = self.model_training_and_predict(
