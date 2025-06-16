@@ -59,8 +59,8 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250530-WEEK"
-    storage_dir = "大剧变测试/traditional_linear-20250530W"
+    source_dir = "20250530-WEEK-跟踪"
+    storage_dir = "评估指标调试/traditional_linear-20250530W"
 
     """
     阿尔法因子   直接ir加权
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="traditional_linear",
+        model="xgboost",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},

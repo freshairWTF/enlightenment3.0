@@ -4,25 +4,12 @@ from type_ import Literal
 
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
 import pandas as pd
 
 from utils.processor import DataProcessor
 from model.model_utils import ModelUtils
-
-"""
-    -1 多项式 是/否
-        是 -> 仅生成交叉项 是/否
-    -2 因子合成 是/否 
-        -> 是：二级因子/综合Z值
-            -> 二级因子 特征提取 是/否
-        -> 否：三级因子 特征提取 是/否
-    -3 线性模型
-        基础线性模型
-        lasso
-
-"""
 
 
 ########################################################################
@@ -216,7 +203,7 @@ class LinearRegressionTraditionalModel:
             x_cols: list[str],
             y_col: str,
             window: int = 12
-    ) -> tuple[pd.DataFrame, float]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         模型训练与预测
         :param input_df: 输入数据
@@ -229,7 +216,11 @@ class LinearRegressionTraditionalModel:
         sorted_dates = sorted(input_df["date"].unique())
 
         result_dfs = []
-        metric = []
+        metrics = {
+            'MAE': [],
+            'RMSE': [],
+            'R2': []
+        }
         # 滚动窗口遍历
         for i in range(window, len(sorted_dates)):
             # ====================
@@ -260,27 +251,43 @@ class LinearRegressionTraditionalModel:
                 input_df.loc[input_df["date"] == predict_date, y_col]
             )
             # 模型预测
-            y_test_pred = pd.Series(
+            y_pred = pd.Series(
                 data=model.predict(x_test),
                 index=x_test.index,
                 name="predict"
             )
-            # 模型评估
-            r2_test = r2_score(y_test, y_test_pred)
-            metric.append(r2_test)
-
             result_dfs.append(
                 pd.concat(
                     [
                         input_df.loc[input_df["date"] == predict_date],
-                        y_test_pred
+                        y_pred
                     ],
                     axis=1)
             )
 
-        return pd.concat(result_dfs).reset_index(drop=True), np.mean(metric, dtype=np.float64)
+            # ====================
+            # 模型评估
+            # ====================
+            metrics['MAE'].append(mean_absolute_error(y_test, y_pred))
+            metrics['RMSE'].append(np.sqrt(mean_squared_error(y_test, y_pred)))
+            metrics['R2'].append(r2_score(y_test, y_pred))
 
-    def run(self):
+        # ====================
+        # 模型评估指标聚合
+        # ====================
+        metrics = pd.DataFrame(
+            {
+                k: np.nanmean(v) if v else np.nan
+                for k, v in metrics.items()
+            },
+            index=["value"]
+        )
+
+        return pd.concat(result_dfs).reset_index(drop=True), metrics
+
+    def run(
+            self
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         线性模型处理流程：
             -1 因子数值处理
@@ -352,4 +359,4 @@ class LinearRegressionTraditionalModel:
             distribution=self.model_setting.position_distribution
         )
 
-        return position_weight
+        return position_weight, estimate_metric

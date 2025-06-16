@@ -4,8 +4,7 @@ from type_ import Literal
 
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
-# from sklearn.feature_selection import SelectFromModel
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
 import pandas as pd
 
@@ -225,7 +224,7 @@ class LinearRegressionModel:
             x_cols: list[str],
             y_col: str,
             window: int = 12
-    ) -> tuple[pd.DataFrame, float]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         模型训练与预测
         :param input_df: 输入数据
@@ -238,7 +237,11 @@ class LinearRegressionModel:
         sorted_dates = sorted(input_df["date"].unique())
 
         result_dfs = []
-        metric = []
+        metrics = {
+            'MAE': [],
+            'RMSE': [],
+            'R2': []
+        }
         # 滚动窗口遍历
         for i in range(window, len(sorted_dates)):
             # ====================
@@ -269,27 +272,42 @@ class LinearRegressionModel:
                 input_df.loc[input_df["date"] == predict_date, y_col]
             )
             # 模型预测
-            y_test_pred = pd.Series(
+            y_pred = pd.Series(
                 data=model.predict(x_test),
                 index=x_test.index,
                 name="predict"
             )
-            # 模型评估
-            r2_test = r2_score(y_test, y_test_pred)
-            metric.append(r2_test)
-
             result_dfs.append(
                 pd.concat(
                     [
                         input_df.loc[input_df["date"] == predict_date],
-                        y_test_pred
+                        y_pred
                     ],
                     axis=1)
             )
+            # ====================
+            # 模型评估
+            # ====================
+            metrics['MAE'].append(mean_absolute_error(y_test, y_pred))
+            metrics['RMSE'].append(np.sqrt(mean_squared_error(y_test, y_pred)))
+            metrics['R2'].append(r2_score(y_test, y_pred))
 
-        return pd.concat(result_dfs).reset_index(drop=True), np.mean(metric, dtype=np.float64)
+        # ====================
+        # 模型评估指标聚合
+        # ====================
+        metrics = pd.DataFrame(
+            {
+                k: np.nanmean(v) if v else np.nan
+                for k, v in metrics.items()
+            },
+            index=["value"]
+        )
 
-    def run(self):
+        return pd.concat(result_dfs).reset_index(drop=True), metrics
+
+    def run(
+            self
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         线性模型处理流程：
             -1 因子数值处理
@@ -362,4 +380,4 @@ class LinearRegressionModel:
             distribution=self.model_setting.position_distribution
         )
 
-        return position_weight
+        return position_weight, estimate_metric
