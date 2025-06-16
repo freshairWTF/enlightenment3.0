@@ -38,6 +38,7 @@ MODEL = {
     "linear": LinearRegressionModel,
     "traditional_linear": LinearRegressionTraditionalModel,
     "xgboost": XGBoostRegressionModel,
+    "xgboostCV": XGBoostRegressionCVModel,
     "randomforest": RandomForestClassificationModel
 }
 
