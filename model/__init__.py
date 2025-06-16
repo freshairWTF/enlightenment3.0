@@ -3,7 +3,7 @@
 """
 from linear_regression_model import LinearRegressionModel
 from linear_regression_model_traditional import LinearRegressionTraditionalModel
-from xgboost_regression_model import XGBoostRegressionModel
+from xgboost_regression_cv_model import XGBoostRegressionModel
 from randomforest_classification_model import RandomForestClassificationModel
 
 __all__ = [

@@ -1,8 +1,9 @@
-"""线性回归模型"""
+"""xgboost回归模型"""
 from dataclasses import dataclass
-from type_ import Literal
-from sklearn.linear_model import LinearRegression
+from xgboost import XGBRegressor
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
+from type_ import Literal
 
 import numpy as np
 import pandas as pd
@@ -12,8 +13,8 @@ from model.model_utils import ModelUtils
 
 
 ########################################################################
-class LinearRegressionTraditionalModel:
-    """线性回归模型"""
+class XGBoostRegressionCVModel:
+    """XGBoost回归模型（超参寻优）"""
 
     def __init__(
             self,
@@ -39,18 +40,37 @@ class LinearRegressionTraditionalModel:
 
         self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值"]  # 保留列
 
+        # 超参数网格
+        # n_estimators/learning_rate
+        # max_depth/min_child_weight/gamma
+        # reg_alpha/reg_lambda
+        # subsample/colsample_bytree
+        self.model_param_grid = {
+            'learning_rate': [0.01, 0.05, 0.1],
+            'n_estimators': [10, 50, 100, 500, 1000, 3000, 5000]
+        }
+
     def _direction_reverse(
             self,
             input_df: pd.DataFrame
     ) -> pd.DataFrame:
         """
-        因子方向反转（历史回测）
+        因子方向反转（权重为负值）
         """
         reverse_df = input_df.copy(deep=True)
 
-        for setting in self.factors_setting:
-            if setting.reverse:
-                reverse_df[setting.factor_name] *= -1
+        # -1 三级因子 ic
+        bottom_factors_name = [f.factor_name for f in self.factors_setting]
+        factors_ic = (
+            self.utils.factor_weight.calc_rank_ic(reverse_df, bottom_factors_name)
+            .shift(1)
+            .rolling(12, min_periods=1).mean()
+        )
+
+        # -2 因子值反转（依据因子滚动IC均值）
+        for factor_name in bottom_factors_name:
+            negative_dates = factors_ic[factors_ic[factor_name] < 0].index
+            reverse_df.loc[reverse_df["date"].isin(negative_dates), factor_name] *= -1
 
         return reverse_df
 
@@ -195,9 +215,8 @@ class LinearRegressionTraditionalModel:
             keep_cols=self.keep_cols
         )
 
-    @classmethod
     def model_training_and_predict(
-            cls,
+            self,
             input_df: pd.DataFrame,
             x_cols: list[str],
             y_col: str,
@@ -231,13 +250,37 @@ class LinearRegressionTraditionalModel:
                 input_df.loc[input_df["date"].isin(train_window), x_cols],
                 input_df.loc[input_df["date"].isin(train_window), y_col]
             )
-            # 训练模型
-            try:
-                model = LinearRegression(fit_intercept=True)
-                model.fit(x_train, y_train)
-            except Exception as e:
-                print(str(e))
-                continue
+
+            # 3.1 时间序列交叉验证 + 超参数优化
+            tscv = TimeSeriesSplit(n_splits=5, gap=1)
+            model = XGBRegressor(objective='reg:squarederror')
+
+            # 网格搜索寻优
+            grid_search = GridSearchCV(
+                estimator=model,
+                param_grid=self.model_param_grid,
+                cv=tscv,
+                scoring='neg_mean_squared_error',
+                n_jobs=-1
+            )
+            grid_search.fit(
+                x_train,
+                y_train,
+                # eval_set=[(x_valid, y_valid)],
+                # early_stopping_rounds=100,
+            )
+            best_model = grid_search.best_estimator_
+
+            # 提取每次CV的最优参数
+            results = pd.DataFrame(grid_search.cv_results_)
+            best_params_per_fold = []
+            for grid_i in range(grid_search.n_splits_):
+                # 筛选当前折的最佳参数组合（按排名rank=1）
+                best_idx = results[f'split{grid_i}_test_score'].idxmax()
+                best_params = results.loc[best_idx, 'params']
+                best_score = results.loc[best_idx, f'split{grid_i}_test_score']
+                best_params_per_fold.append((best_params, best_score))
+                print(f"Fold {grid_i + 1} - Best Params: {best_params}, Score: {-best_score:.4f}")
 
             # ====================
             # 样本外预测
@@ -251,18 +294,16 @@ class LinearRegressionTraditionalModel:
             )
             # 模型预测
             y_pred = pd.Series(
-                data=model.predict(x_test),
+                data=best_model.predict(x_test),
                 index=x_test.index,
                 name="predict"
             )
-            result_dfs.append(
-                pd.concat(
-                    [
-                        input_df.loc[input_df["date"] == predict_date],
-                        y_pred
-                    ],
-                    axis=1)
-            )
+            output_df = input_df.loc[input_df["date"] == predict_date]
+            output_df["predict"] = y_pred
+
+            print(predict_date)
+            print(output_df["date"].unique())
+            result_dfs.append(output_df)
 
             # ====================
             # 模型评估
@@ -295,53 +336,26 @@ class LinearRegressionTraditionalModel:
             -4 收益率预测分组
             -5 仓位权重配比
         """
-        # ----------------------------------
-        # 数值处理
-        # ----------------------------------
-        # -1 方向反转
+        # -1 数据处理
         self.input_df = self._direction_reverse(self.input_df)
-        # -2 预处理
         self.input_df = self._pre_processing(self.input_df)
-        # -3 对称正交
-        self.input_df = self.utils.feature.factors_orthogonal(
+
+        # -2 因子合成
+        level_2_df = self._factors_synthesis(
             self.input_df,
-            factors_name=self.utils.extract.get_factors_synthesis_table(
-                self.factors_setting,
-                mode="THREE_TO_TWO"
-            )
+            mode="THREE_TO_TWO"
         )
 
-        # ----------------------------------
-        # 因子降维
-        # ----------------------------------
-        # -1 因子合成
-        level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
-        # -2 pca降维
-        pca_df = self.utils.feature.pca(
-            level_2_df,
-            factors_synthesis_table=self.utils.extract.get_factors_synthesis_table(
-                self.factors_setting,
-                mode="TWO_TO_ONE"
-            ),
-            keep_cols=self.keep_cols
-        )
-        # -3 合成 综合Z值
-        comprehensive_z_df = self._factors_synthesis(
-            pca_df,
-            synthesis_table={"综合Z值": pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()}
-        )
-
-        # ----------------------------------
-        # 模型
-        # ----------------------------------
-        # -1 模型训练、预测
+        # -3 模型训练、预测
         pred_df, estimate_metric = self.model_training_and_predict(
-            input_df=comprehensive_z_df,
-            x_cols=["综合Z值"],
+            input_df=level_2_df,
+            x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
             y_col="pctChg",
             window=self.model_setting.factor_weight_window
         )
-        # -2 收益率分组
+        print(pred_df['date'].unique())
+
+        # -4 模型后续处理
         classification_df = self.processor.classification.divide_into_group(
             pred_df,
             factor_col="",
@@ -350,7 +364,8 @@ class LinearRegressionTraditionalModel:
             group_nums=self.model_setting.group_nums,
             group_label=self.model_setting.group_label,
         )
-        # -3 仓位权重赋值
+
+        # -5 仓位权重
         position_weight = self.utils.pos_weight.get_weights(
             classification_df,
             factor_col="predict",

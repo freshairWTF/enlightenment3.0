@@ -1,13 +1,10 @@
 """xgboost回归模型"""
 from dataclasses import dataclass
-
 from type_ import Literal
-
-import numpy as np
 from xgboost import XGBRegressor
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 
+import numpy as np
 import pandas as pd
 
 from utils.processor import DataProcessor
@@ -253,36 +250,12 @@ class XGBoostRegressionModel:
                 input_df.loc[input_df["date"].isin(train_window), y_col]
             )
 
-            # 3.1 时间序列交叉验证 + 超参数优化
-            tscv = TimeSeriesSplit(n_splits=5, gap=1)
+            # 训练模型
             model = XGBRegressor(objective='reg:squarederror')
-
-            # 网格搜索寻优
-            grid_search = GridSearchCV(
-                estimator=model,
-                param_grid=self.model_param_grid,
-                cv=tscv,
-                scoring='neg_mean_squared_error',
-                n_jobs=-1
-            )
-            grid_search.fit(
+            model.fit(
                 x_train,
                 y_train,
-                # eval_set=[(x_valid, y_valid)],
-                # early_stopping_rounds=100,
             )
-            best_model = grid_search.best_estimator_
-
-            # 提取每次CV的最优参数
-            results = pd.DataFrame(grid_search.cv_results_)
-            best_params_per_fold = []
-            for grid_i in range(grid_search.n_splits_):
-                # 筛选当前折的最佳参数组合（按排名rank=1）
-                best_idx = results[f'split{grid_i}_test_score'].idxmax()
-                best_params = results.loc[best_idx, 'params']
-                best_score = results.loc[best_idx, f'split{grid_i}_test_score']
-                best_params_per_fold.append((best_params, best_score))
-                print(f"Fold {grid_i + 1} - Best Params: {best_params}, Score: {-best_score:.4f}")
 
             # ====================
             # 样本外预测
@@ -296,19 +269,13 @@ class XGBoostRegressionModel:
             )
             # 模型预测
             y_pred = pd.Series(
-                data=best_model.predict(x_test),
+                data=model.predict(x_test),
                 index=x_test.index,
                 name="predict"
             )
-
-            result_dfs.append(
-                pd.concat(
-                    [
-                        input_df.loc[input_df["date"] == predict_date],
-                        y_pred
-                    ],
-                    axis=1)
-            )
+            output_df = input_df.loc[input_df["date"] == predict_date]
+            output_df["predict"] = y_pred
+            result_dfs.append(output_df)
 
             # ====================
             # 模型评估
@@ -328,7 +295,7 @@ class XGBoostRegressionModel:
             index=["value"]
         )
 
-        return pd.concat(result_dfs).reset_index(drop=True), metrics
+        return pd.concat(result_dfs, ignore_index=True), metrics
 
     def run(
             self
