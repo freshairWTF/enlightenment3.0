@@ -77,14 +77,17 @@ class Drawer(object):
             for method_rank, chart_config in page_config.items():
                 # 方法名
                 method_name = method_rank.split('-')[0]
-                # 聚合数据
-                data = self._get_agg_data(method_name, chart_config)
-                if method_name and hasattr(self, method_name):
-                    self.pages[page].add(
-                        getattr(self, method_name)(chart_config, data)
-                    )
-                else:
-                    raise ValueError(f'未实现的方法: {method_name}')
+                try:
+                    # 聚合数据
+                    data = self._get_agg_data(method_name, chart_config)
+                    if method_name and hasattr(self, method_name):
+                        self.pages[page].add(
+                            getattr(self, method_name)(chart_config, data)
+                        )
+                    else:
+                        raise ValueError(f'未实现的方法: {method_name}')
+                except:
+                    continue
 
     def render(
             self
@@ -539,14 +542,17 @@ class IndividualDrawer(object):
             for method_rank, chart_config in page_config.items():
                 # 方法名
                 method_name = method_rank.split('-')[0]
-                # 聚合数据
-                data = self._get_agg_data(method_name, chart_config)
-                if method_name and hasattr(self, method_name):
-                    self.pages[page].add(
-                        getattr(self, method_name)(chart_config, data)
-                    )
-                else:
-                    raise ValueError(f'未实现的方法: {method_name}')
+                try:
+                    # 聚合数据
+                    data = self._get_agg_data(method_name, chart_config)
+                    if method_name and hasattr(self, method_name):
+                        self.pages[page].add(
+                            getattr(self, method_name)(chart_config, data)
+                        )
+                    else:
+                        raise ValueError(f'未实现的方法: {method_name}')
+                except:
+                    continue
 
     def render(
             self

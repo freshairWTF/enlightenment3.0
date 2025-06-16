@@ -109,14 +109,14 @@ class XGBoostRegressionModel:
 
                 # -2 中性化
                 if setting.market_value_neutral:
-                    df_[processed_col] = self.processor.neutralization.market_value_neutral(
+                    df_[processed_col] = self.processor.neutralization.log_market_cap(
                         df_[processed_col],
                         df_["对数市值"],
                         winsorizer=self.processor.winsorizer.percentile,
                         dimensionless=self.processor.dimensionless.standardization
                     )
                 if setting.industry_neutral:
-                    df_[processed_col] = self.processor.neutralization.industry_neutral(
+                    df_[processed_col] = self.processor.neutralization.industry(
                         df_[processed_col],
                         df_["行业"]
                     )
@@ -276,13 +276,13 @@ class XGBoostRegressionModel:
             # 提取每次CV的最优参数
             results = pd.DataFrame(grid_search.cv_results_)
             best_params_per_fold = []
-            for i in range(grid_search.n_splits_):
+            for grid_i in range(grid_search.n_splits_):
                 # 筛选当前折的最佳参数组合（按排名rank=1）
-                best_idx = results[f'split{i}_test_score'].idxmax()
+                best_idx = results[f'split{grid_i}_test_score'].idxmax()
                 best_params = results.loc[best_idx, 'params']
-                best_score = results.loc[best_idx, f'split{i}_test_score']
+                best_score = results.loc[best_idx, f'split{grid_i}_test_score']
                 best_params_per_fold.append((best_params, best_score))
-                print(f"Fold {i + 1} - Best Params: {best_params}, Score: {-best_score:.4f}")
+                print(f"Fold {grid_i + 1} - Best Params: {best_params}, Score: {-best_score:.4f}")
 
             # ====================
             # 样本外预测
@@ -309,6 +309,7 @@ class XGBoostRegressionModel:
                     ],
                     axis=1)
             )
+
             # ====================
             # 模型评估
             # ====================

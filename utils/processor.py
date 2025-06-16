@@ -200,7 +200,7 @@ class Neutralization:
     """中性化"""
 
     @staticmethod
-    def market_value_neutral(
+    def log_market_cap(
             factor_values: pd.DataFrame | pd.Series,
             market_value: pd.Series,
             winsorizer: Callable[[pd.DataFrame | pd.Series], pd.DataFrame | pd.Series],
@@ -274,7 +274,7 @@ class Neutralization:
             raise TypeError('仅支持 DataFrame/Series 类型输入')
 
     @classmethod
-    def industry_neutral(
+    def industry(
             cls,
             factor_values: pd.DataFrame | pd.Series,
             industry_series: pd.Series
@@ -682,9 +682,3 @@ class Classification:
                 labels=group_label,
                 duplicates="drop"
             )
-
-
-###############################################################
-class StyleNeutralization:
-    """风格中性化"""
-

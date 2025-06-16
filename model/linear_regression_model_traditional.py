@@ -88,14 +88,14 @@ class LinearRegressionTraditionalModel:
 
                 # -2 中性化
                 if setting.market_value_neutral:
-                    df_[processed_col] = self.processor.neutralization.market_value_neutral(
+                    df_[processed_col] = self.processor.neutralization.log_market_cap(
                         df_[processed_col],
                         df_["对数市值"],
                         winsorizer=self.processor.winsorizer.percentile,
                         dimensionless=self.processor.dimensionless.standardization
                     )
                 if setting.industry_neutral:
-                    df_[processed_col] = self.processor.neutralization.industry_neutral(
+                    df_[processed_col] = self.processor.neutralization.industry(
                         df_[processed_col],
                         df_["行业"]
                     )
