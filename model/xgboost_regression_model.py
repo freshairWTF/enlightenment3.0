@@ -5,7 +5,7 @@ from type_ import Literal
 
 import numpy as np
 from xgboost import XGBRegressor
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 
 import pandas as pd
@@ -43,10 +43,13 @@ class XGBoostRegressionModel:
         self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值"]  # 保留列
 
         # 超参数网格
+        # n_estimators/learning_rate
+        # max_depth/min_child_weight/gamma
+        # reg_alpha/reg_lambda
+        # subsample/colsample_bytree
         self.model_param_grid = {
-            'max_depth': [3, 5],
-            'learning_rate': [0.01, 0.1],
-            'n_estimators': [50, 100]
+            'learning_rate': [0.01, 0.05, 0.1],
+            'n_estimators': [10, 50, 100, 500, 1000, 3000, 5000]
         }
 
     def _direction_reverse(
@@ -106,14 +109,14 @@ class XGBoostRegressionModel:
 
                 # -2 中性化
                 if setting.market_value_neutral:
-                    df_[processed_col] = self.processor.neutralization.market_value_neutral(
+                    df_[processed_col] = self.processor.neutralization.log_market_cap(
                         df_[processed_col],
                         df_["对数市值"],
                         winsorizer=self.processor.winsorizer.percentile,
                         dimensionless=self.processor.dimensionless.standardization
                     )
                 if setting.industry_neutral:
-                    df_[processed_col] = self.processor.neutralization.industry_neutral(
+                    df_[processed_col] = self.processor.neutralization.industry(
                         df_[processed_col],
                         df_["行业"]
                     )
@@ -220,7 +223,7 @@ class XGBoostRegressionModel:
             x_cols: list[str],
             y_col: str,
             window: int = 12
-    ) -> tuple[pd.DataFrame, float]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         模型训练与预测
         :param input_df: 输入数据
@@ -233,7 +236,11 @@ class XGBoostRegressionModel:
         sorted_dates = sorted(input_df["date"].unique())
 
         result_dfs = []
-        metric = []
+        metrics = {
+            'MAE': [],
+            'RMSE': [],
+            'R2': []
+        }
         # 滚动窗口遍历
         for i in range(window, len(sorted_dates)):
             # ====================
@@ -250,16 +257,32 @@ class XGBoostRegressionModel:
             tscv = TimeSeriesSplit(n_splits=5, gap=1)
             model = XGBRegressor(objective='reg:squarederror')
 
-            # 网格搜索寻优（引用[6,8](@ref)）
+            # 网格搜索寻优
             grid_search = GridSearchCV(
                 estimator=model,
                 param_grid=self.model_param_grid,
                 cv=tscv,
                 scoring='neg_mean_squared_error',
-                n_jobs=-1  # 并行加速
+                n_jobs=-1
             )
-            grid_search.fit(x_train, y_train)
+            grid_search.fit(
+                x_train,
+                y_train,
+                # eval_set=[(x_valid, y_valid)],
+                # early_stopping_rounds=100,
+            )
             best_model = grid_search.best_estimator_
+
+            # 提取每次CV的最优参数
+            results = pd.DataFrame(grid_search.cv_results_)
+            best_params_per_fold = []
+            for grid_i in range(grid_search.n_splits_):
+                # 筛选当前折的最佳参数组合（按排名rank=1）
+                best_idx = results[f'split{grid_i}_test_score'].idxmax()
+                best_params = results.loc[best_idx, 'params']
+                best_score = results.loc[best_idx, f'split{grid_i}_test_score']
+                best_params_per_fold.append((best_params, best_score))
+                print(f"Fold {grid_i + 1} - Best Params: {best_params}, Score: {-best_score:.4f}")
 
             # ====================
             # 样本外预测
@@ -272,27 +295,44 @@ class XGBoostRegressionModel:
                 input_df.loc[input_df["date"] == predict_date, y_col]
             )
             # 模型预测
-            y_test_pred = pd.Series(
+            y_pred = pd.Series(
                 data=best_model.predict(x_test),
                 index=x_test.index,
                 name="predict"
             )
-            # 模型评估
-            r2_test = r2_score(y_test, y_test_pred)
-            metric.append(r2_test)
 
             result_dfs.append(
                 pd.concat(
                     [
                         input_df.loc[input_df["date"] == predict_date],
-                        y_test_pred
+                        y_pred
                     ],
                     axis=1)
             )
 
-        return pd.concat(result_dfs).reset_index(drop=True), np.mean(metric, dtype=np.float64)
+            # ====================
+            # 模型评估
+            # ====================
+            metrics['MAE'].append(mean_absolute_error(y_test, y_pred))
+            metrics['RMSE'].append(np.sqrt(mean_squared_error(y_test, y_pred)))
+            metrics['R2'].append(r2_score(y_test, y_pred))
 
-    def run(self):
+        # ====================
+        # 模型评估指标聚合
+        # ====================
+        metrics = pd.DataFrame(
+            {
+                k: np.nanmean(v) if v else np.nan
+                for k, v in metrics.items()
+            },
+            index=["value"]
+        )
+
+        return pd.concat(result_dfs).reset_index(drop=True), metrics
+
+    def run(
+            self
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         线性模型处理流程：
             -1 因子数值处理
@@ -337,4 +377,4 @@ class XGBoostRegressionModel:
             distribution=self.model_setting.position_distribution
         )
 
-        return position_weight
+        return position_weight, estimate_metric

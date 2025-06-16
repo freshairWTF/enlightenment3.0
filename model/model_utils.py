@@ -872,7 +872,7 @@ class FeatureEngineering:
         """
         创建多项式（不带截距项）
         :param factor_values: 因子数据
-        :param factors_name: 因子名
+        :param factors_name: 多项式因子名
         :param degree: 最高系数
         :param interaction_only: 仅包含交叉项
         :return: 包含因子多项式的数据

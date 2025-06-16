@@ -231,22 +231,23 @@ class ModelAnalyzer(QuantService):
     # --------------------------
     def _calc_model_metrics(
             self,
-            grouped_data: dict[str, pd.DataFrame]
+            grouped_data: dict[str, pd.DataFrame],
+            ic_test: bool = False
     ) -> dict:
         """计算模型指标"""
-        ic_stats = self.calc_model_ic_metrics(
-            grouped_data, "综合Z值", self.cycle
-        )
-        ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
-        reverse = True if ic_mean < 0 else False
+        # ic检验条件：合成综合Z值
+        if ic_test:
+            ic_stats = self.calc_model_ic_metrics(
+                grouped_data, "综合Z值", self.cycle
+            )
+            ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
+            reverse = True if ic_mean < 0 else False
+        else:
+            ic_stats = {}
+            reverse = False
+
         return {
-            **{
-                "coverage": self.calc_coverage(grouped_data, self.listed_nums),
-                # "desc_stats": self.get_desc_stats(
-                #     grouped_data,
-                #     list(set(self.model_factors_name + self.DESCRIPTIVE_FACTOR))
-                # )
-            },
+            "coverage": self.calc_coverage(grouped_data, self.listed_nums),
             **ic_stats,
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
@@ -376,9 +377,10 @@ class ModelAnalyzer(QuantService):
             input_df=pre_processing_df,
             model_setting=self.model_setting
         )
+        model_df, metrics_df = model.run()
         model_data = {
             str(date): group
-            for date, group in model.run().groupby("date")
+            for date, group in model_df.groupby("date")
         }
 
         # ---------------------------------------
@@ -386,13 +388,11 @@ class ModelAnalyzer(QuantService):
         # ---------------------------------------
         self.logger.info("---------- 模型评估 ----------")
         result = {
-            **self._calc_model_metrics(model_data),
-            # **{
-            #     "beta_feature": beta_feature
-            # },
-            # **{
-            #     "r_squared": r_squared
-            # }
+            **self._calc_model_metrics(
+                model_data,
+                ic_test=True if "综合Z值" in model_df.columns else False
+            ),
+            **{"模型评估指标": metrics_df}
         }
 
         # ---------------------------------------

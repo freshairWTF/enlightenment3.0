@@ -366,18 +366,22 @@ class ReturnMetrics:
         })
         diffs = group_df["最高组"] - group_df["次高组"]
 
-        # -2 正态性检验（Shapiro-Wilk）
-        _, shapiro_p = stats.shapiro(diffs)
+        try:
+            # -2 正态性检验（Shapiro-Wilk）
+            _, shapiro_p = stats.shapiro(diffs)
 
-        # -3 自动选择检验方法
-        if shapiro_p > 0.05:
-            # 满足正态分布
-            _, p_value = stats.ttest_1samp(diffs, popmean=0, alternative='less')
-        else:
-            # 不满足正态分布
-            _, p_value = stats.wilcoxon(diffs, alternative='less', mode='approx')
+            # -3 自动选择检验方法
+            if shapiro_p > 0.05:
+                # 满足正态分布
+                _, p_value = stats.ttest_1samp(diffs, popmean=0, alternative='less')
+            else:
+                # 不满足正态分布
+                _, p_value = stats.wilcoxon(diffs, alternative='less', mode='approx')
 
-        return p_value
+            return p_value
+        except Exception as e:
+            print(f"倒J型特征检验有误: {e}")
+            return 999
 
 
 ####################################################

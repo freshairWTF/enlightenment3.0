@@ -36,6 +36,7 @@ from constant.type_ import FILTER_MODE
 # -----------------------------
 MODEL = {
     "linear": LinearRegressionModel,
+    "traditional_linear": LinearRegressionTraditionalModel,
     "xgboost": XGBoostRegressionModel,
     "randomforest": RandomForestClassificationModel
 }
@@ -58,8 +59,8 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250530-WEEK"
-    storage_dir = "大剧变测试/linear-因子正交-因子合成二级-pca-因子合成Z值"
+    source_dir = "20250530-WEEK-跟踪"
+    storage_dir = "评估指标调试/traditional_linear-20250530W"
 
     """
     阿尔法因子   直接ir加权
@@ -74,15 +75,12 @@ if __name__ == "__main__":
     很多因子可以试一下
     相较于滚动窗口
     """
-    # from sklearn.model_selection import TimeSeriesSplit
-
-
     filter_mode: FILTER_MODE = "_entire_filter"
 
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="linear",
+        model="xgboost",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},

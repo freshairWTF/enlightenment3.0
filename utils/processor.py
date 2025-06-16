@@ -200,7 +200,81 @@ class Neutralization:
     """中性化"""
 
     @staticmethod
-    def market_value_neutral(
+    def linear_regression(
+            factor_values: pd.DataFrame | pd.Series,
+            neutral_factor: pd.Series,
+            winsorizer: Callable[[pd.DataFrame | pd.Series], pd.DataFrame | pd.Series],
+            dimensionless: Callable[[pd.DataFrame | pd.Series], pd.DataFrame | pd.Series],
+    ) -> pd.DataFrame | pd.Series:
+        """
+        市值中性化
+        :param factor_values: 待处理的因子数据，支持 DataFrame(多因子) 或 Series(单因子)
+        :param neutral_factor: 回归因子
+        :param winsorizer: 缩尾方法，优先使用 percentile
+        :param dimensionless: 无量纲方法，优先使用 standardization
+        :return 中性化后的数据
+        """
+        def __market_value_neutral(
+                factor_series: pd.Series
+        ) -> pd.Series:
+            """处理单个因子序列"""
+            # --------------------------
+            # 数据预处理
+            # --------------------------
+            # 合并数据并丢弃缺失值
+            combined = pd.concat([factor_series, neutral_factor], axis=1)
+            combined.columns = ['factor', 'neutral_factor']
+            combined = combined.dropna()
+            if combined.empty:
+                raise ValueError("有效数据量为零，无法进行计算")
+
+            # --------------------------
+            # 回归建模
+            # --------------------------
+            x = sm.add_constant(combined["neutral_factor"], has_constant='add')
+            model = sm.OLS(combined['factor'], x).fit()
+
+            # --------------------------
+            # 残差处理
+            # --------------------------
+            residuals = pd.Series(model.resid, index=combined.index)
+            neutralized = factor_series.copy()
+            neutralized.loc[residuals.index] = residuals
+
+            return neutralized
+
+        # --------------------------
+        # 输入校验
+        # --------------------------
+        if factor_values is None or neutral_factor is None:
+            raise ValueError("输入数据不能为 None")
+
+        if not isinstance(neutral_factor, pd.Series):
+            raise TypeError("industry_series 必须为 pd.Series")
+
+        if len(factor_values) != len(neutral_factor):
+            raise ValueError("因子数据与行业数据长度不一致")
+
+        # --------------------------
+        # 市值数据预处理
+        # --------------------------
+        # 1. 去极值
+        neutral_factor = winsorizer(neutral_factor)
+        # 2. 标准化
+        neutral_factor = dimensionless(neutral_factor)
+
+        # --------------------------
+        # 核心处理逻辑
+        # --------------------------
+        if isinstance(factor_values, pd.DataFrame):
+            return factor_values.apply(lambda col: __market_value_neutral(col))
+        elif isinstance(factor_values, pd.Series):
+            return __market_value_neutral(factor_values)
+        else:
+            raise TypeError('仅支持 DataFrame/Series 类型输入')
+
+    @staticmethod
+    def log_market_cap(
             factor_values: pd.DataFrame | pd.Series,
             market_value: pd.Series,
             winsorizer: Callable[[pd.DataFrame | pd.Series], pd.DataFrame | pd.Series],
@@ -274,7 +348,7 @@ class Neutralization:
             raise TypeError('仅支持 DataFrame/Series 类型输入')
 
     @classmethod
-    def industry_neutral(
+    def industry(
             cls,
             factor_values: pd.DataFrame | pd.Series,
             industry_series: pd.Series
@@ -682,9 +756,3 @@ class Classification:
                 labels=group_label,
                 duplicates="drop"
             )
-
-
-###############################################################
-class StyleNeutralization:
-    """风格中性化"""
-

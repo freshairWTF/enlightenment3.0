@@ -1430,15 +1430,35 @@ factors_setting:
   shocking_market: false
   small_filter: true
   standardization: true
-filter_mode: _entire_filter
+group_label:
+- '0'
+- '5'
+- '10'
+- '15'
+- '20'
+- '25'
+- '30'
+- '35'
+- '40'
+- '45'
+- '50'
+- '55'
+- '60'
+- '65'
+- '70'
+- '75'
+- '80'
+- '85'
+- '90'
+- '95'
 group_mode: frequency
 group_nums: 20
 industry_info:
   全部: 三级行业
 lag_period: 1
-model: linear
+model: traditional_linear
 position_distribution:
 - 3
 - 1
-position_weight_method: group_equal
+position_weight_method: group_long_only
 secondary_factor_weight_method: ir_decay_weight
