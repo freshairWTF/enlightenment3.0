@@ -190,7 +190,8 @@ class ModelAnalyzer(QuantService):
                   fixed_col=["股票代码", "行业", "pctChg", "date"],
                   lag_periods=self.model_setting.lag_period)
             .pipe(self.stock_pool_filter(filter_mode=self.filter_mode, cycle=self.cycle))
-            .pipe(self._quantity_check)
+            .pipe(self._rows_quantity_check)
+            .pipe(self.time_continuity_test, cycle=self.cycle)
         )
 
     def _add_the_latest_df(
@@ -209,7 +210,7 @@ class ModelAnalyzer(QuantService):
 
         return pd.concat([input_df, df])
 
-    def _quantity_check(
+    def _rows_quantity_check(
             self,
             input_df: pd.DataFrame
     ) -> pd.DataFrame:
@@ -222,6 +223,8 @@ class ModelAnalyzer(QuantService):
             # 检查当前日期组行数是否满足要求
             if len(group_df) >= self.model_setting.group_nums:
                 result_dfs.append(group_df)
+            else:
+                print(f"{date} | 行数少于 {self.model_setting.group_nums}")
 
         # 合并结果
         return pd.concat(result_dfs) if result_dfs else pd.DataFrame()

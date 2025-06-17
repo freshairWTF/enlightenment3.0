@@ -93,6 +93,13 @@ class LinearRegressionTraditionalModel:
                         winsorizer=self.processor.winsorizer.percentile,
                         dimensionless=self.processor.dimensionless.standardization
                     )
+                # if setting.market_value_neutral:
+                #     df_[processed_col] = self.processor.neutralization.log_market_cap(
+                #         df_[processed_col],
+                #         np.power(df_["对数市值"], 3),
+                #         winsorizer=self.processor.winsorizer.percentile,
+                #         dimensionless=self.processor.dimensionless.standardization
+                #     )
                 if setting.industry_neutral:
                     df_[processed_col] = self.processor.neutralization.industry(
                         df_[processed_col],

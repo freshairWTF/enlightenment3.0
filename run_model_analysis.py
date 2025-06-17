@@ -24,6 +24,19 @@
     
     如果逐一进行超参的调试，那么只能在最新的预测周期进行
 """
+"""
+    -1 模型集成
+    -2 风格因子中性化
+    -3 扩张窗口因子
+    -4 因子暴露控制
+    -5 因子跟踪（除 估值价差 之外）
+    
+    -6 数据 行业分类表 以及 各类数据的完善
+    -7 标的池
+    
+    159555 0.36 512890 0.64
+    ic 0.36 if 0.64 
+"""
 from constant.factor_library import *
 from constant.quant_setting import ModelSetting
 
@@ -60,24 +73,10 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250530-WEEK-跟踪"
-    storage_dir = "评估指标调试/traditional_linear-20250530W"
+    source_dir = "20250530-WEEK"
+    storage_dir = "中性化市值测试/traditional_linear-20250530W-对照组1"
 
-    """
-    阿尔法因子   直接ir加权
-    弱/风险因子  使用ir衰减
-       
-    因子暴露控制！！！
-    barra风格中性化！！！
-    """
-
-    """
-    扩展窗口 捕捉长期趋势 ！！！
-    很多因子可以试一下
-    相较于滚动窗口
-    """
     filter_mode: FILTER_MODE = "_entire_filter"
-
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子

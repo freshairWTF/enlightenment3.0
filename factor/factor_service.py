@@ -256,6 +256,7 @@ class FactorAnalyzer(QuantService):
                   group_nums=self.group_nums,
                   group_label=self.group_label,
                   negative=True if factor_name in NEGATIVE_SINGLE_COLUMN else False)
+            .pipe(self.time_continuity_test, cycle=self.cycle)
         )
 
     def _quantity_check(
@@ -271,6 +272,8 @@ class FactorAnalyzer(QuantService):
             # 检查当前日期组行数是否满足要求
             if len(group_df) >= self.group_nums:
                 result_dfs.append(group_df)
+            else:
+                print(f"{date} | 行数少于 {self.group_nums}")
 
         # 合并结果
         return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
