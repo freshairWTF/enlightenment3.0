@@ -244,9 +244,9 @@ class QuantService:
         backtest_date = raw_data["date"].unique()
 
         # -2 交易日历区间裁剪（回测区间）
-        min_, max_ = np.min(backtest_date), np.max(backtest_date)
+        min_date, max_date = np.min(backtest_date), np.max(backtest_date)
         trading_calendar = [t.date() for t in cls.loader.get_trading_calendar(cycle)]
-        trading_calendar = [t for t in trading_calendar if max_ >= t >= min_]
+        trading_calendar = [t for t in trading_calendar if max_date >= t >= min_date]
 
         # -3 关联交易日历并生成序列号
         trading_calendar_index = pd.Series(range(len(trading_calendar)), index=trading_calendar)

@@ -435,19 +435,22 @@ class FactorAnalyzer(QuantService):
             cls,
             data: dict[str, pd.DataFrame],
             factor_name: str,
-            storage_dir: Path
+            transfer_factor_name: str,
+            storage_dir: Path,
+            png_name: str = "因子分布"
     ) -> None:
         """
         概率密度函数计算及可视化
         :param data: 原始数据
         :param factor_name: 因子名
+        :param transfer_factor_name: 变换因子名
         :param storage_dir: 存储数据目录名称
+        :param png_name: 图片文件名
         """
         try:
             # 获取最新数据集
             latest_key = list(data.keys())[-1]
             latest_df = data[latest_key]
-            processed_col = f"processed_{factor_name}"
 
             # 创建图形对象
             fig, axes = plt.subplots(
@@ -489,13 +492,13 @@ class FactorAnalyzer(QuantService):
 
             # 绘制处理后的分布
             try:
-                processed_series = latest_df[processed_col]
+                processed_series = latest_df[transfer_factor_name]
                 plot_kde(axes[1], processed_series, "Distribution: Processed")
             except KeyError:
-                raise KeyError(f"列 {processed_col} 不存在于数据中")
+                raise KeyError(f"列 {transfer_factor_name} 不存在于数据中")
 
             # 保存并清理
-            plt.savefig(storage_dir / "因子分布.png", bbox_inches="tight", dpi=100)
+            plt.savefig(storage_dir / f"{png_name}.png", bbox_inches="tight", dpi=100)
             plt.close(fig)
 
         except TypeError as e:
@@ -607,6 +610,18 @@ class FactorAnalyzer(QuantService):
             factor_name,
             processed_factor_col
         )
+
+        # 变换测试
+        preprocessing_df["原始数据变换"] \
+            = self.processor.refactor.box_cox_transfer(preprocessing_df[[factor_name]])
+        preprocessing_df["预处理数据变换"] \
+            = self.processor.refactor.box_cox_transfer(preprocessing_df[[f"processed_{factor_name}"]])
+        preprocessing_df["原始数据变换J"] \
+            = self.processor.refactor.yeo_johnson_transfer(preprocessing_df[[factor_name]])
+        preprocessing_df["预处理数据变换J"] \
+            = self.processor.refactor.yeo_johnson_transfer(preprocessing_df[[f"processed_{factor_name}"]])
+
+
         preprocessing_dict = {
             str(date): group.drop("date", axis=1)
             for date, group in preprocessing_df.groupby("date")
@@ -686,8 +701,40 @@ class FactorAnalyzer(QuantService):
         # png 因子分布
         self._calc_and_save_pdf(
             preprocessing_dict,
-            factor_name,
-            storage_dir
+            factor_name=factor_name,
+            transfer_factor_name=f"processed_{factor_name}",
+            storage_dir=storage_dir
+        )
+
+
+        # 变换测试
+        self._calc_and_save_pdf(
+            preprocessing_dict,
+            factor_name=factor_name,
+            transfer_factor_name="原始数据变换",
+            storage_dir=storage_dir,
+            png_name="原始数据变换"
+        )
+        self._calc_and_save_pdf(
+            preprocessing_dict,
+            factor_name=f"processed_{factor_name}",
+            transfer_factor_name="预处理数据变换",
+            storage_dir=storage_dir,
+            png_name="预处理数据变换"
+        )
+        self._calc_and_save_pdf(
+            preprocessing_dict,
+            factor_name=factor_name,
+            transfer_factor_name="原始数据变换J",
+            storage_dir=storage_dir,
+            png_name="原始数据变换J"
+        )
+        self._calc_and_save_pdf(
+            preprocessing_dict,
+            factor_name=f"processed_{factor_name}",
+            transfer_factor_name="预处理数据变换J",
+            storage_dir=storage_dir,
+            png_name="预处理数据变换J"
         )
         # parquet 分组数据
         # self._store_results(grouped_data, storage_dir)
@@ -809,8 +856,9 @@ class FactorAnalyzer(QuantService):
         # png 因子分布
         self._calc_and_save_pdf(
             preprocessing_dict,
-            factor_name,
-            storage_dir
+            factor_name=factor_name,
+            transfer_factor_name=f"processed_{factor_name}",
+            storage_dir=storage_dir
         )
 
     # --------------------------
