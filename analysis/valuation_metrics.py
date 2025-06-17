@@ -1,3 +1,6 @@
+"""估值指标"""
+import statsmodels.api as sm
+
 import numpy as np
 import pandas as pd
 
@@ -128,8 +131,12 @@ class ValuationMetrics(Metrics):
 
     @depends_on("对数市值")
     def _nonlinear_log_market_value(self) -> None:
-        """非线性对数市值 = 对数市值 ** 3"""
-        self.metrics["非线性对数市值"] = np.power(self.metrics["对数市值"], 3)
+        """非线性对数市值 = 对数市值 ** 3 与 对数市值 的残差"""
+        cubed_mcap = np.power(self.metrics["对数市值"], 3)
+        x = sm.add_constant(self.metrics["对数市值"])
+        model = sm.OLS(cubed_mcap, x).fit()
+
+        self.metrics["非线性对数市值"] = model.resid
 
     def _circulating_market_value(self) -> None:
         """流通市值 = 收盘价 * 流通股本"""
@@ -142,8 +149,12 @@ class ValuationMetrics(Metrics):
 
     @depends_on("对数流通市值")
     def _nonlinear_log_circulating_market_value(self) -> None:
-        """非线性对数流通市值 = 流通市值对数 ** 3"""
-        self.metrics["非线性对数流通市值"] = np.power(self.metrics["对数流通市值"], 3)
+        """非线性对数流通市值 = 对数流通市值 ** 3 与 对数流通市值 的残差"""
+        cubed_mcap = np.power(self.metrics["对数流通市值"], 3)
+        x = sm.add_constant(self.metrics["对数流通市值"])
+        model = sm.OLS(cubed_mcap, x).fit()
+
+        self.metrics["非线性对数市值"] = model.resid
 
     @depends_on("每股收益")
     def _pe_ratio(self) -> None:
