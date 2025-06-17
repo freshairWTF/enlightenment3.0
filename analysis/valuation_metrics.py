@@ -126,6 +126,11 @@ class ValuationMetrics(Metrics):
         """市值对数 = ln(市值)"""
         self.metrics["对数市值"] = np.log(self.metrics["市值"])
 
+    @depends_on("对数市值")
+    def _nonlinear_log_market_value(self) -> None:
+        """非线性对数市值 = 对数市值 ** 3"""
+        self.metrics["非线性对数市值"] = np.power(self.metrics["对数市值"], 3)
+
     def _circulating_market_value(self) -> None:
         """流通市值 = 收盘价 * 流通股本"""
         self.metrics["流通市值"] = self.kline_data["close"] * self.circulating_shares_data["shares"]
@@ -134,6 +139,11 @@ class ValuationMetrics(Metrics):
     def _log_circulating_market_value(self) -> None:
         """流通市值对数 = ln(流通市值)"""
         self.metrics["对数流通市值"] = np.log(self.metrics["流通市值"])
+
+    @depends_on("对数流通市值")
+    def _nonlinear_log_circulating_market_value(self) -> None:
+        """非线性对数流通市值 = 流通市值对数 ** 3"""
+        self.metrics["非线性对数流通市值"] = np.power(self.metrics["对数流通市值"], 3)
 
     @depends_on("每股收益")
     def _pe_ratio(self) -> None:
