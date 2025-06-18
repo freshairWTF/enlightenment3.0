@@ -730,7 +730,7 @@ class Refactor:
     @classmethod
     def box_cox_transfer(
             cls,
-            factor_value: pd.DataFrame,
+            factor_value: pd.Series,
             standardize: bool = False
     ) -> pd.Series:
         """
@@ -742,19 +742,23 @@ class Refactor:
         # -1 数据平移
         factor_value = factor_value - np.min(factor_value) + 1e-5
 
-        # -2 估计λ
+        # -2 估计λ、转换原始数据
         tf = PowerTransformer(method="box-cox", standardize=standardize)
-        tf.fit(factor_value)
+        result = tf.fit_transform(factor_value.to_frame())
 
-        # -3 转换原始数据
-        result = tf.transform(factor_value)
+        # -3 输出数据 array -> pd.Series
+        result = pd.Series(
+            result.flatten(),
+            index=factor_value.index,
+            name=factor_value.name
+        )
 
         return result
 
     @classmethod
     def yeo_johnson_transfer(
             cls,
-            factor_value: pd.DataFrame,
+            factor_value: pd.Series,
             standardize: bool = False
     ) -> pd.Series:
         """
@@ -763,12 +767,16 @@ class Refactor:
         :param standardize: 是否标准化处理
         :return: Yeo-Johnson变换后的因子数值
         """
-        # -1 估计λ
+        # -1 估计λ、转换原始数据
         tf = PowerTransformer(method="yeo-johnson", standardize=standardize)
-        tf.fit(factor_value)
+        result = tf.fit_transform(factor_value.to_frame())
 
-        # -2 转换原始数据
-        result = tf.transform(factor_value)
+        # -2 输出数据 array -> pd.Series
+        result = pd.Series(
+            result.flatten(),
+            index=factor_value.index,
+            name=factor_value.name
+        )
 
         return result
 

@@ -13,13 +13,13 @@ def individual_analysis():
         code_range="Total_A",
         params=Individual(),
 
-        cycle="month",
+        cycle="week",
         financial_cycle="quarter",
-        start_date="2000-03-30",
-        financial_end_date="2025-03-31",
-        end_date="2025-05-12",
+        start_date="2000-03-31",
+        financial_end_date="2022-12-31",
+        end_date="2022-12-31",
         storage_dir_name="公司治理指标测试25Q1",
-        target_info="603896",
+        target_info="301231",
         debug=True
     )
     analyzer.run()
@@ -61,13 +61,12 @@ def factor_analysis():
 
         # 运存不足，无法满足 day 的运存消耗
         dimension="micro",
-
         class_level="三级行业",
         weight_name="市值",
 
         cycle="week",
         financial_cycle="quarter",
-        start_date="2000-03-31",
+        start_date="2010-03-31",
         financial_end_date="2022-12-31",
         end_date="2022-12-31",
 
@@ -152,7 +151,7 @@ def data_convert():
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    # factor_analysis()
+    factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
-    data_convert()
+    # data_convert()

@@ -497,6 +497,7 @@ class Analyzer:
     ) -> dict[str, str | pd.DataFrame]:
         """处理单个企业数据"""
         result = {"code": code}
+
         # --------------------------
         # 加载数据
         # --------------------------
@@ -523,13 +524,13 @@ class Analyzer:
             self.financial_cycle,
             bonus
         )
-
         rolling_financial = self._get_financial_data(
             code,
             self.financial_cycle,
             bonus,
             True
         )
+
         rolling_financial_to_value = (
             rolling_financial.copy(deep=True) if self.financial_cycle == "quarter"
             else self._get_financial_data(
@@ -561,6 +562,7 @@ class Analyzer:
         # 估值指标计算
         # --------------------------
         value = self._calculate_valuation(
+            code,
             rolling_financial_to_value,
             backward_adjusted_kline,
             bonus,
@@ -668,6 +670,7 @@ class Analyzer:
             # 估值指标计算
             # --------------------------
             value = self._calculate_valuation(
+                code,
                 rolling_financial_to_value,
                 backward_adjusted_kline,
                 bonus,
@@ -827,6 +830,7 @@ class Analyzer:
 
     def _calculate_valuation(
             self,
+            code: str,
             financial: pd.DataFrame,
             kline: pd.DataFrame,
             bonus: pd.DataFrame,
@@ -835,6 +839,7 @@ class Analyzer:
     ) -> pd.DataFrame:
         """
         计算估值指标
+        :param code: 企业代码
         :param financial: 财务
         :param kline: k线
         :param bonus: 分红
@@ -843,6 +848,7 @@ class Analyzer:
         :return:
         """
         calculator = ValuationMetrics(
+            code=code,
             financial_data=financial,
             kline_data=kline,
             bonus_data=bonus,

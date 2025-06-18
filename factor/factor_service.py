@@ -301,8 +301,12 @@ class FactorAnalyzer(QuantService):
         ) -> pd.DataFrame:
             """单日数据处理"""
             processed_col = f"{prefix}_{factor_name}"
-
             df_[processed_col] = df_[factor_name].copy()
+
+
+            # df_[processed_col] = self.processor.refactor.box_cox_transfer(df_[processed_col])
+
+
             # -1 第一次 去极值、标准化
             df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
             if self.standardization:
@@ -610,18 +614,6 @@ class FactorAnalyzer(QuantService):
             factor_name,
             processed_factor_col
         )
-
-        # 变换测试
-        preprocessing_df["原始数据变换"] \
-            = self.processor.refactor.box_cox_transfer(preprocessing_df[[factor_name]])
-        preprocessing_df["预处理数据变换"] \
-            = self.processor.refactor.box_cox_transfer(preprocessing_df[[f"processed_{factor_name}"]])
-        preprocessing_df["原始数据变换J"] \
-            = self.processor.refactor.yeo_johnson_transfer(preprocessing_df[[factor_name]])
-        preprocessing_df["预处理数据变换J"] \
-            = self.processor.refactor.yeo_johnson_transfer(preprocessing_df[[f"processed_{factor_name}"]])
-
-
         preprocessing_dict = {
             str(date): group.drop("date", axis=1)
             for date, group in preprocessing_df.groupby("date")
@@ -708,34 +700,34 @@ class FactorAnalyzer(QuantService):
 
 
         # 变换测试
-        self._calc_and_save_pdf(
-            preprocessing_dict,
-            factor_name=factor_name,
-            transfer_factor_name="原始数据变换",
-            storage_dir=storage_dir,
-            png_name="原始数据变换"
-        )
-        self._calc_and_save_pdf(
-            preprocessing_dict,
-            factor_name=f"processed_{factor_name}",
-            transfer_factor_name="预处理数据变换",
-            storage_dir=storage_dir,
-            png_name="预处理数据变换"
-        )
-        self._calc_and_save_pdf(
-            preprocessing_dict,
-            factor_name=factor_name,
-            transfer_factor_name="原始数据变换J",
-            storage_dir=storage_dir,
-            png_name="原始数据变换J"
-        )
-        self._calc_and_save_pdf(
-            preprocessing_dict,
-            factor_name=f"processed_{factor_name}",
-            transfer_factor_name="预处理数据变换J",
-            storage_dir=storage_dir,
-            png_name="预处理数据变换J"
-        )
+        # self._calc_and_save_pdf(
+        #     preprocessing_dict,
+        #     factor_name=factor_name,
+        #     transfer_factor_name="原始数据变换",
+        #     storage_dir=storage_dir,
+        #     png_name="原始数据变换"
+        # )
+        # self._calc_and_save_pdf(
+        #     preprocessing_dict,
+        #     factor_name=f"processed_{factor_name}",
+        #     transfer_factor_name="预处理数据变换",
+        #     storage_dir=storage_dir,
+        #     png_name="预处理数据变换"
+        # )
+        # self._calc_and_save_pdf(
+        #     preprocessing_dict,
+        #     factor_name=factor_name,
+        #     transfer_factor_name="原始数据变换J",
+        #     storage_dir=storage_dir,
+        #     png_name="原始数据变换J"
+        # )
+        # self._calc_and_save_pdf(
+        #     preprocessing_dict,
+        #     factor_name=f"processed_{factor_name}",
+        #     transfer_factor_name="预处理数据变换J",
+        #     storage_dir=storage_dir,
+        #     png_name="预处理数据变换J"
+        # )
         # parquet 分组数据
         # self._store_results(grouped_data, storage_dir)
         # except Exception as e:

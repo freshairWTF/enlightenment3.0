@@ -17,6 +17,7 @@ class ValuationMetrics(Metrics):
     @validate_literal_params
     def __init__(
             self,
+            code: str,
             financial_data: pd.DataFrame,
             kline_data: pd.DataFrame,
             cycle: CYCLE,
@@ -28,6 +29,7 @@ class ValuationMetrics(Metrics):
             circulating_shares_data: pd.DataFrame | None = None,
     ):
         """
+        :param code: 企业代码
         :param financial_data: 财务数据
         :param kline_data: 行情数据
         :param cycle: 周期
@@ -38,6 +40,7 @@ class ValuationMetrics(Metrics):
         :param total_shares_data: 总股本数据
         :param circulating_shares_data: 流通股本数据
         """
+        self.code = code
         self.financial_data = financial_data
         self.bonus_data = bonus_data
         self.total_shares_data = total_shares_data
@@ -122,7 +125,7 @@ class ValuationMetrics(Metrics):
 
     def _market_value(self) -> None:
         """市值 = 收盘价 * 总股本"""
-        self.metrics["市值"] = self.kline_data["close"] * self.total_shares_data["shares"]
+        self.metrics["市值"] = (self.kline_data["close"] * self.total_shares_data["shares"]).bfill()
 
     @depends_on("市值")
     def _log_market_value(self) -> None:
@@ -132,15 +135,18 @@ class ValuationMetrics(Metrics):
     @depends_on("对数市值")
     def _nonlinear_log_market_value(self) -> None:
         """非线性对数市值 = 对数市值 ** 3 与 对数市值 的残差"""
-        cubed_mcap = np.power(self.metrics["对数市值"], 3)
-        x = sm.add_constant(self.metrics["对数市值"])
-        model = sm.OLS(cubed_mcap, x).fit()
-
-        self.metrics["非线性对数市值"] = model.resid
+        try:
+            cubed_mcap = np.power(self.metrics["对数市值"], 3)
+            x = sm.add_constant(self.metrics["对数市值"])
+            model = sm.OLS(cubed_mcap, x).fit()
+            self.metrics["非线性对数市值"] = model.resid
+        except Exception as e:
+            print(f"非线性对数市值计算有误: {self.code} | {e}")
+            self.metrics["非线性对数市值"] = np.nan
 
     def _circulating_market_value(self) -> None:
         """流通市值 = 收盘价 * 流通股本"""
-        self.metrics["流通市值"] = self.kline_data["close"] * self.circulating_shares_data["shares"]
+        self.metrics["流通市值"] = (self.kline_data["close"] * self.circulating_shares_data["shares"]).bfill()
 
     @depends_on("流通市值")
     def _log_circulating_market_value(self) -> None:
@@ -150,11 +156,14 @@ class ValuationMetrics(Metrics):
     @depends_on("对数流通市值")
     def _nonlinear_log_circulating_market_value(self) -> None:
         """非线性对数流通市值 = 对数流通市值 ** 3 与 对数流通市值 的残差"""
-        cubed_mcap = np.power(self.metrics["对数流通市值"], 3)
-        x = sm.add_constant(self.metrics["对数流通市值"])
-        model = sm.OLS(cubed_mcap, x).fit()
-
-        self.metrics["非线性对数市值"] = model.resid
+        try:
+            cubed_mcap = np.power(self.metrics["对数流通市值"], 3)
+            x = sm.add_constant(self.metrics["对数流通市值"])
+            model = sm.OLS(cubed_mcap, x).fit()
+            self.metrics["非线性对数市值"] = model.resid
+        except Exception as e:
+            print(f"非线性对数市值计算有误: {self.code} | {e}")
+            self.metrics["非线性对数市值"] = np.nan
 
     @depends_on("每股收益")
     def _pe_ratio(self) -> None:

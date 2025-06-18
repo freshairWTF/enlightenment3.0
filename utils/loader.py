@@ -375,7 +375,8 @@ class DataLoader:
             return df
 
         # 填充缺失日期
-        df = df.reindex(df.index.union(financial_date))
+        full_index = df.index.union(financial_date).sort_values()
+        df = df.reindex(full_index)
         # 排序并填充数据
         df = df.sort_index().ffill().bfill()
         # 截取 financial_date 对应的数据
