@@ -5,14 +5,14 @@ from factor.factor_service import FactorAnalyzer
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="非线性对数市值",
+        source_dir="带波动率过滤的累计收益率",
         index_code="000300",
         factors_name=[
-            "非线性对数市值", "非线性对数流通市值",
+            "波动率过滤的累加收益率_0.09",
         ],
         cycle="week",
         standardization=True,
-        mv_neutral=False,
+        mv_neutral=True,
         industry_neutral=True,
         restructure=False,
 

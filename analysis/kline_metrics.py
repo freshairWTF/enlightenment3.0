@@ -118,7 +118,10 @@ class KLineMetrics(Metrics, KlineDetermination):
 
         self.metrics[f"异常换手率_{window}"] = abnormal
 
-    def _accumulated_yield(self, window):
+    def _accumulated_yield(
+            self,
+            window: int
+    ) -> None:
         """
         累加收益率：n期累加收益率
         """
@@ -128,6 +131,41 @@ class KLineMetrics(Metrics, KlineDetermination):
         self.metrics[f"累加收益率_{window}"] = (
             self._calc_rolling(
                 self.metrics["pctChg"],
+                rolling_window,
+                rolling_window,
+                "sum"
+            )
+        )
+
+    def _accumulated_yield_with_vol_filter(self, window):
+        """
+        波动率过滤的累加收益率：n期累加收益率
+        """
+        # 滚动窗口
+        rolling_window = int(window * self.annual_window)
+        rolling_window = 160
+
+        rolling_quantile = (self.metrics["pctChg"].
+                            rolling(window=rolling_window, min_periods=rolling_window).
+                            apply(lambda x: np.quantile(x, q=0.7))
+                            )
+
+        print(rolling_quantile)
+
+        lowest_70_df = np.where(self.metrics["pctChg"] < rolling_quantile, 0, self.metrics["pctChg"])
+
+        print(lowest_70_df)
+
+        print(dd)
+        vol = self.metrics["high"] / self.metrics["low"] - 1
+        threshold = vol.quantile(0.7)
+        lowest_70_df = self.metrics["pctChg"].copy()
+        lowest_70_df[lowest_70_df > threshold] = 0
+
+
+        self.metrics[f"波动率过滤的累加收益率_{window}"] = (
+            self._calc_rolling(
+                lowest_70_df,
                 rolling_window,
                 rolling_window,
                 "sum"
