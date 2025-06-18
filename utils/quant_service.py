@@ -1,6 +1,7 @@
 from pathlib import Path
 from loguru import logger
 
+import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 
@@ -226,6 +227,36 @@ class QuantService:
 
         # 合并所有有效数据
         return pd.concat(result_dfs, ignore_index=False) if result_dfs else pd.DataFrame()
+
+    @classmethod
+    def time_continuity_test(
+            cls,
+            raw_data: pd.DataFrame,
+            cycle: CYCLE,
+    ) -> pd.DataFrame:
+        """
+        预处理数据时间连续性检验（交易日历）
+        :param raw_data: 原始数据
+        :param cycle: 周期
+        :return 具有时间连续性的面板数据
+        """
+        # -1 回测时间区间
+        backtest_date = raw_data["date"].unique()
+
+        # -2 交易日历区间裁剪（回测区间）
+        min_date, max_date = np.min(backtest_date), np.max(backtest_date)
+        trading_calendar = [t.date() for t in cls.loader.get_trading_calendar(cycle)]
+        trading_calendar = [t for t in trading_calendar if max_date >= t >= min_date]
+
+        # -3 关联交易日历并生成序列号
+        trading_calendar_index = pd.Series(range(len(trading_calendar)), index=trading_calendar)
+        # -4 使用序列号重置 回测日期 索引
+        backtest_date_index = trading_calendar_index.reindex(backtest_date).dropna()
+        # -5 取差值，并获取最后一个！=1的日期
+        diff = backtest_date_index.diff(1).dropna()
+        last_continue_date = diff[diff != 1].index.max()
+
+        return raw_data if pd.isna(last_continue_date) else raw_data[raw_data["date"] >= last_continue_date]
 
     # --------------------------
     # 指标计算

@@ -13,13 +13,13 @@ def individual_analysis():
         code_range="Total_A",
         params=Individual(),
 
-        cycle="month",
+        cycle="week",
         financial_cycle="quarter",
-        start_date="2000-03-30",
-        financial_end_date="2025-03-31",
-        end_date="2025-05-12",
+        start_date="2000-03-31",
+        financial_end_date="2022-12-31",
+        end_date="2022-12-31",
         storage_dir_name="公司治理指标测试25Q1",
-        target_info="603896",
+        target_info="301231",
         debug=True
     )
     analyzer.run()
@@ -51,7 +51,7 @@ def normal_analysis():
 # ---------------------------------------------------
 def factor_analysis():
     """单因子分析 -> 生成分析因子"""
-    storage_dir_name = "流通市值测试"
+    storage_dir_name = "非线性对数市值"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -61,29 +61,22 @@ def factor_analysis():
 
         # 运存不足，无法满足 day 的运存消耗
         dimension="micro",
-
         class_level="三级行业",
         weight_name="市值",
 
         cycle="week",
         financial_cycle="quarter",
-        start_date="2000-03-31",
-        financial_end_date="2024-09-30",
-        end_date="2025-05-09",
+        start_date="2010-03-31",
+        financial_end_date="2022-12-31",
+        end_date="2022-12-31",
 
         target_info={"全部": "三级行业"},
         index_code="000300",
 
         processes_nums=10,
-        debug=True
+        debug=False
     )
     analyzer.run()
-
-    convert = DataConvert(
-        source_dir=storage_dir_name,
-        storage_dir=storage_dir_name
-    )
-    convert.run()
 
 # ---------------------------------------------------
 def model_factor_analysis():
@@ -91,7 +84,7 @@ def model_factor_analysis():
     模型分析 -> 生成因子库中的因子
     注：更新指数数据 -> 更新交易日历 -> 最新数据
     """
-    storage_dir_name = "20250613W"
+    storage_dir_name = "模型因子训练集"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -107,8 +100,8 @@ def model_factor_analysis():
 
         cycle="week",
         financial_cycle="quarter",
-        start_date="2020-01-01",
-        financial_end_date="2025-03-31",
+        start_date="2000-01-01",
+        financial_end_date="2022-12-31",
         end_date="2025-06-13",
 
         target_info={"全部": "三级行业"},
@@ -118,12 +111,6 @@ def model_factor_analysis():
         debug=False
     )
     analyzer.run()
-
-    convert = DataConvert(
-        source_dir=storage_dir_name,
-        storage_dir=storage_dir_name
-    )
-    convert.run()
 
 # ---------------------------------------------------
 def inventory_cycle_analysis():
@@ -150,11 +137,21 @@ def inventory_cycle_analysis():
     )
     analyzer.run()
 
+# ---------------------------------------------------
+def data_convert():
+    """分析因子 -> 量化因子"""
+    convert = DataConvert(
+        source_dir="非线性对数市值",
+        storage_dir="非线性对数市值"
+    )
+    convert.run()
+
 
 # ---------------------------------------------------
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    # factor_analysis()
-    model_factor_analysis()
+    factor_analysis()
+    # model_factor_analysis()
     # inventory_cycle_analysis()
+    # data_convert()

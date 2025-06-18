@@ -1,11 +1,10 @@
 """线性回归模型"""
 from dataclasses import dataclass
 from type_ import Literal
-
-import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
+import numpy as np
 import pandas as pd
 
 from utils.processor import DataProcessor
@@ -94,6 +93,13 @@ class LinearRegressionTraditionalModel:
                         winsorizer=self.processor.winsorizer.percentile,
                         dimensionless=self.processor.dimensionless.standardization
                     )
+                # if setting.market_value_neutral:
+                #     df_[processed_col] = self.processor.neutralization.log_market_cap(
+                #         df_[processed_col],
+                #         np.power(df_["对数市值"], 3),
+                #         winsorizer=self.processor.winsorizer.percentile,
+                #         dimensionless=self.processor.dimensionless.standardization
+                #     )
                 if setting.industry_neutral:
                     df_[processed_col] = self.processor.neutralization.industry(
                         df_[processed_col],
@@ -283,7 +289,7 @@ class LinearRegressionTraditionalModel:
             index=["value"]
         )
 
-        return pd.concat(result_dfs).reset_index(drop=True), metrics
+        return pd.concat(result_dfs, ignore_index=True), metrics
 
     def run(
             self

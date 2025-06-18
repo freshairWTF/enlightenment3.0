@@ -727,7 +727,7 @@ class FactorWeight:
         return handlers[method]()
 
 
-###############################################################
+###################################################
 class FeatureEngineering:
     """
     特征工程
@@ -899,4 +899,9 @@ class FeatureEngineering:
         :param factor_values: 因子数据
         :return: 选择后的因子数据
         """
+
+
+###################################################
+class FactorOptimization:
+    """因子优化"""
 

@@ -1554,7 +1554,7 @@ class Factor:
         def __init__(self):
             # 基础指标
             self.basic_metrics = [
-                "市值", "市净率", "对数市值", "对数流通市值",
+                "市值", "市净率", "对数市值", "对数流通市值", "非线性对数市值", "非线性对数流通市值"
             ]
             # 衍生指标
             self.derived_metrics = [

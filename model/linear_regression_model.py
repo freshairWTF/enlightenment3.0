@@ -1,11 +1,10 @@
 """线性回归模型"""
 from dataclasses import dataclass
 from type_ import Literal
-
-import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
+import numpy as np
 import pandas as pd
 
 from utils.processor import DataProcessor
@@ -303,7 +302,7 @@ class LinearRegressionModel:
             index=["value"]
         )
 
-        return pd.concat(result_dfs).reset_index(drop=True), metrics
+        return pd.concat(result_dfs, ignore_index=True), metrics
 
     def run(
             self

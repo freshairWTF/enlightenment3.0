@@ -4,14 +4,9 @@ import pandas as pd
 import statsmodels.api as sm
 
 from typing import Callable
+from sklearn.preprocessing import PowerTransformer
 
 from constant.type_ import ERROR, GROUP_MODE, validate_literal_params
-
-"""
-Refactor中加入 对数转换、box-cox转换 等方法
-box-cox转换 也适用于严格为正的数据，0数据可以加上一个极小正值 sklearn PowerTransformer
-PowerTransformer 还支持 Yeo-Johnson转换，允许在负数上使用
-"""
 
 
 ###############################################################
@@ -195,7 +190,92 @@ class Dimensionless:
             raise TypeError("仅支持 pandas DataFrame/Series 类型输入")
 
 
-###############################################################
+##############################################################
+class NeutralizationDev:
+    """
+    中性化
+        -1 底层中性化方法 哑变量/非哑变量 热编码？
+        -2 扩展方法 因子中性化
+        -3 接口 定制化中性化方法
+    """
+
+    # -----------------------------------
+    # 底层中性化方法
+    # -----------------------------------
+    @staticmethod
+    def __multi_factors(
+            factor_values: pd.DataFrame | pd.Series,
+            neutral_factors: pd.DataFrame,
+            winsorizer: Callable[[pd.DataFrame | pd.Series], pd.DataFrame | pd.Series],
+            dimensionless: Callable[[pd.DataFrame | pd.Series], pd.DataFrame | pd.Series],
+    ):
+        """多因子中性化"""
+        def __sector_neutral(
+                factor_series: pd.Series
+        ) -> pd.Series:
+            """截面中性"""
+            # --------------------------
+            # 数据预处理
+            # --------------------------
+            # 合并数据并丢弃缺失值
+            combined = pd.concat([factor_series, neutral_factors], axis=1)
+            combined.columns = ['factor', 'neutral_factor']
+            combined = combined.dropna()
+            if combined.empty:
+                raise ValueError("有效数据量为零，无法进行计算")
+
+            # --------------------------
+            # 回归建模
+            # --------------------------
+            x = sm.add_constant(combined["neutral_factor"], has_constant='add')
+            model = sm.OLS(combined['factor'], x).fit()
+
+            # --------------------------
+            # 残差处理
+            # --------------------------
+            residuals = pd.Series(model.resid, index=combined.index)
+            neutralized = factor_series.copy()
+            neutralized.loc[residuals.index] = residuals
+
+            return neutralized
+
+        # --------------------------
+        # 输入校验
+        # --------------------------
+        if factor_values is None or neutral_factors is None:
+            raise ValueError("输入数据不能为 None")
+
+        if not isinstance(neutral_factors, pd.DataFrame | pd.Series):
+            raise TypeError("industry_series 必须为 pd.DataFrame | pd.Series")
+
+        if len(factor_values) != len(neutral_factors):
+            raise ValueError("因子数据与行业数据长度不一致")
+
+        # --------------------------
+        # 市值数据预处理
+        # --------------------------
+        # 去极值 -> 标准化
+        neutral_factors = (
+            neutral_factors.
+            pipe(winsorizer).
+            pipe(dimensionless)
+        )
+
+        # --------------------------
+        # 核心处理逻辑
+        # --------------------------
+        if isinstance(factor_values, pd.DataFrame):
+            return factor_values.apply(lambda col: __sector_neutral(col))
+        elif isinstance(factor_values, pd.Series):
+            return __sector_neutral(factor_values)
+        else:
+            raise TypeError('仅支持 DataFrame/Series 类型输入')
+
+    # @staticmethod
+    # def __dump
+
+
+##############################################################
 class Neutralization:
     """中性化"""
 
@@ -644,6 +724,59 @@ class Refactor:
 
             if not result_date.empty:
                 result[date] = result_date
+
+        return result
+
+    @classmethod
+    def box_cox_transfer(
+            cls,
+            factor_value: pd.Series,
+            standardize: bool = False
+    ) -> pd.Series:
+        """
+        box-cox变换（适用于严格为正的数据，0数据可以加上一个极小正值）
+        :param factor_value: 因子数值
+        :param standardize: 是否标准化处理
+        :return: box-cox变换后的因子数值
+        """
+        # -1 数据平移
+        factor_value = factor_value - np.min(factor_value) + 1e-5
+
+        # -2 估计λ、转换原始数据
+        tf = PowerTransformer(method="box-cox", standardize=standardize)
+        result = tf.fit_transform(factor_value.to_frame())
+
+        # -3 输出数据 array -> pd.Series
+        result = pd.Series(
+            result.flatten(),
+            index=factor_value.index,
+            name=factor_value.name
+        )
+
+        return result
+
+    @classmethod
+    def yeo_johnson_transfer(
+            cls,
+            factor_value: pd.Series,
+            standardize: bool = False
+    ) -> pd.Series:
+        """
+        Yeo-Johnson变换（允许负数）
+        :param factor_value: 因子数值
+        :param standardize: 是否标准化处理
+        :return: Yeo-Johnson变换后的因子数值
+        """
+        # -1 估计λ、转换原始数据
+        tf = PowerTransformer(method="yeo-johnson", standardize=standardize)
+        result = tf.fit_transform(factor_value.to_frame())
+
+        # -2 输出数据 array -> pd.Series
+        result = pd.Series(
+            result.flatten(),
+            index=factor_value.index,
+            name=factor_value.name
+        )
 
         return result
 

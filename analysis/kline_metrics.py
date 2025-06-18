@@ -1,3 +1,4 @@
+"""量价计算"""
 from scipy.stats import linregress
 
 import numpy as np
