@@ -18,6 +18,7 @@ class FactorSetting:
     cycle: CYCLE = "week"                       # 周期
     half_life: int = 100                        # 半衰期，默认100期
 
+    transfer: bool = False                      # 正态变换
     reverse: bool = False                       # 方向反转
     standardization: bool = True                # 标准化
     market_value_neutral: bool = True           # 市场中性化

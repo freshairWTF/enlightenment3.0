@@ -59,6 +59,7 @@ class FactorAnalyzer(QuantService):
             cycle: CYCLE,
             class_level: CLASS_LEVEL = "一级行业",
             standardization: bool = True,
+            transfer_mode: str | None = None,
             mv_neutral: bool = False,
             industry_neutral: bool = False,
             restructure: bool = False,
@@ -75,6 +76,7 @@ class FactorAnalyzer(QuantService):
         :param factors_name: 因子名
         :param cycle: 周期
         :param class_level: 行业级数
+        :param transfer_mode: 变换模式 -1 box_cox -2 yeo_johnson
         :param standardization: 标准化
         :param mv_neutral: 市值中性化
         :param industry_neutral: 行业中性化
@@ -92,6 +94,7 @@ class FactorAnalyzer(QuantService):
         self.factors_name = factors_name
         self.cycle = cycle
         self.class_level = class_level
+        self.transfer_mode = transfer_mode
         self.standardization = standardization
         self.mv_neutral = mv_neutral
         self.industry_neutral = industry_neutral
@@ -202,7 +205,7 @@ class FactorAnalyzer(QuantService):
                 self.storage_dir
                 / factor_name
                 / f"股票池{filter_mode}-{self.cycle}-"
-                  f"mve{self.mv_neutral}-ine{self.industry_neutral}-res{self.restructure}"
+                  f"trans{self.transfer_mode}-mve{self.mv_neutral}-ind{self.industry_neutral}-res{self.restructure}"
         )
 
     def _get_valid_factor(
@@ -314,16 +317,19 @@ class FactorAnalyzer(QuantService):
             processed_col = f"{prefix}_{factor_name}"
             df_[processed_col] = df_[factor_name].copy()
 
+            # -1 正态化变换
+            if self.transfer_mode:
+                df_[processed_col] = (
+                    self.processor.refactor.box_cox_transfer(df_[processed_col]) if self.transfer_mode == "box_cox" else
+                    self.processor.refactor.yeo_johnson_transfer(df_[processed_col])
+                )
 
-            # df_[processed_col] = self.processor.refactor.box_cox_transfer(df_[processed_col])
-
-
-            # -1 第一次 去极值、标准化
+            # -2 第一次 去极值、标准化
             df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
             if self.standardization:
                 df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
 
-            # -2 中性化
+            # -3 中性化
             if self.mv_neutral:
                 df_[processed_col] = self.processor.neutralization.log_market_cap(
                     df_[processed_col],
@@ -337,7 +343,7 @@ class FactorAnalyzer(QuantService):
                     df_["行业"]
                 )
 
-            # -3 第二次 去极值、标准化
+            # -4 第二次 去极值、标准化
             df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
             if self.standardization:
                 df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
