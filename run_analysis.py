@@ -51,7 +51,7 @@ def normal_analysis():
 # ---------------------------------------------------
 def factor_analysis():
     """单因子分析 -> 生成分析因子"""
-    storage_dir_name = "非线性对数市值"
+    storage_dir_name = "带波动率过滤的累计收益率"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -64,7 +64,7 @@ def factor_analysis():
         class_level="三级行业",
         weight_name="市值",
 
-        cycle="week",
+        cycle="day",
         financial_cycle="quarter",
         start_date="2010-03-31",
         financial_end_date="2022-12-31",
@@ -141,8 +141,8 @@ def inventory_cycle_analysis():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="非线性对数市值",
-        storage_dir="非线性对数市值"
+        source_dir="带波动率过滤的累计收益率",
+        storage_dir="带波动率过滤的累计收益率"
     )
     convert.run()
 
@@ -151,7 +151,7 @@ def data_convert():
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    factor_analysis()
+    # factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
-    # data_convert()
+    data_convert()

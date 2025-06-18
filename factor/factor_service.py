@@ -134,6 +134,17 @@ class FactorAnalyzer(QuantService):
         self.listed_nums = self.load_listed_nums()
         self.raw_data = self.load_factors_value_by_dask(self.source_dir)
 
+        # print(self.raw_data)
+        # self.raw_data = self.valid_factors_filter(self.raw_data, list(set(self._get_support_factors() + ["真实波幅均线_1", "累加收益率_1"])))
+        # result_dfs = []
+        # for date, group in self.raw_data.groupby("date"):
+        #     threshold = group["真实波幅均线_1"].quantile(0.7)
+        #     lowest_70_df = group[group["真实波幅均线_1"] <= threshold]
+        #     result_dfs.append(lowest_70_df)
+        # self.raw_data = pd.concat(result_dfs, ignore_index=True)
+        # print(self.raw_data)
+
+
         # --------------------------
         # 其他参数
         # --------------------------

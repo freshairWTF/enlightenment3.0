@@ -3,6 +3,7 @@
 FUNCTION_OF_KLINE:
     市场贝塔: _market_beta
     累加收益率: _accumulated_yield
+    波动率过滤的累加收益率: _accumulated_yield_with_vol_filter
     异常换手率: _abnormal_turn
     真实波幅: _tr
 
