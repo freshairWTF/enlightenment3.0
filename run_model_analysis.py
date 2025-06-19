@@ -26,16 +26,15 @@
 """
 """
     -1 模型集成
-    -8 分类模型 若等频划分 则以group为标签  若仅仅前100、后100 就需要重采样
-    
     -2 风格因子中性化
-    -3 扩张窗口因子
-    -4 因子暴露控制 风险评价模型 
-    
     -5 因子跟踪（除 估值价差 之外）
-    
     -6 数据 行业分类表 以及 各类数据的完善
     -7 标的池
+    
+    -9 样本内外区分
+    -8 分类模型 若等频划分 则以group为标签  若仅仅前100、后100 就需要重采样!!!!
+    -3 扩张窗口因子
+    -4 因子暴露控制 风险评价模型 !!!!
 """
 from constant.factor_library import *
 from constant.quant_setting import ModelSetting
@@ -53,7 +52,8 @@ MODEL = {
     "traditional_linear": LinearRegressionTraditionalModel,
     "xgboost": XGBoostRegressionModel,
     "xgboostCV": XGBoostRegressionCVModel,
-    "randomforest": RandomForestClassificationModel
+    "randomforest": RandomForestClassificationModel,
+    "test": LinearRegressionTestModel
 }
 
 
@@ -75,13 +75,13 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "20250530-WEEK-跟踪"
-    storage_dir = "最优化测试/traditional_linear-20250530W"
+    storage_dir = "最优化测试/test-20250530W"
 
     filter_mode: FILTER_MODE = "_entire_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="traditional_linear",
+        model="test",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},

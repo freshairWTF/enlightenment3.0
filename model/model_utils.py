@@ -1,15 +1,13 @@
 """模型工具"""
-import numpy as np
 from type_ import Literal
 from collections import defaultdict
 from scipy.stats import spearmanr
-from scipy.optimize import minimize
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
 # from sklearn.feature_selection import SelectFromModel
 
+import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
@@ -29,7 +27,6 @@ class ModelUtils:
         self.pos_weight = PositionWeight                # 仓位权重
         self.factor_weight = FactorWeight               # 因子权重
         self.feature = FeatureEngineering               # 特征工程
-        self.optimize = Optimization                    # 优化器
 
 
 ###################################################
@@ -902,208 +899,3 @@ class FeatureEngineering:
         :param factor_values: 因子数据
         :return: 选择后的因子数据
         """
-
-
-###################################################
-class Optimization:
-    """优化类"""
-
-    # ---------------------------
-    # 公开 API接口
-    # ---------------------------
-    @staticmethod
-    def calculate_factors_return(
-            input_df: pd.DataFrame,
-            factors_name: list[str],
-            returns_col: str = "pctChg"
-    ) -> pd.DataFrame:
-        """
-        计算因子收益率
-        :param input_df: 因子数据
-        :param factors_name: 因子名
-        :param returns_col: 收益率列名
-        :return: 因子收益率
-        """
-        result_dfs = []
-        for date, group in input_df.groupby("date"):
-            model = LinearRegression(fit_intercept=False)
-            model.fit(group[factors_name], group[returns_col])
-            factor_return = pd.Series(
-                model.coef_,
-                index=group.columns
-            )
-            result_dfs.append(factor_return)
-
-        return pd.concat(result_dfs, ignore_index=True)
-
-    @classmethod
-    def optimize_weights(
-            cls,
-            factor_returns: pd.DataFrame,
-            objective: str = 'max_sharpe',
-            constraints: list = None,
-            max_weight: float = 0.3,
-            risk_aversion: float = 1.0,
-            cov_method: str = 'rolling',
-            window: int = 126
-    ) -> np.ndarray:
-        """
-        执行权重优化
-        :param factor_returns: 因子收益率
-        :param objective: 目标函数类型（'max_sharpe', 'risk_parity', 'min_vol', 'min_cvar'）
-        :param constraints: 自定义约束条件列表（默认包含权重和为1、非负）
-        :param max_weight: 单个因子权重上限
-        :param risk_aversion: 风险厌恶系数（用于均值-方差模型）
-        :param cov_method: 协方差计算方法
-        :param window: 计算窗口大小
-        :return 优化后的因子权重
-        """
-        # -1 目标函数映射
-        object_func = {
-            "max_sharpe": cls._neg_sharpe,
-            "risk_parity": cls._risk_parity_objective,
-            # "min_vol": cls._min_vol_objective,
-            "min_cvar": cls._cvar_objective,
-        }
-        # -2 约束条件
-        default_constraints = [
-            {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
-            {'type': 'ineq', 'fun': lambda w: max_weight - w},      # 上限约束
-            {'type': 'ineq', 'fun': lambda w: w}                    # 下限约束
-        ]
-        constraints = constraints or default_constraints
-
-        # -3 协方差矩阵
-        cov_matrix = cls._calculate_covariance(
-            factor_returns,
-            method=cov_method,
-            window=window
-        )
-
-        n = len(self.factor_returns.columns)
-        initial_weights = np.ones(n) / n
-        bounds = [(0, max_weight) for _ in range(n)]
-
-        # 5. 执行优化
-        if objective == 'max_sharpe':
-            result = minimize(
-                object_func[objective],
-                initial_weights,
-                args=(mean_returns, cov_matrix),
-                method='SLSQP',
-                bounds=bounds,
-                constraints=constraints
-            )
-        elif objective == 'risk_parity':
-            result = minimize(
-                object_func[objective],
-                initial_weights,
-                args=(cov_matrix,),
-                method='SLSQP',
-                bounds=bounds,
-                constraints=constraints
-            )
-        elif objective == 'min_cvar':
-            result = minimize(
-                object_func[objective],
-                initial_weights,
-                args=(factor_returns.values, 0.95),
-                method='SLSQP',
-                bounds=bounds,
-                constraints=constraints
-            )
-        else:  # min_vol
-            result = minimize(
-                object_func[objective],
-                initial_weights,
-                args=(cov_matrix,),
-                method='SLSQP',
-                bounds=bounds,
-                constraints=constraints
-            )
-
-        return result.x
-
-    def analyze_risk(
-            self
-    ) -> pd.DataFrame:
-        """风险贡献分析与绩效指标"""
-        if self.optimal_weights is None:
-            raise ValueError("请先执行optimize_weights()")
-        # 计算风险贡献（参考风险平价模型）
-        portfolio_vol = np.sqrt(np.dot(self.optimal_weights.T,
-                                       np.dot(self.cov_matrix, self.optimal_weights)))
-        marginal_risk = np.dot(self.cov_matrix, self.optimal_weights) / portfolio_vol
-        rc = self.optimal_weights * marginal_risk
-        risk_report = pd.DataFrame({
-            'Weight': self.optimal_weights,
-            'RiskContribution': rc,
-            'RiskPercent': rc / rc.sum()
-        }, index=self.factor_returns.columns)
-        return risk_report.sort_values('RiskPercent', ascending=False)
-
-    # ---------------------------
-    # 其他方法
-    # ---------------------------
-    @staticmethod
-    def _calculate_covariance(
-            factor_returns: pd.DataFrame,
-            method: str,
-            window: int
-    ) -> pd.DataFrame:
-        """
-        计算协方差矩阵
-        :param factor_returns: 因子收益率
-        :param method: 计算方式
-        :param window: 窗口数
-        """
-        if method == 'rolling':
-            return factor_returns.rolling(window).cov().dropna()
-        elif method == 'ledoit_wolf':
-            from sklearn.covariance import LedoitWolf
-            lw = LedoitWolf().fit(factor_returns)
-            return pd.DataFrame(
-                lw.covariance_,
-                index=factor_returns.columns,
-                columns=factor_returns.columns
-            )
-        else:
-            return factor_returns.expanding().cov()
-
-    # ---------------------------
-    # 目标函数
-    # ---------------------------
-    @staticmethod
-    def _neg_sharpe(
-            weights: np.ndarray,
-            mean_returns: pd.Series,
-            cov_matrix: pd.DataFrame
-    ) -> float:
-        """最大化夏普比率（等价于最小化负夏普）"""
-        port_return = np.dot(weights, mean_returns)
-        port_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-        sharpe = port_return / port_vol
-        return -sharpe
-
-    @staticmethod
-    def _risk_parity_objective(
-            weights: np.ndarray,
-            cov_matrix: pd.DataFrame
-    ) -> float:
-        """风险平价目标：最小化各因子风险贡献方差"""
-        portfolio_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-        marginal_risk = np.dot(cov_matrix, weights) / portfolio_vol
-        rc = weights * marginal_risk
-        return np.sum((rc - rc.mean())  **  2)
-
-    @staticmethod
-    def _cvar_objective(
-            weights: np.ndarray,
-            returns: np.ndarray,
-            alpha: float
-    ) -> float:
-        """最小化CVaR（条件风险价值）"""
-        port_returns = np.dot(returns, weights)
-        var = np.percentile(port_returns, (1 - alpha) * 100)
-        cvar = -np.mean(port_returns[port_returns <= var])
-        return cvar
