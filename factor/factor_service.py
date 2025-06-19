@@ -17,8 +17,7 @@ from quant_service import QuantService
 from stock_pool_filter import StockPoolFilter
 from check_factor_feature import DifferentMarketAnalyzer
 from constant.quant import (
-                            Factor, RESTRUCTURE_FACTOR,
-                            NEGATIVE_SINGLE_COLUMN
+                            Factor, NEGATIVE_SINGLE_COLUMN
                         )
 from constant.path_config import DataPATH
 from constant.type_ import (
@@ -62,7 +61,6 @@ class FactorAnalyzer(QuantService):
             transfer_mode: str | None = None,
             mv_neutral: bool = False,
             industry_neutral: bool = False,
-            restructure: bool = False,
             lag_period: int = 1,
             benchmark_code: str = "000300",
             double_sort_factor_name: str = '',
@@ -80,7 +78,6 @@ class FactorAnalyzer(QuantService):
         :param standardization: 标准化
         :param mv_neutral: 市值中性化
         :param industry_neutral: 行业中性化
-        :param restructure: 因子重构
         :param lag_period: 滞后期数
         :param benchmark_code: 基准指数代码
         :param double_sort_factor_name: 双重排序因子名
@@ -98,7 +95,6 @@ class FactorAnalyzer(QuantService):
         self.standardization = standardization
         self.mv_neutral = mv_neutral
         self.industry_neutral = industry_neutral
-        self.restructure = restructure
         self.lag_period = lag_period
         self.benchmark_code = benchmark_code
         self.double_sort_factor_name = double_sort_factor_name
@@ -191,8 +187,9 @@ class FactorAnalyzer(QuantService):
                 self.storage_dir
                 / factor_name
                 / f"股票池{filter_mode}-{self.cycle}-"
-                  f"trans_{self.transfer_mode}-mve_{self.mv_neutral}"
-                  f"-ind_{self.industry_neutral}-res_{self.restructure}"
+                  f"trans_{self.transfer_mode}"
+                  f"-mve_{self.mv_neutral}"
+                  f"-ind_{self.industry_neutral}"
         )
 
     def _get_valid_factor(
@@ -200,15 +197,9 @@ class FactorAnalyzer(QuantService):
             factor_name: str 
     ) -> list[str]:
         """获取有效因子"""
-        # 添加重构因子
-        factors_name = (
-            [f for f in [factor_name, RESTRUCTURE_FACTOR.get(factor_name, "")] if f]
-            if self.restructure
-            else [factor_name]
-        )
         # 添加必要因子
         return list(set(
-            factors_name + self.support_factors_name
+            [factor_name] + self.support_factors_name
         ))
 
     # --------------------------
@@ -381,9 +372,9 @@ class FactorAnalyzer(QuantService):
                 "研究范围": filter_mode,
                 "周期": self.cycle,
                 "标准化": self.standardization,
+                "正态变换": self.transfer_mode,
                 "市值中性化": self.mv_neutral,
                 "行业中性化": self.industry_neutral,
-                "因子重构": self.restructure,
                 "分组": group_mode,
                 "ic_mean": result["ic_stats"]["ic_mean"].values[0],
                 "ic_ir": result["ic_stats"]["ic_ir"].values[0],
@@ -548,8 +539,8 @@ class FactorAnalyzer(QuantService):
                 mode="a",
                 index=False,
                 subset=[
-                    "因子名", "回测时长", "研究范围", "周期", "标准化",
-                    "市值中性化", "行业中性化", "因子重构", "分组"
+                    "因子名", "回测时长", "研究范围", "周期", "标准化", "正态变换",
+                    "市值中性化", "行业中性化", "分组"
                 ],
                 keep="last"
             )
@@ -562,8 +553,8 @@ class FactorAnalyzer(QuantService):
                     mode="a",
                     index=False,
                     subset=[
-                        "因子名", "回测时长", "研究范围", "周期", "标准化",
-                        "市值中性化", "行业中性化", "因子重构", "分组"
+                        "因子名", "回测时长", "研究范围", "周期", "标准化", "正态变换",
+                        "市值中性化", "行业中性化", "分组"
                     ],
                     keep="last"
                 )

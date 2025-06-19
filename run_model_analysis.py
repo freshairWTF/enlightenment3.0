@@ -26,6 +26,8 @@
 """
 """
     -1 模型集成
+    -8 分类模型 若等频划分 则以group为标签  若仅仅前100、后100 就需要重采样
+    
     -2 风格因子中性化
     -3 扩张窗口因子
     -4 因子暴露控制 风险评价模型 
@@ -34,9 +36,6 @@
     
     -6 数据 行业分类表 以及 各类数据的完善
     -7 标的池
-    
-    159555 0.36 512890 0.64
-    ic 0.36 if 0.64 
 """
 from constant.factor_library import *
 from constant.quant_setting import ModelSetting
@@ -44,6 +43,7 @@ from constant.quant_setting import ModelSetting
 from model import *
 from model.model_service import ModelAnalyzer
 from constant.type_ import FILTER_MODE
+
 
 # -----------------------------
 # 模型工厂
@@ -74,8 +74,8 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250530-WEEK"
-    storage_dir = "中性化市值测试/traditional_linear-20250530W-对照组1"
+    source_dir = "20250530-WEEK-跟踪"
+    storage_dir = "最优化测试/traditional_linear-20250530W"
 
     filter_mode: FILTER_MODE = "_entire_filter"
     # 模型参数设置

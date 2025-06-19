@@ -15,7 +15,6 @@ def factor_analysis():
         standardization=True,
         mv_neutral=False,
         industry_neutral=False,
-        restructure=False,
 
         group_mode="frequency",
         group_nums=10,

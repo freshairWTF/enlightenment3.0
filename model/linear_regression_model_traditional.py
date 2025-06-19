@@ -327,6 +327,20 @@ class LinearRegressionTraditionalModel:
             ),
             keep_cols=self.keep_cols
         )
+
+
+        # ----------------------------------
+        # 测试
+        # ----------------------------------
+        self.utils.optimize.calculate_factors_return(
+            pca_df,
+            pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()
+        )
+        # ----------------------------------
+        # 测试
+        # ----------------------------------
+
+
         # -3 合成 综合Z值
         comprehensive_z_df = self._factors_synthesis(
             pca_df,

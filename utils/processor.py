@@ -1,5 +1,6 @@
 import warnings
 import numpy as np
+import numpy.random
 import pandas as pd
 import statsmodels.api as sm
 
@@ -814,13 +815,12 @@ class Classification:
         result_df = []
         for date, df in factor_values.groupby("date"):
             try:
-                if df.shape[0] >= group_nums:
-                    df["group"] = method(
-                        df, factor_col, processed_factor_col, group_nums, group_label, negative
-                    )
-                    result_df.append(df)
+                df["group"] = method(
+                    df, factor_col, processed_factor_col, group_nums, group_label, negative
+                )
+                result_df.append(df)
             except Exception as e:
-                print(f"分组出现错误: {date} | {e} -> {df.shape} - {group_nums} - {len(group_label)}")
+                print(f"分组出现错误: {date} | {e} -> {df.shape} - {group_nums}")
                 continue
 
         return pd.concat(result_df)
@@ -867,26 +867,43 @@ class Classification:
             group_label: list[str],
             negative: bool
     ) -> pd.Series:
-        """等频分组"""
-        if negative:
-            negative_mask = df[factor_col] < 0
-            df["group"] = np.where(
-                negative_mask,
-                'negative',
-                pd.NA
-            )
-            non_negative_group = pd.qcut(
-                df.loc[~negative_mask, processed_factor_col],
-                q=group_nums,
-                labels=group_label,
-                duplicates="drop"
-            )
-            df.loc[~negative_mask, "group"] = non_negative_group
-            return df["group"].astype("category")
-        else:
+        """
+        等频分箱，若分箱有误，则将数据转换为排序再分箱
+        :param df: 分箱数据
+        :param factor_col: 分箱因子
+        :param processed_factor_col: 分箱处理因子
+        :param group_nums: 分箱数
+        :param group_label: 分箱标签
+        :param negative: 是否负值独立
+        :return: 等频分箱series
+        """
+        try:
+            if negative:
+                negative_mask = df[factor_col] < 0
+                df["group"] = np.where(
+                    negative_mask,
+                    'negative',
+                    pd.NA
+                )
+                non_negative_group = pd.qcut(
+                    df.loc[~negative_mask, processed_factor_col],
+                    q=group_nums,
+                    labels=group_label,
+                    duplicates="drop"
+                )
+                df.loc[~negative_mask, "group"] = non_negative_group
+                return df["group"].astype("category")
+            else:
+                return pd.qcut(
+                    pd.to_numeric(df[processed_factor_col]),
+                    q=group_nums,
+                    labels=group_label,
+                    duplicates="drop"
+                )
+        except ValueError:
             return pd.qcut(
-                pd.to_numeric(df[processed_factor_col]),
-                q=group_nums,
-                labels=group_label,
-                duplicates="drop"
+                    pd.to_numeric(df[processed_factor_col]).rank(method="first"),
+                    q=group_nums,
+                    labels=group_label,
+                    duplicates="drop"
             )
