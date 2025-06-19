@@ -143,25 +143,19 @@ class KLineMetrics(Metrics, KlineDetermination):
         """
         # 滚动窗口
         rolling_window = int(window * self.annual_window)
-        rolling_window = 160
 
-        rolling_quantile = (self.metrics["pctChg"].
-                            rolling(window=rolling_window, min_periods=rolling_window).
-                            apply(lambda x: np.quantile(x, q=0.7))
-                            )
-
-        print(rolling_quantile)
-
-        lowest_70_df = np.where(self.metrics["pctChg"] < rolling_quantile, 0, self.metrics["pctChg"])
-
-        print(lowest_70_df)
-
-        print(dd)
-        vol = self.metrics["high"] / self.metrics["low"] - 1
-        threshold = vol.quantile(0.7)
-        lowest_70_df = self.metrics["pctChg"].copy()
-        lowest_70_df[lowest_70_df > threshold] = 0
-
+        rolling_vol_quantile = (
+            self.metrics["pctChg"].
+            rolling(window=rolling_window, min_periods=rolling_window).
+            apply(
+                lambda x: np.quantile(x, q=0.7)
+            )
+        ).dropna()
+        lowest_70_df = self.metrics.loc[rolling_vol_quantile.index, "pctChg"]
+        lowest_70_df = pd.Series(
+            np.where(lowest_70_df > rolling_vol_quantile, 0, lowest_70_df),
+            index=lowest_70_df.index
+        )
 
         self.metrics[f"波动率过滤的累加收益率_{window}"] = (
             self._calc_rolling(

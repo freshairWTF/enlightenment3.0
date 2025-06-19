@@ -5,20 +5,20 @@ from factor.factor_service import FactorAnalyzer
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="带波动率过滤的累计收益率",
+        source_dir="模型因子训练集",
         index_code="000300",
         factors_name=[
-            "波动率过滤的累加收益率_0.09",
+            "对数市值",
         ],
         cycle="week",
+        transfer_mode="yeo_johnson",
         standardization=True,
-        mv_neutral=True,
-        industry_neutral=True,
+        mv_neutral=False,
+        industry_neutral=False,
         restructure=False,
 
         group_mode="frequency",
         group_nums=10,
-
         lag_period=1
     )
     # 运存限制，使用单进程

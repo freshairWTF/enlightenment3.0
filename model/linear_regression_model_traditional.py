@@ -70,7 +70,6 @@ class LinearRegressionTraditionalModel:
         :param prefix: 预处理生成因子前缀
         :return: 处理过的数据
         """
-
         def __process_single_date(
                 df_: pd.DataFrame,
         ) -> pd.DataFrame:
@@ -78,14 +77,17 @@ class LinearRegressionTraditionalModel:
             for setting in self.factors_setting:
                 factor_name = setting.factor_name
                 processed_col = f"{prefix}_{factor_name}"
-
                 df_[processed_col] = df_[factor_name].copy()
-                # -1 第一次 去极值、标准化
+
+                # -1 正态变换
+                df_[processed_col] = self.processor.refactor.yeo_johnson_transfer(df_[processed_col])
+
+                # -2 第一次 去极值、标准化
                 df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
                     df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
 
-                # -2 中性化
+                # -3 中性化
                 if setting.market_value_neutral:
                     df_[processed_col] = self.processor.neutralization.log_market_cap(
                         df_[processed_col],
@@ -93,20 +95,13 @@ class LinearRegressionTraditionalModel:
                         winsorizer=self.processor.winsorizer.percentile,
                         dimensionless=self.processor.dimensionless.standardization
                     )
-                # if setting.market_value_neutral:
-                #     df_[processed_col] = self.processor.neutralization.log_market_cap(
-                #         df_[processed_col],
-                #         np.power(df_["对数市值"], 3),
-                #         winsorizer=self.processor.winsorizer.percentile,
-                #         dimensionless=self.processor.dimensionless.standardization
-                #     )
                 if setting.industry_neutral:
                     df_[processed_col] = self.processor.neutralization.industry(
                         df_[processed_col],
                         df_["行业"]
                     )
 
-                # -3 第二次 去极值、标准化
+                # -4 第二次 去极值、标准化
                 df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
                     df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
