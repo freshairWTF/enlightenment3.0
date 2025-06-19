@@ -1,5 +1,6 @@
 import warnings
 import numpy as np
+import numpy.random
 import pandas as pd
 import statsmodels.api as sm
 
@@ -737,7 +738,7 @@ class Refactor:
         box-cox变换（适用于严格为正的数据，0数据可以加上一个极小正值）
         :param factor_value: 因子数值
         :param standardize: 是否标准化处理
-        :return: box-cox变换后的因子数值
+        :return: box-cox变换后的因子数值，若变换后的标准差为0，则返回原值
         """
         # -1 数据平移
         factor_value = factor_value - np.min(factor_value) + 1e-5
@@ -753,7 +754,7 @@ class Refactor:
             name=factor_value.name
         )
 
-        return result
+        return factor_value if result.std() == 0 else result
 
     @classmethod
     def yeo_johnson_transfer(
@@ -765,7 +766,7 @@ class Refactor:
         Yeo-Johnson变换（允许负数）
         :param factor_value: 因子数值
         :param standardize: 是否标准化处理
-        :return: Yeo-Johnson变换后的因子数值
+        :return: Yeo-Johnson变换后的因子数值，若变换后的标准差为0，则返回原值
         """
         # -1 估计λ、转换原始数据
         tf = PowerTransformer(method="yeo-johnson", standardize=standardize)
@@ -778,7 +779,7 @@ class Refactor:
             name=factor_value.name
         )
 
-        return result
+        return factor_value if result.std() == 0 else result
 
 
 ###############################################################
@@ -814,12 +815,12 @@ class Classification:
         result_df = []
         for date, df in factor_values.groupby("date"):
             try:
-                if df.shape[0] >= group_nums:
-                    df["group"] = method(
-                        df, factor_col, processed_factor_col, group_nums, group_label, negative
-                    )
-                    result_df.append(df)
-            except ValueError:
+                df["group"] = method(
+                    df, factor_col, processed_factor_col, group_nums, group_label, negative
+                )
+                result_df.append(df)
+            except Exception as e:
+                print(f"分组出现错误: {date} | {e} -> {df.shape} - {group_nums}")
                 continue
 
         return pd.concat(result_df)
@@ -866,26 +867,43 @@ class Classification:
             group_label: list[str],
             negative: bool
     ) -> pd.Series:
-        """等频分组"""
-        if negative:
-            negative_mask = df[factor_col] < 0
-            df["group"] = np.where(
-                negative_mask,
-                'negative',
-                pd.NA
-            )
-            non_negative_group = pd.qcut(
-                df.loc[~negative_mask, processed_factor_col],
-                q=group_nums,
-                labels=group_label,
-                duplicates="drop"
-            )
-            df.loc[~negative_mask, "group"] = non_negative_group
-            return df["group"].astype("category")
-        else:
+        """
+        等频分箱，若分箱有误，则将数据转换为排序再分箱
+        :param df: 分箱数据
+        :param factor_col: 分箱因子
+        :param processed_factor_col: 分箱处理因子
+        :param group_nums: 分箱数
+        :param group_label: 分箱标签
+        :param negative: 是否负值独立
+        :return: 等频分箱series
+        """
+        try:
+            if negative:
+                negative_mask = df[factor_col] < 0
+                df["group"] = np.where(
+                    negative_mask,
+                    'negative',
+                    pd.NA
+                )
+                non_negative_group = pd.qcut(
+                    df.loc[~negative_mask, processed_factor_col],
+                    q=group_nums,
+                    labels=group_label,
+                    duplicates="drop"
+                )
+                df.loc[~negative_mask, "group"] = non_negative_group
+                return df["group"].astype("category")
+            else:
+                return pd.qcut(
+                    pd.to_numeric(df[processed_factor_col]),
+                    q=group_nums,
+                    labels=group_label,
+                    duplicates="drop"
+                )
+        except ValueError:
             return pd.qcut(
-                pd.to_numeric(df[processed_factor_col]),
-                q=group_nums,
-                labels=group_label,
-                duplicates="drop"
+                    pd.to_numeric(df[processed_factor_col]).rank(method="first"),
+                    q=group_nums,
+                    labels=group_label,
+                    duplicates="drop"
             )

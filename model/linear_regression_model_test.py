@@ -9,10 +9,11 @@ import pandas as pd
 
 from utils.processor import DataProcessor
 from model.model_utils import ModelUtils
+from model.optimizer import PortfolioOptimizer
 
 
 ########################################################################
-class LinearRegressionTraditionalModel:
+class LinearRegressionTestModel:
     """线性回归模型"""
 
     def __init__(
@@ -33,11 +34,12 @@ class LinearRegressionTraditionalModel:
         self.index_data = index_data
         self.individual_position_limit = individual_position_limit
 
-        self.factors_setting = self.model_setting.factors_setting  # 因子设置
-        self.processor = DataProcessor()  # 数据处理
-        self.utils = ModelUtils()  # 模型工具
+        self.factors_setting = self.model_setting.factors_setting   # 因子设置
+        self.processor = DataProcessor()                            # 数据处理
+        self.utils = ModelUtils()                                   # 模型工具
 
-        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值"]  # 保留列
+        # 保留列
+        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值", "close"]
 
     def _direction_reverse(
             self,
@@ -355,11 +357,17 @@ class LinearRegressionTraditionalModel:
             group_label=self.model_setting.group_label,
         )
         # -3 仓位权重赋值
-        position_weight = self.utils.pos_weight.get_weights(
-            classification_df,
-            factor_col="predict",
-            method=self.model_setting.position_weight_method,
-            distribution=self.model_setting.position_distribution
-        )
+        print(classification_df)
+        print(classification_df.columns)
+        print(classification_df[["date"]])
+        print(dd)
+        # portfolio = PortfolioOptimizer()
+
+        # position_weight = self.utils.pos_weight.get_weights(
+        #     classification_df,
+        #     factor_col="predict",
+        #     method=self.model_setting.position_weight_method,
+        #     distribution=self.model_setting.position_distribution
+        # )
 
         return position_weight, estimate_metric

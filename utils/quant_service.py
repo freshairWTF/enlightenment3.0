@@ -256,7 +256,11 @@ class QuantService:
         diff = backtest_date_index.diff(1).dropna()
         last_continue_date = diff[diff != 1].index.max()
 
-        return raw_data if pd.isna(last_continue_date) else raw_data[raw_data["date"] >= last_continue_date]
+        if pd.isna(last_continue_date):
+            return raw_data
+        else:
+            print(f"时间连续性有误，起始时间重置 -> {last_continue_date}")
+            return raw_data[raw_data["date"] >= last_continue_date]
 
     # --------------------------
     # 指标计算

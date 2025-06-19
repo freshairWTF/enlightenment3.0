@@ -18,13 +18,11 @@ class FactorSetting:
     cycle: CYCLE = "week"                       # 周期
     half_life: int = 100                        # 半衰期，默认100期
 
+    transfer: bool = False                      # 正态变换
     reverse: bool = False                       # 方向反转
     standardization: bool = True                # 标准化
     market_value_neutral: bool = True           # 市场中性化
     industry_neutral: bool = True               # 行业中性化
-
-    restructure: bool = False                   # 因子重构
-    restructure_denominator: str = ""           # 因子重构分母
 
     filter_mode: FILTER_MODE | None = None      # 过滤模式
     entire_filter: bool = False                 # 全部股票

@@ -17,8 +17,7 @@ from quant_service import QuantService
 from stock_pool_filter import StockPoolFilter
 from check_factor_feature import DifferentMarketAnalyzer
 from constant.quant import (
-                            Factor, RESTRUCTURE_FACTOR,
-                            NEGATIVE_SINGLE_COLUMN
+                            Factor, NEGATIVE_SINGLE_COLUMN
                         )
 from constant.path_config import DataPATH
 from constant.type_ import (
@@ -59,9 +58,9 @@ class FactorAnalyzer(QuantService):
             cycle: CYCLE,
             class_level: CLASS_LEVEL = "一级行业",
             standardization: bool = True,
+            transfer_mode: str | None = None,
             mv_neutral: bool = False,
             industry_neutral: bool = False,
-            restructure: bool = False,
             lag_period: int = 1,
             benchmark_code: str = "000300",
             double_sort_factor_name: str = '',
@@ -75,10 +74,10 @@ class FactorAnalyzer(QuantService):
         :param factors_name: 因子名
         :param cycle: 周期
         :param class_level: 行业级数
+        :param transfer_mode: 变换模式 -1 box_cox -2 yeo_johnson
         :param standardization: 标准化
         :param mv_neutral: 市值中性化
         :param industry_neutral: 行业中性化
-        :param restructure: 因子重构
         :param lag_period: 滞后期数
         :param benchmark_code: 基准指数代码
         :param double_sort_factor_name: 双重排序因子名
@@ -92,10 +91,10 @@ class FactorAnalyzer(QuantService):
         self.factors_name = factors_name
         self.cycle = cycle
         self.class_level = class_level
+        self.transfer_mode = transfer_mode
         self.standardization = standardization
         self.mv_neutral = mv_neutral
         self.industry_neutral = industry_neutral
-        self.restructure = restructure
         self.lag_period = lag_period
         self.benchmark_code = benchmark_code
         self.double_sort_factor_name = double_sort_factor_name
@@ -134,17 +133,6 @@ class FactorAnalyzer(QuantService):
         self.listed_nums = self.load_listed_nums()
         self.raw_data = self.load_factors_value_by_dask(self.source_dir)
 
-        # print(self.raw_data)
-        # self.raw_data = self.valid_factors_filter(self.raw_data, list(set(self._get_support_factors() + ["真实波幅均线_1", "累加收益率_1"])))
-        # result_dfs = []
-        # for date, group in self.raw_data.groupby("date"):
-        #     threshold = group["真实波幅均线_1"].quantile(0.7)
-        #     lowest_70_df = group[group["真实波幅均线_1"] <= threshold]
-        #     result_dfs.append(lowest_70_df)
-        # self.raw_data = pd.concat(result_dfs, ignore_index=True)
-        # print(self.raw_data)
-
-
         # --------------------------
         # 其他参数
         # --------------------------
@@ -158,9 +146,6 @@ class FactorAnalyzer(QuantService):
             "_mega_cap_filter",
             "_small_cap_filter"
         ]
-
-        # 最少行数
-        self.min_nums = 100
 
         # --------------------------
         # 指数数据
@@ -202,7 +187,9 @@ class FactorAnalyzer(QuantService):
                 self.storage_dir
                 / factor_name
                 / f"股票池{filter_mode}-{self.cycle}-"
-                  f"mve{self.mv_neutral}-ine{self.industry_neutral}-res{self.restructure}"
+                  f"trans_{self.transfer_mode}"
+                  f"-mve_{self.mv_neutral}"
+                  f"-ind_{self.industry_neutral}"
         )
 
     def _get_valid_factor(
@@ -210,15 +197,9 @@ class FactorAnalyzer(QuantService):
             factor_name: str 
     ) -> list[str]:
         """获取有效因子"""
-        # 添加重构因子
-        factors_name = (
-            [f for f in [factor_name, RESTRUCTURE_FACTOR.get(factor_name, "")] if f]
-            if self.restructure
-            else [factor_name]
-        )
         # 添加必要因子
         return list(set(
-            factors_name + self.support_factors_name
+            [factor_name] + self.support_factors_name
         ))
 
     # --------------------------
@@ -236,8 +217,12 @@ class FactorAnalyzer(QuantService):
     ) -> pd.DataFrame:
         """
         数据处理 
-            -1 截取（全部因子） -2 平移（除 pctChg 之外） -3 过滤（过滤因子） 
-            -4 预处理（回测因子） -5 分组（预处理因子、使用过去的因子给当下分组，无未来函数）
+            -1 截取（全部因子）
+            -2 断点检查（平移之前若有断点，则影响因子平移，若之后再出现断点，则不影响回测整体效果，只是部分时点缺失）
+            -3 平移（除 pctChg 之外）
+            -4 过滤（过滤因子）
+            -5 预处理（回测因子）
+            -6 分组（预处理因子、使用过去的因子给当下分组，无未来函数）
         :param raw_data: 原始数据
         :param backtest_factors: 回测所需全部因子
         :param filter_mode: 过滤模式
@@ -250,6 +235,8 @@ class FactorAnalyzer(QuantService):
             raw_data
             .pipe(self.valid_factors_filter,
                   valid_factors=backtest_factors)
+            .pipe(self.time_continuity_test,
+                  cycle=self.cycle)
             .pipe(self.add_industry,
                   industry_mapping=self.industry_mapping,
                   class_level=self.class_level)
@@ -267,7 +254,6 @@ class FactorAnalyzer(QuantService):
                   group_nums=self.group_nums,
                   group_label=self.group_label,
                   negative=True if factor_name in NEGATIVE_SINGLE_COLUMN else False)
-            .pipe(self.time_continuity_test, cycle=self.cycle)
         )
 
     def _quantity_check(
@@ -314,16 +300,19 @@ class FactorAnalyzer(QuantService):
             processed_col = f"{prefix}_{factor_name}"
             df_[processed_col] = df_[factor_name].copy()
 
+            # -1 正态化变换
+            if self.transfer_mode:
+                df_[processed_col] = (
+                    self.processor.refactor.box_cox_transfer(df_[processed_col]) if self.transfer_mode == "box_cox" else
+                    self.processor.refactor.yeo_johnson_transfer(df_[processed_col])
+                )
 
-            # df_[processed_col] = self.processor.refactor.box_cox_transfer(df_[processed_col])
-
-
-            # -1 第一次 去极值、标准化
+            # -2 第一次 去极值、标准化
             df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
             if self.standardization:
                 df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
 
-            # -2 中性化
+            # -3 中性化
             if self.mv_neutral:
                 df_[processed_col] = self.processor.neutralization.log_market_cap(
                     df_[processed_col],
@@ -337,7 +326,7 @@ class FactorAnalyzer(QuantService):
                     df_["行业"]
                 )
 
-            # -3 第二次 去极值、标准化
+            # -4 第二次 去极值、标准化
             df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
             if self.standardization:
                 df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
@@ -349,7 +338,8 @@ class FactorAnalyzer(QuantService):
             try:
                 processed_df = __process_single_date(group_df)
                 result_dfs.append(processed_df)
-            except ValueError:
+            except Exception as e:
+                self.logger.info(f"数据预处理流程有误: {date} | {e}")
                 continue
 
         # 合并处理结果
@@ -382,9 +372,9 @@ class FactorAnalyzer(QuantService):
                 "研究范围": filter_mode,
                 "周期": self.cycle,
                 "标准化": self.standardization,
+                "正态变换": self.transfer_mode,
                 "市值中性化": self.mv_neutral,
                 "行业中性化": self.industry_neutral,
-                "因子重构": self.restructure,
                 "分组": group_mode,
                 "ic_mean": result["ic_stats"]["ic_mean"].values[0],
                 "ic_ir": result["ic_stats"]["ic_ir"].values[0],
@@ -429,6 +419,13 @@ class FactorAnalyzer(QuantService):
                 and metrics["JT_p值"] <= 0.05
         ):
             metrics["judgment"] = "alpha"
+        elif (
+                abs(metrics["秩相关系数"]) >= 0.7
+                and metrics["最优组t值"] >= 2
+                and metrics["多空组t值"] >= 2
+                and metrics["JT_p值"] <= 0.05
+        ):
+            metrics["judgment"] = "nonlinear"
         elif (
                 abs(metrics["ic_ir"]) >= 0.5
                 and metrics["ic_significance"] >= 0.6
@@ -542,8 +539,8 @@ class FactorAnalyzer(QuantService):
                 mode="a",
                 index=False,
                 subset=[
-                    "因子名", "回测时长", "研究范围", "周期", "标准化",
-                    "市值中性化", "行业中性化", "因子重构", "分组"
+                    "因子名", "回测时长", "研究范围", "周期", "标准化", "正态变换",
+                    "市值中性化", "行业中性化", "分组"
                 ],
                 keep="last"
             )
@@ -556,8 +553,8 @@ class FactorAnalyzer(QuantService):
                     mode="a",
                     index=False,
                     subset=[
-                        "因子名", "回测时长", "研究范围", "周期", "标准化",
-                        "市值中性化", "行业中性化", "因子重构", "分组"
+                        "因子名", "回测时长", "研究范围", "周期", "标准化", "正态变换",
+                        "市值中性化", "行业中性化", "分组"
                     ],
                     keep="last"
                 )
@@ -629,6 +626,7 @@ class FactorAnalyzer(QuantService):
             str(date): group.drop("date", axis=1)
             for date, group in preprocessing_df.groupby("date")
         }
+        self.logger.info(f"数据处理完毕")
 
         # ---------------------------------------
         # 指标 -1 覆盖度 -2 描述性参数 -3 因子指标 -4 收益率指标 -5 马尔科夫链划分市场 -6 综合评价指标
@@ -708,37 +706,7 @@ class FactorAnalyzer(QuantService):
             transfer_factor_name=f"processed_{factor_name}",
             storage_dir=storage_dir
         )
-
-
-        # 变换测试
-        # self._calc_and_save_pdf(
-        #     preprocessing_dict,
-        #     factor_name=factor_name,
-        #     transfer_factor_name="原始数据变换",
-        #     storage_dir=storage_dir,
-        #     png_name="原始数据变换"
-        # )
-        # self._calc_and_save_pdf(
-        #     preprocessing_dict,
-        #     factor_name=f"processed_{factor_name}",
-        #     transfer_factor_name="预处理数据变换",
-        #     storage_dir=storage_dir,
-        #     png_name="预处理数据变换"
-        # )
-        # self._calc_and_save_pdf(
-        #     preprocessing_dict,
-        #     factor_name=factor_name,
-        #     transfer_factor_name="原始数据变换J",
-        #     storage_dir=storage_dir,
-        #     png_name="原始数据变换J"
-        # )
-        # self._calc_and_save_pdf(
-        #     preprocessing_dict,
-        #     factor_name=f"processed_{factor_name}",
-        #     transfer_factor_name="预处理数据变换J",
-        #     storage_dir=storage_dir,
-        #     png_name="预处理数据变换J"
-        # )
+        self.logger.info(f"单因子完成回测")
         # parquet 分组数据
         # self._store_results(grouped_data, storage_dir)
         # except Exception as e:
@@ -930,7 +898,6 @@ class FactorAnalyzer(QuantService):
                     factor_name=factor_name,
                     filter_mode=filter_mode
                 )
-
 
     def multi_run(self) -> None:
         """多进程执行完整分析流程"""

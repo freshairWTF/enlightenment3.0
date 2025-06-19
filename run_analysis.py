@@ -64,7 +64,7 @@ def factor_analysis():
         class_level="三级行业",
         weight_name="市值",
 
-        cycle="day",
+        cycle="week",
         financial_cycle="quarter",
         start_date="2010-03-31",
         financial_end_date="2022-12-31",
@@ -100,9 +100,9 @@ def model_factor_analysis():
 
         cycle="week",
         financial_cycle="quarter",
-        start_date="2000-01-01",
+        start_date="2010-01-01",
         financial_end_date="2022-12-31",
-        end_date="2025-06-13",
+        end_date="2022-12-31",
 
         target_info={"全部": "三级行业"},
         index_code="000300",
@@ -141,8 +141,8 @@ def inventory_cycle_analysis():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="带波动率过滤的累计收益率",
-        storage_dir="带波动率过滤的累计收益率"
+        source_dir="模型因子训练集",
+        storage_dir="模型因子训练集"
     )
     convert.run()
 
