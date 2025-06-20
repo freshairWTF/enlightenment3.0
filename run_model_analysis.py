@@ -48,12 +48,13 @@ from constant.type_ import FILTER_MODE
 # 模型工厂
 # -----------------------------
 MODEL = {
-    "linear": LinearRegressionModel,
-    "traditional_linear": LinearRegressionTraditionalModel,
-    "xgboost": XGBoostRegressionModel,
-    "xgboostCV": XGBoostRegressionCVModel,
-    "randomforest": RandomForestClassificationModel,
-    "test": LinearRegressionTestModel
+    "linearReg": LinearRegressionModel,
+    "traditionalLinearReg": LinearRegressionTraditionalModel,
+    "testTraditionalLinearReg": LinearRegressionTestModel,
+    "xgboostReg": XGBoostRegressionModel,
+    "xgboostCVReg": XGBoostRegressionCVModel,
+    "xgboostCla": XGBoostClassificationModel,
+    "randomForest": RandomForestClassificationModel,
 }
 
 

@@ -1,6 +1,5 @@
 import warnings
 import numpy as np
-import numpy.random
 import pandas as pd
 import statsmodels.api as sm
 
@@ -907,3 +906,57 @@ class Classification:
                     labels=group_label,
                     duplicates="drop"
             )
+
+    @classmethod
+    def custom_divide_into_group(
+            cls,
+            factor_values: pd.DataFrame,
+            group_nums: int,
+            group_label: list[str],
+            group_condition: list
+    ) -> pd.DataFrame:
+        """
+        定制分箱
+        :param factor_values: 因子数据
+        :param group_nums: 分箱数
+        :param group_label: 分箱标签
+        :param group_condition: 分箱条件
+        :return: 定制分箱series
+        """
+        # 验证参数一致性
+        if len(group_condition) != group_nums or len(group_label) != group_nums:
+            raise ValueError("定制分组参数错误: 分组数量、标签数量、条件数量必须一致")
+
+        def _sector_divide(
+                s: pd.DataFrame
+        ) -> pd.Series:
+            """
+            基于lambda条件执行截面分箱
+            :param s: 单日截面数据（DataFrame）
+            :return: 分组标签序列（pd.Series）
+            """
+            # -1 分组初始化
+            group_series = pd.Series(
+                np.nan,
+                index=s.index,
+                name="group"
+            )
+
+            # -2 应用lambda条件分配组标签
+            for idx, cond_func in enumerate(group_condition):
+                mask = cond_func(s)                             # 执行lambda获取布尔掩码
+                group_series.loc[mask] = group_label[idx]       # 分配标签
+
+            # 处理未覆盖的数据（分配到最后一组）
+            if group_series.isna().any():
+                group_series.fillna(group_label[-1], inplace=True)
+
+            return group_series
+
+        result_df = factor_values.copy()
+        result_df["group"] = pd.Series(dtype=str)
+        for date, group in result_df.groupby("date"):
+            group_labels = _sector_divide(group)
+            result_df.loc[group.index, "group"] = group_labels
+
+        return result_df
