@@ -356,13 +356,23 @@ class LinearRegressionTestModel:
             group_nums=self.model_setting.group_nums,
             group_label=self.model_setting.group_label,
         )
-        # -3 仓位权重赋值
-        print(classification_df)
-        print(classification_df.columns)
-        print(classification_df[["date"]])
-        print(dd)
-        # portfolio = PortfolioOptimizer()
 
+        # -3 仓位权重赋值
+        portfolio = PortfolioOptimizer(
+            asset_prices=classification_df.pivot(
+                index="date",
+                columns="股票代码",
+                values="close"
+            ),
+            cov_method="ledoit_wolf",
+            shrinkage_target="constant_variance"
+        )
+        portfolio.optimize_weights(
+            objective="max_sharpe",
+            weight_bounds=(0, 0.2),
+            sector_mapper={}
+        )
+        print(dd)
         # position_weight = self.utils.pos_weight.get_weights(
         #     classification_df,
         #     factor_col="predict",
