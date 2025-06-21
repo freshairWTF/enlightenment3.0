@@ -8,6 +8,9 @@ from pypfopt import exceptions
 import numpy as np
 import pandas as pd
 
+from constant.quant import ANNUALIZED_DAYS
+from constant.type_ import CYCLE, validate_literal_params
+
 
 ###################################################
 class FactorSynthesisOptimizer:
@@ -139,9 +142,11 @@ class PortfolioOptimizer:
     功能：计算最优股票权重分配、风险分析、离散化仓位分配
     """
 
+    @validate_literal_params
     def __init__(
             self,
             asset_prices: pd.DataFrame,
+            cycle: CYCLE,
             expected_return_method: str = "mean_historical_return",
             cov_method: str = "sample_cov",
             shrinkage_target: str = "constant_variance"
@@ -166,6 +171,10 @@ class PortfolioOptimizer:
         self.cov_method = cov_method
         self.exp_return_method = expected_return_method
         self.shrinkage_target = shrinkage_target
+        self.frequency = ANNUALIZED_DAYS.get(cycle, 252)
+
+        self.expected_returns = None                        # 预期收益率
+        self.cov_matrix = None                              # 协方差矩阵
         self.ef = None                                      # 有效前沿对象
         self.weights = None                                 # 优化权重
 
@@ -183,16 +192,19 @@ class PortfolioOptimizer:
             return expected_returns.ema_historical_return(
                 self.asset_prices,
                 compounding=compounding,
-                span=span
+                span=span,
+                frequency=self.frequency
             )
         elif self.exp_return_method == "capm_return":
             return expected_returns.capm_return(
                 self.asset_prices,
                 compounding=compounding,
+                frequency=self.frequency
             )
         return expected_returns.mean_historical_return(
             self.asset_prices,
-            compounding=compounding
+            compounding=compounding,
+            frequency=self.frequency
         )
 
     def _calculate_covariance(
@@ -201,14 +213,17 @@ class PortfolioOptimizer:
         """计算协方差矩阵"""
         if self.cov_method == "sample_cov":
             return risk_models.sample_cov(
-                self.asset_prices
+                self.asset_prices,
+                frequency=self.frequency
             )
         elif self.cov_method == "exp_cov":
             return risk_models.exp_cov(
-                self.asset_prices
+                self.asset_prices,
+                frequency=self.frequency
             )
         return risk_models.CovarianceShrinkage(
-            self.asset_prices
+            self.asset_prices,
+            frequency=self.frequency
         ).ledoit_wolf(
             shrinkage_target=self.shrinkage_target
         )
@@ -223,11 +238,13 @@ class PortfolioOptimizer:
             sector_upper: dict[str, float] | None = None,
             sector_lower: dict[str, float] | None = None,
             clean: bool = False,
+            cutoff: float = 0.01,
+            risk_free_rate: float = 0,
             risk_aversion: float = 1,
             market_neutral: bool = False,
             target_volatility: float = 0.15,
             target_return: float = 0.2
-    ) -> dict:
+    ) -> pd.Series:
         """
         执行权重优化
         :param objective: 优化目标
@@ -247,6 +264,8 @@ class PortfolioOptimizer:
         :param sector_upper: 权重上限（用于不同资产组的权重总和添加限制）
         :param sector_lower: 权重下限（用于不同资产组的权重总和添加限制）
         :param clean: 是否清理微小权重
+        :param cutoff: 清理微小权重上限
+        :param risk_free_rate: 无风险利率（max_sharpe参数）
         :param risk_aversion: 风险厌恶（max_quadratic_utility参数），取值范围 -> （0，1）
         :param market_neutral: 是否市场中立（权重和可为0）（max_quadratic_utility参数）
                                     PS: 权重边界需小于0
@@ -257,21 +276,27 @@ class PortfolioOptimizer:
         :return: 优化后的权重字典 {股票代码: 权重}
         """
         # -1 计算预期收益率、协方差矩阵
-        mu = self._calculate_expected_returns()
-        s = self._calculate_covariance()
+        self.expected_returns = self._calculate_expected_returns()
+        self.cov_matrix = self._calculate_covariance()
 
         # -2 初始化有效前沿
-        self.ef = EfficientFrontier(mu, s, weight_bounds=weight_bounds)
+        self.ef = EfficientFrontier(
+            self.expected_returns, self.cov_matrix, solver="CVXOPT", weight_bounds=weight_bounds, verbose=True
+        )
+
+        # maxiters=1000, abstol=1e-6, reltol=1e-5, feastol=1e-6, refinement=3
 
         # -3 加入约束
-        for constraint in constraints:
-            self.ef.add_constraint(constraint)
-        if sector_mapper and (sector_upper or sector_lower):
-            self.ef.add_sector_constraints(
-                sector_mapper=sector_mapper,
-                sector_upper=sector_upper,
-                sector_lower=sector_lower
-            )
+        # if constraints:
+        #     for constraint in constraints:
+        #         self.ef.add_constraint(constraint)
+
+        # if sector_mapper and (sector_upper or sector_lower):
+        #     self.ef.add_sector_constraints(
+        #         sector_mapper=sector_mapper,
+        #         sector_upper=sector_upper,
+        #         sector_lower=sector_lower
+        #     )
 
         # 添加正则化防止过拟合
         if gamma:
@@ -287,13 +312,15 @@ class PortfolioOptimizer:
         elif objective == "efficient_return":
             self.ef.efficient_return(target_return=target_return)
         else:
-            self.ef.max_sharpe(risk_free_rate=0)
+            self.ef.max_sharpe(risk_free_rate=risk_free_rate)
 
         # 清理微小权重
-        if clean:
-            return self.ef.clean_weights(cutoff=0.01, rounding=4)
-        else:
-            return self.ef.weights
+        self.weights = (
+            pd.Series(self.ef.clean_weights(cutoff=cutoff)) if clean else
+            pd.Series(self.ef.weights, index=self.asset_prices.columns)
+        )
+
+        return self.weights
 
     def portfolio_performance(
             self
@@ -304,7 +331,9 @@ class PortfolioOptimizer:
         """
         if not self.ef:
             raise ValueError("请先执行optimize_weights()进行优化")
-        return self.ef.portfolio_performance(verbose=True)
+        return self.ef.portfolio_performance(
+            verbose=True
+        )
 
     def discrete_allocation(
             self,
@@ -321,7 +350,7 @@ class PortfolioOptimizer:
             latest_prices = self.asset_prices.iloc[-1]  # 默认使用最后一天价格
 
         da = DiscreteAllocation(
-            self.weights,
+            self.weights.to_dict(),
             latest_prices,
             total_portfolio_value=total_portfolio_value
         )
@@ -332,23 +361,21 @@ class PortfolioOptimizer:
             "分配比例": sum(alloc.values()) / total_portfolio_value
         }
 
-    def risk_report(self) -> pd.DataFrame:
+    def risk_report(
+            self
+    ) -> pd.DataFrame:
         """生成风险贡献分析报告"""
-        if not self.ef or not self.weights:
-            raise ValueError("请先执行优化")
-
         # 计算风险贡献
-        cov_matrix = self._calculate_covariance()
-        weights = np.array(list(self.weights.values()))
+        weights = np.array(list(self.weights.to_dict().values()))
         portfolio_vol = self.ef.portfolio_performance()[1]
 
         # 边际风险贡献
-        marginal_risk = cov_matrix.dot(weights) / portfolio_vol
+        marginal_risk = self.cov_matrix.dot(weights) / portfolio_vol
         risk_contrib = np.multiply(weights, marginal_risk)
 
         # 构建报告
         report = pd.DataFrame({
-            "股票代码": list(self.weights.keys()),
+            "股票代码": self.weights.index.tolist(),
             "权重": weights,
             "风险贡献": risk_contrib,
             "风险占比": risk_contrib / risk_contrib.sum()

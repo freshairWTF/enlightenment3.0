@@ -35,6 +35,13 @@
     -8 分类模型 若等频划分 则以group为标签  若仅仅前100、后100 就需要重采样!!!!
     -3 扩张窗口因子
     -4 因子暴露控制 风险评价模型 !!!!
+    
+    -11 新量价因子 
+        -1 TNR = 区间涨跌幅 / 区间累加涨跌幅
+        -2 TNR diff
+        -3 up prob = up prob + 0.5 * (down prob * 1 - up prob * -1)
+           down prob = down prob + 0.5 * (up prob * -1 - down prob * 1)
+           u2p = up prob - down prob
 """
 from constant.factor_library import *
 from constant.quant_setting import ModelSetting
@@ -94,7 +101,7 @@ if __name__ == "__main__":
         # factor_half_life=(3, 6),
 
         # 因子处理方法
-        class_level="三级行业",
+        class_level="一级行业",
         bottom_factor_weight_method="ir_decay_weight",
         secondary_factor_weight_method="ir_decay_weight",
         factor_weight_window=12,

@@ -8,8 +8,7 @@ def factor_analysis():
         source_dir="模型因子训练集",
         index_code="000300",
         factors_name=[
-            "市现率倒数","市销率倒数","市销率倒数_rolling_normalized","市净率倒数","实际收益率",
-            "核心利润盈利市值比","周期市盈率倒数"
+            "实收资本"
         ],
         cycle="week",
 
