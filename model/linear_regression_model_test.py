@@ -360,15 +360,12 @@ class LinearRegressionTestModel:
         # ----------------------------------
         # 开发！！仓位管理模块
         # ----------------------------------
-        # -3 仓位权重赋值
-        print(classification_df.info())
-
         portfolio = PortfolioOptimizer(
             asset_prices=classification_df[classification_df["group"] == "95"].pivot(
                 index="date",
                 columns="股票代码",
                 values="close"
-            ).ffill(axis=1).bfill(axis=1),
+            ).ffill(),
             cycle=self.model_setting.cycle,
             cov_method="ledoit_wolf",
             shrinkage_target="constant_variance"
@@ -379,7 +376,7 @@ class LinearRegressionTestModel:
             sector_mapper=classification_df[classification_df["group"] == "95"].set_index("股票代码")["行业"].to_dict(),
             sector_lower={"机械设备": 0},
             sector_upper={"机械设备": 0.3},
-            clean=False,
+            clean=True,
         )
         print(weights)
 

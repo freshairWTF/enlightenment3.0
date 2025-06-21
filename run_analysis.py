@@ -107,7 +107,7 @@ def model_factor_analysis():
         target_info={"全部": "三级行业"},
         index_code="000300",
 
-        processes_nums=10,
+        processes_nums=4,
         debug=False
     )
     analyzer.run()
