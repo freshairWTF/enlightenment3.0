@@ -3,136 +3,13 @@ from numpy import ndarray
 from pandas import DataFrame
 from pypfopt import EfficientFrontier, objective_functions, risk_models, expected_returns
 from pypfopt.discrete_allocation import DiscreteAllocation
-from pypfopt import exceptions
 
 import numpy as np
 import pandas as pd
 
 from constant.quant import ANNUALIZED_DAYS
 from constant.type_ import CYCLE, validate_literal_params
-
-
-###################################################
-class FactorSynthesisOptimizer:
-    """因子权重优化"""
-
-    def __init__(
-            self,
-            factor_returns: pd.DataFrame,
-            cov_method: str = "sample_cov",
-            window: int = 126
-    ):
-        """
-        :param factor_returns: 因子收益率（格式：时间序列，每列为一个因子）
-        :param cov_method: 协方差矩阵计算方法（"sample_cov", "ledoit_wolf", "exp_cov"等）
-        :param window: 滚动窗口长度（仅对滚动协方差有效）
-        """
-        self.factor_returns = factor_returns
-        self.cov_matrix = self._calculate_covariance(method=cov_method, window=window)
-        self.optimal_weights = None
-        self.optimizer = None  # 优化器对象
-
-    def _calculate_covariance(
-            self,
-            method: str,
-            window: int
-    ) -> pd.DataFrame:
-        """计算协方差矩阵（PyPortfolioOpt内置方法）"""
-        if method == "rolling":
-            # 需自行实现滚动协方差（PyPortfolioOpt原生不支持）
-            return self.factor_returns.rolling(window).cov().dropna()
-        else:
-            # 使用PyPortfolioOpt的协方差方法
-            return risk_models.risk_matrix(
-                self.factor_returns,
-                method=method,
-                returns_data=True
-            )
-
-    # ---------------------------
-    # 优化接口
-    # ---------------------------
-    def optimize_weights(
-            self,
-            objective: str = "max_sharpe",
-            max_weight: float = 0.3,
-            risk_aversion: float = 1.0,
-            gamma: float = 0.1
-    ) -> dict:
-        """
-        执行权重优化
-        :param objective: 目标函数类型（"max_sharpe", "hrp", "min_vol", "quadratic_utility"）
-        :param max_weight: 单个因子权重上限
-        :param risk_aversion: 风险厌恶系数（用于均值-方差模型）
-        :param gamma: L2正则化系数
-        """
-        # 选择优化器类型
-        if objective == "hrp":
-            self.optimizer = HRPOptimizer(returns=self.factor_returns)
-        else:
-            mu = expected_returns.mean_historical_return(self.factor_returns)
-            self.optimizer = EfficientFrontier(mu, self.cov_matrix)
-
-        # 添加权重约束
-        self.optimizer.add_constraint(lambda w: w <= max_weight)
-
-        # 正则化（防止过拟合）
-        self.optimizer.add_objective(objective_functions.L2_reg, gamma=gamma)
-
-        # 选择优化目标
-        if objective == "max_sharpe":
-            weights = self.optimizer.max_sharpe()
-        elif objective == "min_vol":
-            weights = self.optimizer.min_volatility()
-        elif objective == "quadratic_utility":
-            weights = self.optimizer.max_quadratic_utility(risk_aversion=risk_aversion)
-        elif objective == "hrp":
-            weights = self.optimizer.hrp_portfolio()
-        else:
-            raise ValueError("不支持的优化目标")
-
-        # 清理权重
-        self.optimal_weights = self.optimizer.clean_weights()
-        return self.optimal_weights
-
-    def analyze_risk(self) -> pd.DataFrame:
-        """风险贡献分析（PyPortfolioOpt原生支持风险贡献计算）"""
-        if not self.optimal_weights:
-            raise exceptions.OptimizationError("需先执行optimize_weights()")
-
-        # 计算风险贡献（仅HRP优化器直接支持）
-        if isinstance(self.optimizer, HRPOptimizer):
-            rc = self.optimizer.risk_contribution(self.optimal_weights)
-        else:
-            # 手动计算通用风险贡献
-            portfolio_vol = self.optimizer.portfolio_performance()[1]
-            marginal_risk = np.dot(self.cov_matrix, list(self.optimal_weights.values())) / portfolio_vol
-            rc = np.multiply(list(self.optimal_weights.values()), marginal_risk)
-
-        risk_report = pd.DataFrame({
-            "Weight": self.optimal_weights.values(),
-            "RiskContribution": rc,
-            "RiskPercent": rc / np.sum(rc)
-        }, index=self.factor_returns.columns)
-        return risk_report.sort_values("RiskPercent", ascending=False)
-
-    # ---------------------------
-    # 其他功能
-    # ---------------------------
-    def get_performance(self) -> tuple:
-        """获取组合性能指标（收益率、波动率、夏普比率）"""
-        return self.optimizer.portfolio_performance(verbose=True)
-
-    def discrete_allocation(self, total_value: float) -> dict:
-        """离散化分配（需因子对应可交易标的）"""
-        latest_prices = self.factor_returns.iloc[-1]  # 假设最后一行是最新价格
-        da = DiscreteAllocation(
-            self.optimal_weights,
-            latest_prices,
-            total_portfolio_value=total_value
-        )
-        alloc, leftover = da.lp_portfolio()
-        return {"allocation": alloc, "剩余资金": leftover}
+from utils.processor import DataProcessor
 
 
 ###################################################
@@ -287,16 +164,16 @@ class PortfolioOptimizer:
         # maxiters=1000, abstol=1e-6, reltol=1e-5, feastol=1e-6, refinement=3
 
         # -3 加入约束
-        # if constraints:
-        #     for constraint in constraints:
-        #         self.ef.add_constraint(constraint)
+        if constraints:
+            for constraint in constraints:
+                self.ef.add_constraint(constraint)
 
-        # if sector_mapper and (sector_upper or sector_lower):
-        #     self.ef.add_sector_constraints(
-        #         sector_mapper=sector_mapper,
-        #         sector_upper=sector_upper,
-        #         sector_lower=sector_lower
-        #     )
+        if sector_mapper and (sector_upper or sector_lower):
+            self.ef.add_sector_constraints(
+                sector_mapper=sector_mapper,
+                sector_upper=sector_upper,
+                sector_lower=sector_lower
+            )
 
         # 添加正则化防止过拟合
         if gamma:
@@ -315,10 +192,13 @@ class PortfolioOptimizer:
             self.ef.max_sharpe(risk_free_rate=risk_free_rate)
 
         # 清理微小权重
-        self.weights = (
-            pd.Series(self.ef.clean_weights(cutoff=cutoff)) if clean else
-            pd.Series(self.ef.weights, index=self.asset_prices.columns)
-        )
+        if clean:
+            raw_weights = pd.Series(self.ef.clean_weights(cutoff=cutoff))
+            raw_weights = raw_weights[raw_weights != 0]
+            self.weights = raw_weights / raw_weights.sum()
+        else:
+            raw_weights = pd.Series(self.ef.weights, index=self.asset_prices.columns)
+            self.weights = raw_weights[raw_weights != 0]
 
         return self.weights
 
