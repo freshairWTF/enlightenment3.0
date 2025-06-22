@@ -338,7 +338,7 @@ class LinearRegressionTestModel:
         )
 
         # ----------------------------------
-        # 模型
+        # 模型后处理
         # ----------------------------------
         # -1 模型训练、预测
         pred_df, estimate_metric = self.model_training_and_predict(
@@ -356,13 +356,40 @@ class LinearRegressionTestModel:
             group_nums=self.model_setting.group_nums,
             group_label=self.model_setting.group_label,
         )
-        # -3 仓位权重赋值
-        print(classification_df)
-        print(classification_df.columns)
-        print(classification_df[["date"]])
-        print(dd)
-        # portfolio = PortfolioOptimizer()
 
+        # ----------------------------------
+        # 开发！！仓位管理模块
+        # ----------------------------------
+        # -3 仓位权重赋值
+        print(classification_df.info())
+
+        portfolio = PortfolioOptimizer(
+            asset_prices=classification_df[classification_df["group"] == "95"].pivot(
+                index="date",
+                columns="股票代码",
+                values="close"
+            ).ffill(axis=1).bfill(axis=1),
+            cycle=self.model_setting.cycle,
+            cov_method="ledoit_wolf",
+            shrinkage_target="constant_variance"
+        )
+        weights = portfolio.optimize_weights(
+            objective="max_sharpe",
+            weight_bounds=(0, 1),
+            sector_mapper=classification_df[classification_df["group"] == "95"].set_index("股票代码")["行业"].to_dict(),
+            sector_lower={"机械设备": 0},
+            sector_upper={"机械设备": 0.3},
+            clean=False,
+        )
+        print(weights)
+
+        performance = portfolio.portfolio_performance()
+        allocation = portfolio.discrete_allocation()
+        risk_report = portfolio.risk_report()
+        print(performance)
+        print(allocation)
+        print(risk_report)
+        print(dd)
         # position_weight = self.utils.pos_weight.get_weights(
         #     classification_df,
         #     factor_col="predict",

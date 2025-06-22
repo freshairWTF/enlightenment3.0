@@ -5,6 +5,9 @@ from scipy.stats import spearmanr
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import PolynomialFeatures
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import RandomOverSampler
+
 # from sklearn.feature_selection import SelectFromModel
 
 import numpy as np
@@ -899,3 +902,33 @@ class FeatureEngineering:
         :param factor_values: 因子数据
         :return: 选择后的因子数据
         """
+
+    @staticmethod
+    def under_sampling(
+            train_x: pd.DataFrame,
+            train_y: pd.Series
+    ) -> tuple[pd.DataFrame, pd.Series]:
+        """
+        欠采样
+        :param train_x: 因子集
+        :param train_y: 分类标签
+        """
+        sampler = RandomUnderSampler(sampling_strategy='auto', random_state=42)
+        x_resampled, y_resampled = sampler.fit_resample(train_x, train_y)
+
+        return x_resampled, y_resampled
+
+    @staticmethod
+    def over_sampling(
+            train_x: pd.DataFrame,
+            train_y: pd.Series
+    ) -> tuple[pd.DataFrame, pd.Series]:
+        """
+        过采样
+        :param train_x: 因子集
+        :param train_y: 分类标签
+        """
+        sampler = RandomOverSampler(sampling_strategy='auto', random_state=42)
+        x_resampled, y_resampled = sampler.fit_resample(train_x, train_y)
+
+        return x_resampled, y_resampled

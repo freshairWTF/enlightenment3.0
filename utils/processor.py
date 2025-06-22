@@ -912,7 +912,7 @@ class Classification:
             cls,
             factor_values: pd.DataFrame,
             group_nums: int,
-            group_label: list[str],
+            group_label: list[str | int],
             group_condition: list
     ) -> pd.DataFrame:
         """
@@ -946,10 +946,6 @@ class Classification:
             for idx, cond_func in enumerate(group_condition):
                 mask = cond_func(s)                             # 执行lambda获取布尔掩码
                 group_series.loc[mask] = group_label[idx]       # 分配标签
-
-            # 处理未覆盖的数据（分配到最后一组）
-            if group_series.isna().any():
-                group_series.fillna(group_label[-1], inplace=True)
 
             return group_series
 

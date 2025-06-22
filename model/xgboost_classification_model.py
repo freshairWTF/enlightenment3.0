@@ -1,11 +1,10 @@
 """xgboost分类模型"""
 from dataclasses import dataclass
 from type_ import Literal
-from imblearn.under_sampling import RandomUnderSampler
 from xgboost import XGBClassifier
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, matthews_corrcoef, precision_score, recall_score
+from sklearn.preprocessing import LabelEncoder
 
-import numpy as np
 import pandas as pd
 
 from utils.processor import DataProcessor
@@ -34,11 +33,19 @@ class XGBoostClassificationModel:
         self.index_data = index_data
         self.individual_position_limit = individual_position_limit
 
-        self.factors_setting = self.model_setting.factors_setting  # 因子设置
-        self.processor = DataProcessor()  # 数据处理
-        self.utils = ModelUtils()  # 模型工具
+        self.factors_setting = self.model_setting.factors_setting               # 因子设置
+        self.processor = DataProcessor()                                        # 数据处理
+        self.utils = ModelUtils()                                               # 模型工具
+        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值", "group"]   # 保留列
 
-        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值"]  # 保留列
+        # 分组实参
+        self.group_condition = [
+            lambda df: df["pctChg"] < df["pctChg"].quantile(0.05),
+            lambda df: ((df["pctChg"] <= df["pctChg"].quantile(0.95)) &
+                        (df["pctChg"] >= df["pctChg"].quantile(0.05))),
+            lambda df: df["pctChg"] > df["pctChg"].quantile(0.95),
+        ]
+        self.le = LabelEncoder()                                                # 标签转换实例
 
         # 超参数网格
         # n_estimators/learning_rate
@@ -50,20 +57,6 @@ class XGBoostClassificationModel:
             'n_estimators': [10, 50, 100, 500, 1000, 3000, 5000]
         }
 
-    @staticmethod
-    def _under_sample(
-            train_x: pd.DataFrame,
-            train_y: pd.Series
-    ) -> tuple[pd.DataFrame, pd.Series]:
-        """
-        欠采样
-        :param train_x: 因子集
-        :param train_y: 分类标签
-        """
-        sampler = RandomUnderSampler(sampling_strategy='auto', random_state=42)
-        x_resampled, y_resampled = sampler.fit_resample(train_x, train_y)
-
-        return x_resampled, y_resampled
 
     def _direction_reverse(
             self,
@@ -245,29 +238,38 @@ class XGBoostClassificationModel:
         :param window: 滚动窗口长度
         :return: 预期收益率
         """
+        """
+        测试下过采样
+        以及 分类加权 哪种效果好
+        """
         # 按日期排序并转换为列表
         sorted_dates = sorted(input_df["date"].unique())
 
-        result_dfs = []
-        metrics = {
-            'f1_score': [],
-        }
+        # 评估指标
+        metrics = []
+
         # 滚动窗口遍历
+        result_dfs = []
         for i in range(window, len(sorted_dates)):
             # ====================
             # 样本内训练
             # ====================
-            # 获取训练窗口数据
+            # -1 获取训练窗口数据
             train_window = sorted_dates[i - window: i]
+            # -2 获取训练数据
             x_train, y_train = (
                 input_df.loc[input_df["date"].isin(train_window), x_cols],
                 input_df.loc[input_df["date"].isin(train_window), y_col]
             )
-            # 欠采样重组数据
-            x_train, y_train = self._under_sample(x_train, y_train)
-
-            # 训练模型
-            model = XGBClassifier(objective='reg:squarederror')
+            # -3 过采样（平衡训练集）
+            x_train, y_train = self.utils.feature.over_sampling(x_train, y_train)
+            # -4 标签转换 离散字符 -> 连续整数
+            y_train = pd.Series(
+                self.le.fit_transform(y_train),
+                index=y_train.index
+            )
+            # -5 训练模型
+            model = XGBClassifier(objective='multi:softmax')
             model.fit(
                 x_train,
                 y_train,
@@ -276,18 +278,23 @@ class XGBoostClassificationModel:
             # ====================
             # 样本外预测
             # ====================
-            # 获取预测日数据
+            # -1 获取预测日数据
             predict_date = sorted_dates[i]
-            # 获取测试窗口数据
-            x_test, y_test = (
+            # -2 获取测试窗口数据
+            x_true, y_true = (
                 input_df.loc[input_df["date"] == predict_date, x_cols],
                 input_df.loc[input_df["date"] == predict_date, y_col]
             )
-            # 模型预测
+            # -3 模型预测
             y_pred = pd.Series(
-                data=model.predict(x_test),
-                index=x_test.index,
+                data=model.predict(x_true),
+                index=x_true.index,
                 name="predict"
+            )
+            # -4 标签转换 连续整数 -> 离散字符
+            y_pred = pd.Series(
+                self.le.inverse_transform(y_pred),
+                index=y_pred.index
             )
             output_df = input_df.loc[input_df["date"] == predict_date]
             output_df["predict"] = y_pred
@@ -296,20 +303,29 @@ class XGBoostClassificationModel:
             # ====================
             # 模型评估
             # ====================
-            metrics['f1_score'].append(f1_score(y_test, y_pred))
+            metrics_series = self.calculate_metrics(y_true, y_pred)
+            metrics_series.name = predict_date
+            metrics.append(metrics_series)
 
-        # ====================
-        # 模型评估指标聚合
-        # ====================
-        metrics = pd.DataFrame(
-            {
-                k: np.nanmean(v) if v else np.nan
-                for k, v in metrics.items()
-            },
-            index=["value"]
-        )
+        return (pd.concat(result_dfs, ignore_index=True),
+                pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
 
-        return pd.concat(result_dfs, ignore_index=True), metrics
+    def calculate_metrics(
+            self,
+            y_true: pd.Series,
+            y_pred: pd.Series
+    ) -> pd.Series:
+        """计算评估指标"""
+        metrics = {
+            "f1_score": f1_score(y_true, y_pred, average="macro"),
+            "mcc": matthews_corrcoef(y_true, y_pred),
+            **{f"precision_{k}": v for k, v in
+               zip(self.model_setting.group_label, precision_score(y_true, y_pred, average=None))},
+            **{f"recall_{k}": v for k, v in
+               zip(self.model_setting.group_label, recall_score(y_true, y_pred, average=None))},
+        }
+
+        return pd.Series(metrics)
 
     def run(
             self
@@ -323,6 +339,13 @@ class XGBoostClassificationModel:
             -5 仓位权重配比
         """
         # -1 数据处理
+        self.input_df = self.processor.classification.custom_divide_into_group(
+            self.input_df,
+            group_nums=self.model_setting.group_nums,
+            group_label=self.model_setting.group_label,
+            group_condition=self.group_condition
+        )
+
         self.input_df = self._direction_reverse(self.input_df)
         self.input_df = self._pre_processing(self.input_df)
 
@@ -336,23 +359,13 @@ class XGBoostClassificationModel:
         pred_df, estimate_metric = self.model_training_and_predict(
             input_df=level_2_df,
             x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
-            y_col="pctChg",
+            y_col="group",
             window=self.model_setting.factor_weight_window
-        )
-
-        # -4 模型后续处理
-        classification_df = self.processor.classification.divide_into_group(
-            pred_df,
-            factor_col="",
-            processed_factor_col="predict",
-            group_mode=self.model_setting.group_mode,
-            group_nums=self.model_setting.group_nums,
-            group_label=self.model_setting.group_label,
         )
 
         # -5 仓位权重
         position_weight = self.utils.pos_weight.get_weights(
-            classification_df,
+            pred_df,
             factor_col="predict",
             method=self.model_setting.position_weight_method,
             distribution=self.model_setting.position_distribution
