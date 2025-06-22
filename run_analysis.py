@@ -84,7 +84,7 @@ def model_factor_analysis():
     模型分析 -> 生成因子库中的因子
     注：更新指数数据 -> 更新交易日历 -> 最新数据
     """
-    storage_dir_name = "模型因子训练集"
+    storage_dir_name = "20250613W"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -100,14 +100,14 @@ def model_factor_analysis():
 
         cycle="week",
         financial_cycle="quarter",
-        start_date="2010-01-01",
-        financial_end_date="2022-12-31",
-        end_date="2022-12-31",
+        start_date="2018-01-01",
+        financial_end_date="2025-06-13",
+        end_date="2025-06-13",
 
         target_info={"全部": "三级行业"},
         index_code="000300",
 
-        processes_nums=10,
+        processes_nums=4,
         debug=False
     )
     analyzer.run()
@@ -141,8 +141,8 @@ def inventory_cycle_analysis():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="模型因子训练集",
-        storage_dir="模型因子训练集"
+        source_dir="20250613W",
+        storage_dir="20250613W"
     )
     convert.run()
 
