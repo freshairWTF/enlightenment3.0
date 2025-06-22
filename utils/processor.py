@@ -807,9 +807,9 @@ class Classification:
         :param negative: 负值单列
         """
         method = {
-            "distant": cls.__distant,
-            "frequency": cls.__frequency
-        }.get(group_mode, cls.__frequency)
+            "distant": cls.distant,
+            "frequency": cls.frequency
+        }.get(group_mode, cls.frequency)
 
         result_df = []
         for date, df in factor_values.groupby("date"):
@@ -825,7 +825,7 @@ class Classification:
         return pd.concat(result_df)
 
     @staticmethod
-    def __distant(
+    def distant(
             df: pd.DataFrame,
             factor_col: str,
             processed_factor_col: str,
@@ -858,7 +858,7 @@ class Classification:
             )
 
     @staticmethod
-    def __frequency(
+    def frequency(
             df: pd.DataFrame,
             factor_col: str,
             processed_factor_col: str,

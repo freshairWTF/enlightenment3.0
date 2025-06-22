@@ -82,14 +82,16 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250530-WEEK-跟踪"
-    storage_dir = "最优化测试/test-20250530W"
+    # source_dir = "20250530-WEEK-跟踪"
+    # storage_dir = "最优化测试/test-20250530W"
+    source_dir = "20250613W"
+    storage_dir = "模型跟踪/traditionalLinearReg-20250613W"
 
     filter_mode: FILTER_MODE = "_entire_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="linearTestReg",
+        model="traditionalLinearReg",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},

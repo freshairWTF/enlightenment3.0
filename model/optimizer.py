@@ -3,16 +3,15 @@ from numpy import ndarray
 from pandas import DataFrame
 from pypfopt import EfficientFrontier, objective_functions, risk_models, expected_returns
 from pypfopt.discrete_allocation import DiscreteAllocation
-from skfolio import (
-    Population, Portfolio, RiskMeasure,
-    PerfMeasure, RatioMeasure, ObjectiveFunction,
-    prices_to_returns,
-)
-from skfolio.optimization import MeanRisk
-from skfolio.preprocessing import prices_to_returns
-from skfolio.model_selection import WalkForward
-from skfolio.moments import GerberCovariance, ShrunkMu, DenoiseCovariance
-from skfolio.prior import EmpiricalPrior
+# from skfolio import (
+#     Population, Portfolio, RiskMeasure,
+#     PerfMeasure, RatioMeasure
+# )
+# from skfolio.optimization import MeanRisk
+# from skfolio.preprocessing import prices_to_returns
+# from skfolio.model_selection import WalkForward
+# from skfolio.moments import GerberCovariance, ShrunkMu, DenoiseCovariance
+# from skfolio.prior import EmpiricalPrior
 
 import numpy as np
 import pandas as pd
@@ -54,18 +53,19 @@ class PortfolioOptimizer:
             -3 constant_correlation 恒定相关性系数
         """
         self.asset_prices = asset_prices
-        self.cov_method = cov_method
-        self.exp_return_method = expected_return_method
         self.shrinkage_target = shrinkage_target
         self.frequency = ANNUALIZED_DAYS.get(cycle, 252)
 
-        self.expected_returns = None                        # 预期收益率
-        self.cov_matrix = None                              # 协方差矩阵
-        self.ef = None                                      # 有效前沿对象
-        self.weights = None                                 # 优化权重
+        # 预期收益率
+        self.expected_returns = self._calculate_expected_returns(expected_return_method)
+        # 协方差矩阵
+        self.cov_matrix = self._calculate_covariance(cov_method)
+        self.ef = None                                                  # 有效前沿对象
+        self.weights = None                                             # 优化权重
 
     def _calculate_expected_returns(
             self,
+            method: str,
             compounding: bool = False,
             span: int = 500
     ) -> pd.Series:
@@ -74,14 +74,14 @@ class PortfolioOptimizer:
         :param compounding: -1 True -> 几何平均数 -2 False -> 算术平均数
         :parma span: 指数加权时间窗口数
         """
-        if self.exp_return_method == "ema_historical_return":
+        if method == "ema_historical_return":
             return expected_returns.ema_historical_return(
                 self.asset_prices,
                 compounding=compounding,
                 span=span,
                 frequency=self.frequency
             )
-        elif self.exp_return_method == "capm_return":
+        elif method == "capm_return":
             return expected_returns.capm_return(
                 self.asset_prices,
                 compounding=compounding,
@@ -94,15 +94,16 @@ class PortfolioOptimizer:
         )
 
     def _calculate_covariance(
-            self
+            self,
+            method: str
     ) -> DataFrame | ndarray:
         """计算协方差矩阵"""
-        if self.cov_method == "sample_cov":
+        if method == "sample_cov":
             return risk_models.sample_cov(
                 self.asset_prices,
                 frequency=self.frequency
             )
-        elif self.cov_method == "exp_cov":
+        elif method == "exp_cov":
             return risk_models.exp_cov(
                 self.asset_prices,
                 frequency=self.frequency
@@ -161,34 +162,34 @@ class PortfolioOptimizer:
                                     PS:若目标收益率设置不合理，则优化器会返回非预期权重！！！
         :return: 优化后的权重字典 {股票代码: 权重}
         """
-        # -1 计算预期收益率、协方差矩阵
-        self.expected_returns = self._calculate_expected_returns()
-        self.cov_matrix = self._calculate_covariance()
-
-        # -2 初始化有效前沿
+        # -1 初始化有效前沿
         self.ef = EfficientFrontier(
-            self.expected_returns, self.cov_matrix, solver="CVXOPT", weight_bounds=weight_bounds, verbose=True
+            self.expected_returns,
+            self.cov_matrix,
+            solver="CVXOPT",
+            weight_bounds=weight_bounds,
+            verbose=False
         )
 
         # maxiters=1000, abstol=1e-6, reltol=1e-5, feastol=1e-6, refinement=3
 
-        # -3 加入约束
-        if constraints:
-            for constraint in constraints:
-                self.ef.add_constraint(constraint)
-
-        if sector_mapper and (sector_upper or sector_lower):
-            self.ef.add_sector_constraints(
-                sector_mapper=sector_mapper,
-                sector_upper=sector_upper,
-                sector_lower=sector_lower
-            )
+        # -2 加入约束
+        # if constraints:
+        #     for constraint in constraints:
+        #         self.ef.add_constraint(constraint)
+        #
+        # if sector_mapper and (sector_upper or sector_lower):
+        #     self.ef.add_sector_constraints(
+        #         sector_mapper=sector_mapper,
+        #         sector_upper=sector_upper,
+        #         sector_lower=sector_lower
+        #     )
 
         # 添加正则化防止过拟合
         if gamma:
             self.ef.add_objective(objective_functions.L2_reg, gamma=gamma)
 
-        # 执行优化
+        # -3 执行优化
         if objective == "max_quadratic_utility":
             self.ef.max_quadratic_utility(risk_aversion=risk_aversion, market_neutral=market_neutral)
         elif objective == "min_volatility":
@@ -200,7 +201,7 @@ class PortfolioOptimizer:
         else:
             self.ef.max_sharpe(risk_free_rate=risk_free_rate)
 
-        # 清理微小权重
+        # -4 清理微小权重
         if clean:
             raw_weights = pd.Series(self.ef.clean_weights(cutoff=cutoff))
             self.weights = raw_weights / raw_weights.sum()
@@ -224,11 +225,12 @@ class PortfolioOptimizer:
 
     def discrete_allocation(
             self,
-            total_portfolio_value: float = 100000,
+            total_portfolio_value: float = 1000000,
             latest_prices: pd.Series = None
     ) -> dict:
         """
         离散化仓位分配（生成实际可交易的股数）
+            PS: 需要使用未复权价格，仅用于实盘交易
         :param total_portfolio_value: 投资组合总价值
         :param latest_prices: 各股票最新价格（Series）
         :return: 字典 {股票代码: 股数}
@@ -236,20 +238,16 @@ class PortfolioOptimizer:
         if latest_prices is None:
             latest_prices = self.asset_prices.iloc[-1]  # 默认使用最后一天价格
 
-        # print(self.weights.to_dict())
-        # print(latest_prices)
-        pd.set_option("display.max_columns", None)
-        print(self.asset_prices)
-        print(latest_prices)
-        # print(total_portfolio_value)
-
+        weights = self.weights[self.weights != 0]
+        latest_prices = latest_prices[weights.index.tolist()]
 
         da = DiscreteAllocation(
-            self.weights.to_dict(),
+            weights.to_dict(),
             latest_prices,
             total_portfolio_value=total_portfolio_value
         )
-        alloc, leftover = da.lp_portfolio()
+        alloc, leftover = da.lp_portfolio(verbose=True)
+
         return {
             "allocation": alloc,
             "剩余资金": leftover,
@@ -280,189 +278,189 @@ class PortfolioOptimizer:
 
 
 ###################################################
-class PortfolioOptimizerSK:
-    """
-    基于skfolio的股票仓位优化器
-    功能：计算最优权重分配、风险分析、离散化仓位分配
-    """
-
-    @validate_literal_params
-    def __init__(
-            self,
-            asset_prices: pd.DataFrame,
-            cycle: CYCLE,
-            expected_return_method: str = "historical",
-            cov_method: str = "sample_cov",
-    ):
-        """
-        初始化优化器
-        :param asset_prices: 资产历史价格数据（DataFrame，索引为日期，列为股票代码）
-        :param expected_return_method: 预期收益计算方法
-            -1 "historical"
-            -2 "ema"
-            -3 "capm"
-        :param cov_method: 协方差计算方法
-            -1 "sample_cov",
-            -2 "gerber",
-            -3 "denoise"
-        """
-        self.asset_prices = asset_prices
-        self.returns = prices_to_returns(asset_prices)  # 自动转换收益率
-
-        # 配置参数映射
-        self.frequency = 252 if cycle == "daily" else 52 if cycle == "weekly" else 12
-        self.mu_estimator = self._get_mu_estimator(expected_return_method)
-        self.cov_estimator = self._get_cov_estimator(cov_method)
-
-        self.model: MeanRisk | None = None
-        self.weights: pd.Series | None = None
-        self.performance: tuple | None = None
-
-    def _get_mu_estimator(self, method: str):
-        """预期收益估计器"""
-        estimators = {
-            "historical": ShrunkMu(),
-            "ema": ShrunkMu(ema_span=500),
-            "capm": ShrunkMu(capm=True)
-        }
-        return estimators.get(method, ShrunkMu())
-
-    def _get_cov_estimator(self, method: str):
-        """协方差估计器"""
-        estimators = {
-            "sample_cov": EmpiricalPrior(),
-            "gerber": GerberCovariance(),
-            "denoise": DenoiseCovariance()
-        }
-        return estimators.get(method, EmpiricalPrior())
-
-    def optimize_weights(
-            self,
-            objective: str = "max_sharpe",
-            weight_bounds: Tuple[float, float] = (0, 0.2),
-            gamma: float = 0.1,
-            sector_constraints: Optional[Dict] = None,
-            clean_weights: bool = False,
-            cutoff: float = 0.01,
-            risk_free_rate: float = 0.02,
-            target_volatility: float = 0.15,
-            target_return: float = 0.2
-    ) -> pd.Series:
-        """
-        执行权重优化
-        :param objective: 优化目标
-            - "max_sharpe": 最大夏普比率
-            - "min_volatility": 最小波动率
-            - "efficient_risk": 目标风险下最大收益
-            - "efficient_return": 目标收益下最小风险
-        :param weight_bounds: 单资产权重上下限
-        :param gamma: L2正则化系数
-        :param sector_constraints: 行业约束 {行业名: (下限, 上限)}
-        :param clean_weights: 是否清理微小权重
-        :param cutoff: 权重清理阈值
-        :param risk_free_rate: 无风险利率
-        """
-        # 初始化优化模型
-        self.model = MeanRisk(
-            objective_function=self._get_objective(objective),
-            risk_measure=RiskMeasure.VARIANCE,
-            prior_estimator=EmpiricalPrior(
-                mu_estimator=self.mu_estimator,
-                covariance_estimator=self.cov_estimator
-            ),
-            min_weights=weight_bounds[0],
-            max_weights=weight_bounds[1],
-            l2_coef=gamma,
-            risk_free_rate=risk_free_rate,
-        )
-
-        # 添加行业约束
-        if sector_constraints:
-            self._add_sector_constraints(sector_constraints)
-
-        # 训练模型
-        self.model.fit(self.returns)
-
-        # 获取权重
-        raw_weights = pd.Series(self.model.weights_, index=self.asset_prices.columns)
-
-        # 清理权重
-        if clean_weights:
-            raw_weights = raw_weights[raw_weights.abs() > cutoff]
-            self.weights = raw_weights / raw_weights.sum()
-        else:
-            self.weights = raw_weights
-
-        return self.weights
-
-    def _get_objective(self, objective: str) -> ObjectiveFunction:
-        """目标函数映射"""
-        objectives = {
-            "max_sharpe": ObjectiveFunction.MAXIMIZE_RATIO,
-            "min_volatility": ObjectiveFunction.MINIMIZE_RISK,
-            "efficient_risk": ObjectiveFunction.EFFICIENT_RISK,
-            "efficient_return": ObjectiveFunction.EFFICIENT_RETURN
-        }
-        return objectives[objective]
-
-    def _add_sector_constraints(self, constraints: Dict):
-        """添加行业权重约束"""
-        sector_groups = []
-        for sector, (lower, upper) in constraints.items():
-            sector_groups.append({
-                "names": [col for col in self.returns.columns if col.startswith(sector)],
-                "min": lower,
-                "max": upper
-            })
-        self.model.add_group_constraints(sector_groups)
-
-    def portfolio_performance(self) -> Tuple:
-        """获取投资组合绩效指标"""
-        if not self.model:
-            raise ValueError("请先执行optimize_weights()进行优化")
-        portfolio = self.model.predict(self.returns)
-        return (
-            portfolio.annualized_mean_return,
-            portfolio.annualized_volatility,
-            portfolio.sharpe_ratio
-        )
-
-    def discrete_allocation(
-            self,
-            total_value: float = 100000,
-            latest_prices: pd.Series = None
-    ) -> Dict:
-        """
-        离散化仓位分配
-        :param total_value: 组合总价值
-        :param latest_prices: 各资产最新价格
-        """
-        if latest_prices is None:
-            latest_prices = self.asset_prices.iloc[-1]
-
-        # 计算各资产分配金额
-        alloc_amount = self.weights * total_value
-        alloc_shares = (alloc_amount / latest_prices).astype(int)
-
-        # 计算剩余资金
-        allocated = (alloc_shares * latest_prices).sum()
-        leftover = total_value - allocated
-
-        return {
-            "allocation": alloc_shares.to_dict(),
-            "remaining": leftover,
-            "allocation_ratio": allocated / total_value
-        }
-
-    def risk_report(self) -> pd.DataFrame:
-        """生成风险贡献报告"""
-        if not self.model:
-            raise ValueError("请先执行optimize_weights()进行优化")
-
-        portfolio = self.model.predict(self.returns)
-        return pd.DataFrame({
-            "Asset": self.weights.index,
-            "Weight": self.weights.values,
-            "RiskContribution": portfolio.risk_contribution,
-            "PercentContribution": portfolio.risk_contribution / portfolio.risk_contribution.sum()
-        }).sort_values("PercentContribution", ascending=False)
+# class PortfolioOptimizerSK:
+#     """
+#     基于skfolio的股票仓位优化器
+#     功能：计算最优权重分配、风险分析、离散化仓位分配
+#     """
+#
+#     @validate_literal_params
+#     def __init__(
+#             self,
+#             asset_prices: pd.DataFrame,
+#             cycle: CYCLE,
+#             expected_return_method: str = "historical",
+#             cov_method: str = "sample_cov",
+#     ):
+#         """
+#         初始化优化器
+#         :param asset_prices: 资产历史价格数据（DataFrame，索引为日期，列为股票代码）
+#         :param expected_return_method: 预期收益计算方法
+#             -1 "historical"
+#             -2 "ema"
+#             -3 "capm"
+#         :param cov_method: 协方差计算方法
+#             -1 "sample_cov",
+#             -2 "gerber",
+#             -3 "denoise"
+#         """
+#         self.asset_prices = asset_prices
+#         self.returns = prices_to_returns(asset_prices)  # 自动转换收益率
+#
+#         # 配置参数映射
+#         self.frequency = 252 if cycle == "daily" else 52 if cycle == "weekly" else 12
+#         self.mu_estimator = self._get_mu_estimator(expected_return_method)
+#         self.cov_estimator = self._get_cov_estimator(cov_method)
+#
+#         self.model: MeanRisk | None = None
+#         self.weights: pd.Series | None = None
+#         self.performance: tuple | None = None
+#
+#     def _get_mu_estimator(self, method: str):
+#         """预期收益估计器"""
+#         estimators = {
+#             "historical": ShrunkMu(),
+#             "ema": ShrunkMu(ema_span=500),
+#             "capm": ShrunkMu(capm=True)
+#         }
+#         return estimators.get(method, ShrunkMu())
+#
+#     def _get_cov_estimator(self, method: str):
+#         """协方差估计器"""
+#         estimators = {
+#             "sample_cov": EmpiricalPrior(),
+#             "gerber": GerberCovariance(),
+#             "denoise": DenoiseCovariance()
+#         }
+#         return estimators.get(method, EmpiricalPrior())
+#
+#     def optimize_weights(
+#             self,
+#             objective: str = "max_sharpe",
+#             weight_bounds: Tuple[float, float] = (0, 0.2),
+#             gamma: float = 0.1,
+#             sector_constraints: Optional[Dict] = None,
+#             clean_weights: bool = False,
+#             cutoff: float = 0.01,
+#             risk_free_rate: float = 0.02,
+#             target_volatility: float = 0.15,
+#             target_return: float = 0.2
+#     ) -> pd.Series:
+#         """
+#         执行权重优化
+#         :param objective: 优化目标
+#             - "max_sharpe": 最大夏普比率
+#             - "min_volatility": 最小波动率
+#             - "efficient_risk": 目标风险下最大收益
+#             - "efficient_return": 目标收益下最小风险
+#         :param weight_bounds: 单资产权重上下限
+#         :param gamma: L2正则化系数
+#         :param sector_constraints: 行业约束 {行业名: (下限, 上限)}
+#         :param clean_weights: 是否清理微小权重
+#         :param cutoff: 权重清理阈值
+#         :param risk_free_rate: 无风险利率
+#         """
+#         # 初始化优化模型
+#         self.model = MeanRisk(
+#             objective_function=self._get_objective(objective),
+#             risk_measure=RiskMeasure.VARIANCE,
+#             prior_estimator=EmpiricalPrior(
+#                 mu_estimator=self.mu_estimator,
+#                 covariance_estimator=self.cov_estimator
+#             ),
+#             min_weights=weight_bounds[0],
+#             max_weights=weight_bounds[1],
+#             l2_coef=gamma,
+#             risk_free_rate=risk_free_rate,
+#         )
+#
+#         # 添加行业约束
+#         if sector_constraints:
+#             self._add_sector_constraints(sector_constraints)
+#
+#         # 训练模型
+#         self.model.fit(self.returns)
+#
+#         # 获取权重
+#         raw_weights = pd.Series(self.model.weights_, index=self.asset_prices.columns)
+#
+#         # 清理权重
+#         if clean_weights:
+#             raw_weights = raw_weights[raw_weights.abs() > cutoff]
+#             self.weights = raw_weights / raw_weights.sum()
+#         else:
+#             self.weights = raw_weights
+#
+#         return self.weights
+#
+#     def _get_objective(self, objective: str) -> ObjectiveFunction:
+#         """目标函数映射"""
+#         objectives = {
+#             "max_sharpe": ObjectiveFunction.MAXIMIZE_RATIO,
+#             "min_volatility": ObjectiveFunction.MINIMIZE_RISK,
+#             "efficient_risk": ObjectiveFunction.EFFICIENT_RISK,
+#             "efficient_return": ObjectiveFunction.EFFICIENT_RETURN
+#         }
+#         return objectives[objective]
+#
+#     def _add_sector_constraints(self, constraints: Dict):
+#         """添加行业权重约束"""
+#         sector_groups = []
+#         for sector, (lower, upper) in constraints.items():
+#             sector_groups.append({
+#                 "names": [col for col in self.returns.columns if col.startswith(sector)],
+#                 "min": lower,
+#                 "max": upper
+#             })
+#         self.model.add_group_constraints(sector_groups)
+#
+#     def portfolio_performance(self) -> Tuple:
+#         """获取投资组合绩效指标"""
+#         if not self.model:
+#             raise ValueError("请先执行optimize_weights()进行优化")
+#         portfolio = self.model.predict(self.returns)
+#         return (
+#             portfolio.annualized_mean_return,
+#             portfolio.annualized_volatility,
+#             portfolio.sharpe_ratio
+#         )
+#
+#     def discrete_allocation(
+#             self,
+#             total_value: float = 100000,
+#             latest_prices: pd.Series = None
+#     ) -> Dict:
+#         """
+#         离散化仓位分配
+#         :param total_value: 组合总价值
+#         :param latest_prices: 各资产最新价格
+#         """
+#         if latest_prices is None:
+#             latest_prices = self.asset_prices.iloc[-1]
+#
+#         # 计算各资产分配金额
+#         alloc_amount = self.weights * total_value
+#         alloc_shares = (alloc_amount / latest_prices).astype(int)
+#
+#         # 计算剩余资金
+#         allocated = (alloc_shares * latest_prices).sum()
+#         leftover = total_value - allocated
+#
+#         return {
+#             "allocation": alloc_shares.to_dict(),
+#             "remaining": leftover,
+#             "allocation_ratio": allocated / total_value
+#         }
+#
+#     def risk_report(self) -> pd.DataFrame:
+#         """生成风险贡献报告"""
+#         if not self.model:
+#             raise ValueError("请先执行optimize_weights()进行优化")
+#
+#         portfolio = self.model.predict(self.returns)
+#         return pd.DataFrame({
+#             "Asset": self.weights.index,
+#             "Weight": self.weights.values,
+#             "RiskContribution": portfolio.risk_contribution,
+#             "PercentContribution": portfolio.risk_contribution / portfolio.risk_contribution.sum()
+#         }).sort_values("PercentContribution", ascending=False)

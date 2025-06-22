@@ -200,9 +200,8 @@ class LinearRegressionTestModel:
             keep_cols=self.keep_cols
         )
 
-    @classmethod
     def model_training_and_predict(
-            cls,
+            self,
             input_df: pd.DataFrame,
             x_cols: list[str],
             y_col: str,
@@ -219,13 +218,11 @@ class LinearRegressionTestModel:
         # 按日期排序并转换为列表
         sorted_dates = sorted(input_df["date"].unique())
 
-        result_dfs = []
-        metrics = {
-            'MAE': [],
-            'RMSE': [],
-            'R2': []
-        }
+        # 评估指标
+        metrics = []
+
         # 滚动窗口遍历
+        result_dfs = []
         for i in range(window, len(sorted_dates)):
             # ====================
             # 样本内训练
@@ -250,44 +247,106 @@ class LinearRegressionTestModel:
             # 获取预测日数据
             predict_date = sorted_dates[i]
             # 获取测试窗口数据
-            x_test, y_test = (
+            true_df = input_df.loc[input_df["date"] == predict_date]
+            x_true, y_true = (
                 input_df.loc[input_df["date"] == predict_date, x_cols],
                 input_df.loc[input_df["date"] == predict_date, y_col]
             )
             # 模型预测
-            y_pred = pd.Series(
-                data=model.predict(x_test),
-                index=x_test.index,
-                name="predict"
+            true_df["predict"] = model.predict(x_true)
+
+            # ====================
+            # 预测分组
+            # ====================
+            true_df["group"] = self.processor.classification.frequency(
+                true_df,
+                factor_col="",
+                processed_factor_col="predict",
+                group_nums=self.model_setting.group_nums,
+                group_label=self.model_setting.group_label,
+                negative=False
             )
-            result_dfs.append(
-                pd.concat(
-                    [
-                        input_df.loc[input_df["date"] == predict_date],
-                        y_pred
-                    ],
-                    axis=1)
+
+            # ====================
+            # 权重优化（仓位权重、实际股数）
+            # ====================
+            # -1 数据转换
+            price_df = input_df.loc[input_df["date"].isin(
+                sorted_dates[i - window: i+1]), ["date", "股票代码", "close"]
+            ]
+            price_df = price_df.pivot(
+                index="date",
+                columns="股票代码",
+                values="close"
+            )
+            # -2 权重（分组）
+            weights_series = []
+            for _, group_df in true_df.groupby("group"):
+                weights = self.portfolio_optimizer(
+                    price_df[group_df["股票代码"].tolist()].ffill().bfill()
+                )
+                weights_series.append(weights)
+            # -3 合并
+            true_df = pd.merge(
+                true_df,
+                pd.concat(weights_series).rename('weight'),
+                left_on='股票代码',
+                right_index=True,
+                how='left'
             )
 
             # ====================
             # 模型评估
             # ====================
-            metrics['MAE'].append(mean_absolute_error(y_test, y_pred))
-            metrics['RMSE'].append(np.sqrt(mean_squared_error(y_test, y_pred)))
-            metrics['R2'].append(r2_score(y_test, y_pred))
+            metrics_series = self.calculate_metrics(y_true, true_df["predict"])
+            metrics_series.name = predict_date
+            metrics.append(metrics_series)
 
-        # ====================
-        # 模型评估指标聚合
-        # ====================
-        metrics = pd.DataFrame(
-            {
-                k: np.nanmean(v) if v else np.nan
-                for k, v in metrics.items()
-            },
-            index=["value"]
+            # ====================
+            # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
+            # ====================
+            result_dfs.append(true_df)
+
+        return (pd.concat(result_dfs, ignore_index=True),
+                pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
+
+    def calculate_metrics(
+            self,
+            y_true: pd.Series,
+            y_pred: pd.Series
+    ) -> pd.Series:
+        """计算评估指标"""
+        metrics = {
+            "MAE": mean_absolute_error(y_true, y_pred),
+            "RMSE": np.sqrt(mean_squared_error(y_true, y_pred)),
+            "R2": r2_score(y_true, y_pred),
+        }
+        return pd.Series(metrics)
+
+    def portfolio_optimizer(
+            self,
+            group_price_df: pd.DataFrame
+    ) -> pd.Series:
+        """
+        资产组合优化
+        :param group_price_df: 分组资产价格df
+        """
+        portfolio = PortfolioOptimizer(
+            asset_prices=group_price_df,
+            cycle=self.model_setting.cycle,
+            cov_method="ledoit_wolf",
+            shrinkage_target="constant_variance"
+        )
+        weights = portfolio.optimize_weights(
+            objective="max_sharpe",
+            weight_bounds=(0, 1),
+            # sector_mapper=classification_df[classification_df["group"] == "95"].set_index("股票代码")["行业"].to_dict(),
+            # sector_lower={"机械设备": 0},
+            # sector_upper={"机械设备": 0.3},
+            clean=True,
         )
 
-        return pd.concat(result_dfs, ignore_index=True), metrics
+        return weights
 
     def run(
             self
@@ -338,60 +397,13 @@ class LinearRegressionTestModel:
         )
 
         # ----------------------------------
-        # 模型后处理
+        # 模型
         # ----------------------------------
-        # -1 模型训练、预测
         pred_df, estimate_metric = self.model_training_and_predict(
             input_df=comprehensive_z_df,
             x_cols=["综合Z值"],
             y_col="pctChg",
             window=self.model_setting.factor_weight_window
         )
-        # -2 收益率分组
-        classification_df = self.processor.classification.divide_into_group(
-            pred_df,
-            factor_col="",
-            processed_factor_col="predict",
-            group_mode=self.model_setting.group_mode,
-            group_nums=self.model_setting.group_nums,
-            group_label=self.model_setting.group_label,
-        )
 
-        # ----------------------------------
-        # 开发！！仓位管理模块
-        # ----------------------------------
-        portfolio = PortfolioOptimizer(
-            asset_prices=classification_df[classification_df["group"] == "95"].pivot(
-                index="date",
-                columns="股票代码",
-                values="close"
-            ).ffill(),
-            cycle=self.model_setting.cycle,
-            cov_method="ledoit_wolf",
-            shrinkage_target="constant_variance"
-        )
-        weights = portfolio.optimize_weights(
-            objective="max_sharpe",
-            weight_bounds=(0, 1),
-            sector_mapper=classification_df[classification_df["group"] == "95"].set_index("股票代码")["行业"].to_dict(),
-            sector_lower={"机械设备": 0},
-            sector_upper={"机械设备": 0.3},
-            clean=True,
-        )
-        print(weights)
-
-        performance = portfolio.portfolio_performance()
-        allocation = portfolio.discrete_allocation()
-        risk_report = portfolio.risk_report()
-        print(performance)
-        print(allocation)
-        print(risk_report)
-        print(dd)
-        # position_weight = self.utils.pos_weight.get_weights(
-        #     classification_df,
-        #     factor_col="predict",
-        #     method=self.model_setting.position_weight_method,
-        #     distribution=self.model_setting.position_distribution
-        # )
-
-        return position_weight, estimate_metric
+        return pred_df, estimate_metric
