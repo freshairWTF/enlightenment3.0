@@ -42,8 +42,9 @@
         -3 up prob = up prob + 0.5 * (down prob * 1 - up prob * -1)
            down prob = down prob + 0.5 * (up prob * -1 - down prob * 1)
            u2p = up prob - down prob
+           
     -12 策略容量 每只个股可以成交当日成交额的5%，若当日无法完成交易，则再下一日继续尝试
-
+    
 """
 
 """
@@ -107,16 +108,14 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    # source_dir = "20250530-WEEK-跟踪"
-    # storage_dir = "最优化测试/test-20250530W"
-    source_dir = "20250613W"
-    storage_dir = "换手率交易费率测试/traditionalLinearReg-20250613W"
+    source_dir = "模型因子训练集"
+    storage_dir = "最优化测试/linearTestReg"
 
     filter_mode: FILTER_MODE = "_entire_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="traditionalLinearReg",
+        model="linearTestReg",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},

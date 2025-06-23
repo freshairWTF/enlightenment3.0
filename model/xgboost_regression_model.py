@@ -232,13 +232,11 @@ class XGBoostRegressionModel:
         # 按日期排序并转换为列表
         sorted_dates = sorted(input_df["date"].unique())
 
-        result_dfs = []
-        metrics = {
-            'MAE': [],
-            'RMSE': [],
-            'R2': []
-        }
+        # 评估指标
+        metrics = []
+
         # 滚动窗口遍历
+        result_dfs = []
         for i in range(window, len(sorted_dates)):
             # ====================
             # 样本内训练
@@ -249,7 +247,6 @@ class XGBoostRegressionModel:
                 input_df.loc[input_df["date"].isin(train_window), x_cols],
                 input_df.loc[input_df["date"].isin(train_window), y_col]
             )
-
             # 训练模型
             model = XGBRegressor(objective='reg:squarederror')
             model.fit(
@@ -263,39 +260,57 @@ class XGBoostRegressionModel:
             # 获取预测日数据
             predict_date = sorted_dates[i]
             # 获取测试窗口数据
-            x_test, y_test = (
+            true_df = input_df.loc[input_df["date"] == predict_date]
+            x_true, y_true = (
                 input_df.loc[input_df["date"] == predict_date, x_cols],
                 input_df.loc[input_df["date"] == predict_date, y_col]
             )
             # 模型预测
-            y_pred = pd.Series(
-                data=model.predict(x_test),
-                index=x_test.index,
-                name="predict"
+            true_df["predict"] = model.predict(x_true)
+
+            # ====================
+            # 预测分组
+            # ====================
+            true_df["group"] = self.processor.classification.frequency(
+                true_df,
+                factor_col="",
+                processed_factor_col="predict",
+                group_nums=self.model_setting.group_nums,
+                group_label=self.model_setting.group_label,
+                negative=False
             )
-            output_df = input_df.loc[input_df["date"] == predict_date]
-            output_df["predict"] = y_pred
-            result_dfs.append(output_df)
+
+            # ====================
+            # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
+            # ====================
+            result_dfs.append(true_df)
 
             # ====================
             # 模型评估
             # ====================
-            metrics['MAE'].append(mean_absolute_error(y_test, y_pred))
-            metrics['RMSE'].append(np.sqrt(mean_squared_error(y_test, y_pred)))
-            metrics['R2'].append(r2_score(y_test, y_pred))
+            try:
+                metrics_series = self.calculate_metrics(y_true, true_df["predict"])
+                metrics_series.name = predict_date
+                metrics.append(metrics_series)
+            except ValueError:
+                continue
 
-        # ====================
-        # 模型评估指标聚合
-        # ====================
-        metrics = pd.DataFrame(
-            {
-                k: np.nanmean(v) if v else np.nan
-                for k, v in metrics.items()
-            },
-            index=["value"]
-        )
+        return (pd.concat(result_dfs, ignore_index=True),
+                pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
 
-        return pd.concat(result_dfs, ignore_index=True), metrics
+    @classmethod
+    def calculate_metrics(
+            cls,
+            y_true: pd.Series,
+            y_pred: pd.Series
+    ) -> pd.Series:
+        """计算评估指标"""
+        metrics = {
+            "MAE": mean_absolute_error(y_true, y_pred),
+            "RMSE": np.sqrt(mean_squared_error(y_true, y_pred)),
+            "R2": r2_score(y_true, y_pred),
+        }
+        return pd.Series(metrics)
 
     def run(
             self

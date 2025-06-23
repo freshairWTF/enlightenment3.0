@@ -304,22 +304,26 @@ class LinearRegressionTestModel:
             )
 
             # ====================
-            # 模型评估
-            # ====================
-            metrics_series = self.calculate_metrics(y_true, true_df["predict"])
-            metrics_series.name = predict_date
-            metrics.append(metrics_series)
-
-            # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
             # ====================
             result_dfs.append(true_df)
 
+            # ====================
+            # 模型评估
+            # ====================
+            try:
+                metrics_series = self.calculate_metrics(y_true, true_df["predict"])
+                metrics_series.name = predict_date
+                metrics.append(metrics_series)
+            except ValueError:
+                continue
+
         return (pd.concat(result_dfs, ignore_index=True),
                 pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
 
+    @classmethod
     def calculate_metrics(
-            self,
+            cls,
             y_true: pd.Series,
             y_pred: pd.Series
     ) -> pd.Series:
@@ -351,6 +355,7 @@ class LinearRegressionTestModel:
         :param industry_upper: 行业配置上限
         :param industry_lower: 行业配置下限
         """
+        print(price_df)
         portfolio = PortfolioOptimizer(
             asset_prices=price_df,
             volume=volume_df,

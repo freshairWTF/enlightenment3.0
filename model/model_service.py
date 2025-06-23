@@ -385,7 +385,7 @@ class ModelAnalyzer(QuantService):
             str(date): group
             for date, group in model_df.groupby("date")
         }
-
+        
         # ---------------------------------------
         # 模型评估
         # ---------------------------------------

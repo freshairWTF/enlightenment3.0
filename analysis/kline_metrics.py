@@ -415,3 +415,13 @@ class KLineMetrics(Metrics, KlineDetermination):
         condition_2 = (upper_shadow_p | upper_shadow_n) & reduced_quantity
 
         self.metrics["ch_relay_form"] = (condition_1 & condition_2).astype("int")
+
+    def tnr(
+            self,
+            window: int
+    ) -> None:
+        """
+        TNR = 区间涨跌幅 / 区间累加涨跌幅
+        """
+
+        tnr = self.metrics["pctChg"].rolling(window).sum()

@@ -308,9 +308,12 @@ class XGBoostRegressionCVModel:
             # ====================
             # 模型评估
             # ====================
-            metrics['MAE'].append(mean_absolute_error(y_test, y_pred))
-            metrics['RMSE'].append(np.sqrt(mean_squared_error(y_test, y_pred)))
-            metrics['R2'].append(r2_score(y_test, y_pred))
+            try:
+                metrics['MAE'].append(mean_absolute_error(y_test, y_pred))
+                metrics['RMSE'].append(np.sqrt(mean_squared_error(y_test, y_pred)))
+                metrics['R2'].append(r2_score(y_test, y_pred))
+            except ValueError:
+                continue
 
         # ====================
         # 模型评估指标聚合
