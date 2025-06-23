@@ -16,11 +16,11 @@ def individual_analysis():
         cycle="week",
         financial_cycle="quarter",
         start_date="2000-03-31",
-        financial_end_date="2022-12-31",
-        end_date="2022-12-31",
-        storage_dir_name="公司治理指标测试25Q1",
-        target_info="301231",
-        debug=True
+        financial_end_date="2025-06-22",
+        end_date="2025-06-22",
+        storage_dir_name="欧普康视25Q1",
+        target_info="300595",
+        debug=False
     )
     analyzer.run()
 
@@ -149,9 +149,9 @@ def data_convert():
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    # individual_analysis()
+    individual_analysis()
     # normal_analysis()
     # factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
-    data_convert()
+    # data_convert()

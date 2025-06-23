@@ -404,7 +404,7 @@ class QuantService:
         # --------------------------
         # 指标计算
         # --------------------------
-        grouped_return = cls.evaluate.returns.calc_group_returns(
+        grouped_return = cls.evaluate.returns.calc_group_returns_with_fixed_trade_cost(
             grouped_data,
             cycle,
             max_label,

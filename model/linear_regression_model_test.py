@@ -39,7 +39,7 @@ class LinearRegressionTestModel:
         self.utils = ModelUtils()                                   # 模型工具
 
         # 保留列
-        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值", "close"]
+        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值", "close", "volume"]
 
     def _direction_reverse(
             self,
@@ -271,25 +271,33 @@ class LinearRegressionTestModel:
             # 权重优化（仓位权重、实际股数）
             # ====================
             # -1 数据转换
-            price_df = input_df.loc[input_df["date"].isin(
-                sorted_dates[i - window: i+1]), ["date", "股票代码", "close"]
+            portfolio_df = input_df.loc[input_df["date"].isin(
+                sorted_dates[i - window: i+1]), ["date", "股票代码", "close", "行业", "volume"]
             ]
-            price_df = price_df.pivot(
+            price_df = portfolio_df.pivot(
                 index="date",
                 columns="股票代码",
                 values="close"
             )
+            volume_df = portfolio_df.pivot(
+                index="date",
+                columns="股票代码",
+                values="volume"
+            )
+            industry_df = portfolio_df.set_index("股票代码")["行业"]
             # -2 权重（分组）
             weights_series = []
             for _, group_df in true_df.groupby("group"):
                 weights = self.portfolio_optimizer(
-                    price_df[group_df["股票代码"].tolist()].ffill().bfill()
+                    price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
+                    volume_df=volume_df[group_df["股票代码"].tolist()],
+                    industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())]
                 )
                 weights_series.append(weights)
             # -3 合并
             true_df = pd.merge(
                 true_df,
-                pd.concat(weights_series).rename('weight'),
+                pd.concat(weights_series).rename('position_weight'),
                 left_on='股票代码',
                 right_index=True,
                 how='left'
@@ -325,24 +333,37 @@ class LinearRegressionTestModel:
 
     def portfolio_optimizer(
             self,
-            group_price_df: pd.DataFrame
+            price_df: pd.DataFrame,
+            volume_df: pd.DataFrame,
+            industry_df: pd.DataFrame,
+            individual_upper: float = 1.0,
+            individual_lower: float = 0.0,
+            industry_upper: float = 1.0,
+            industry_lower: float = 0.0
     ) -> pd.Series:
         """
         资产组合优化
-        :param group_price_df: 分组资产价格df
+        :param price_df: 资产价格df（分组）
+        :param volume_df: 成交量df（分组）
+        :param industry_df: 行业映射df（分组）
+        :param individual_upper: 个体配置上限
+        :param individual_lower: 个体配置下限
+        :param industry_upper: 行业配置上限
+        :param industry_lower: 行业配置下限
         """
         portfolio = PortfolioOptimizer(
-            asset_prices=group_price_df,
+            asset_prices=price_df,
+            volume=volume_df,
             cycle=self.model_setting.cycle,
             cov_method="ledoit_wolf",
             shrinkage_target="constant_variance"
         )
         weights = portfolio.optimize_weights(
             objective="max_sharpe",
-            weight_bounds=(0, 1),
-            # sector_mapper=classification_df[classification_df["group"] == "95"].set_index("股票代码")["行业"].to_dict(),
-            # sector_lower={"机械设备": 0},
-            # sector_upper={"机械设备": 0.3},
+            weight_bounds=(individual_lower, individual_upper),
+            sector_mapper=industry_df.to_dict(),
+            sector_lower={ind: industry_lower for ind in industry_df.values},
+            sector_upper={ind: industry_upper for ind in industry_df.values},
             clean=True,
         )
 
