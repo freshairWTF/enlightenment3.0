@@ -24,7 +24,7 @@ class ModelAnalyzer(QuantService):
     """模型分析"""
 
     CORE_FACTOR = [
-        "对数市值", "open", "close", "pctChg"
+        "对数市值", "open", "close", "unadjusted_close", "pctChg"
     ]
     DESCRIPTIVE_FACTOR = [
         "市值", "市净率"
@@ -385,7 +385,7 @@ class ModelAnalyzer(QuantService):
             str(date): group
             for date, group in model_df.groupby("date")
         }
-        
+
         # ---------------------------------------
         # 模型评估
         # ---------------------------------------

@@ -20,7 +20,7 @@ def individual_analysis():
         end_date="2025-06-22",
         storage_dir_name="欧普康视25Q1",
         target_info="300595",
-        debug=False
+        debug=True
     )
     analyzer.run()
 
@@ -84,7 +84,7 @@ def model_factor_analysis():
     模型分析 -> 生成因子库中的因子
     注：更新指数数据 -> 更新交易日历 -> 最新数据
     """
-    storage_dir_name = "20250613W"
+    storage_dir_name = "模型因子训练集"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -100,9 +100,9 @@ def model_factor_analysis():
 
         cycle="week",
         financial_cycle="quarter",
-        start_date="2018-01-01",
-        financial_end_date="2025-06-13",
-        end_date="2025-06-13",
+        start_date="2010-01-01",
+        financial_end_date="2022-12-31",
+        end_date="2022-12-31",
 
         target_info={"全部": "三级行业"},
         index_code="000300",
@@ -141,17 +141,17 @@ def inventory_cycle_analysis():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="20250613W",
-        storage_dir="20250613W"
+        source_dir="模型因子训练集",
+        storage_dir="模型因子训练集"
     )
     convert.run()
 
 
 # ---------------------------------------------------
 if __name__ == "__main__":
-    individual_analysis()
+    # individual_analysis()
     # normal_analysis()
     # factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
-    # data_convert()
+    data_convert()

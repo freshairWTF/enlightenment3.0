@@ -32,10 +32,9 @@
     -7 标的池
     
     -9 样本内外区分                                                      60%
-    -3 扩张窗口因子
-    -4 因子暴露控制 风险评价模型 !!!!                                      80%
     -13 把以前的换手率计算手续费模块加回
     
+    -3 扩张窗口因子
     -11 新量价因子 
         -1 TNR = 区间涨跌幅 / 区间累加涨跌幅
         -2 TNR diff
@@ -44,7 +43,6 @@
            u2p = up prob - down prob
            
     -12 策略容量 每只个股可以成交当日成交额的5%，若当日无法完成交易，则再下一日继续尝试
-    
 """
 
 """
@@ -67,6 +65,15 @@
 平均市值 65亿元
 单体1% 一SW级行业20%
 年化双边换手60-80倍
+
+指增 跟踪误差 超额
+相关性分组
+海外营收、国央企
+流动性3000+
+成分股至少40-50%
+GAN 对抗网络生成模型
+升维再降维 ？？二次项？？？pca/合成？？？ ——> 树模型
+每个半小时预测一次
 """
 
 from constant.factor_library import *
@@ -109,7 +116,7 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "模型因子训练集"
-    storage_dir = "最优化测试/linearTestReg"
+    storage_dir = "最优化测试/linearTestReg-1"
 
     filter_mode: FILTER_MODE = "_entire_filter"
     # 模型参数设置

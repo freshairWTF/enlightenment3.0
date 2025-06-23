@@ -39,7 +39,10 @@ class LinearRegressionTestModel:
         self.utils = ModelUtils()                                   # 模型工具
 
         # 保留列
-        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值", "close", "volume"]
+        self.keep_cols = [
+            "date", "股票代码", "行业", "pctChg", "市值",
+            "close", "unadjusted_close", "volume"
+        ]
 
     def _direction_reverse(
             self,
@@ -272,12 +275,13 @@ class LinearRegressionTestModel:
             # ====================
             # -1 数据转换
             portfolio_df = input_df.loc[input_df["date"].isin(
-                sorted_dates[i - window: i+1]), ["date", "股票代码", "close", "行业", "volume"]
+                sorted_dates[i - window: i+1]),
+                ["date", "股票代码", "close", "unadjusted_close", "行业", "volume", "pctChg"]
             ]
             price_df = portfolio_df.pivot(
                 index="date",
                 columns="股票代码",
-                values="close"
+                values="pctChg"
             )
             volume_df = portfolio_df.pivot(
                 index="date",
@@ -355,7 +359,6 @@ class LinearRegressionTestModel:
         :param industry_upper: 行业配置上限
         :param industry_lower: 行业配置下限
         """
-        print(price_df)
         portfolio = PortfolioOptimizer(
             asset_prices=price_df,
             volume=volume_df,
@@ -364,7 +367,7 @@ class LinearRegressionTestModel:
             shrinkage_target="constant_variance"
         )
         weights = portfolio.optimize_weights(
-            objective="max_sharpe",
+            objective="min_volatility",
             weight_bounds=(individual_lower, individual_upper),
             sector_mapper=industry_df.to_dict(),
             sector_lower={ind: industry_lower for ind in industry_df.values},

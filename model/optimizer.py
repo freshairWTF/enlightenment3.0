@@ -48,9 +48,12 @@ class PortfolioOptimizer:
         self.asset_prices = asset_prices
         self.shrinkage_target = shrinkage_target
         self.frequency = ANNUALIZED_DAYS.get(cycle, 252)
+        print(self.asset_prices)
 
         # 预期收益率
         self.expected_returns = self._calculate_expected_returns(expected_return_method)
+        print(self.expected_returns)
+        print(self.expected_returns[self.expected_returns > 0])
         # 协方差矩阵
         self.cov_matrix = self._calculate_covariance(cov_method)
         self.ef = None                                                  # 有效前沿对象
@@ -70,6 +73,7 @@ class PortfolioOptimizer:
         if method == "ema_historical_return":
             return expected_returns.ema_historical_return(
                 self.asset_prices,
+                returns_data=True,
                 compounding=compounding,
                 span=span,
                 frequency=self.frequency
@@ -77,11 +81,13 @@ class PortfolioOptimizer:
         elif method == "capm_return":
             return expected_returns.capm_return(
                 self.asset_prices,
+                returns_data=True,
                 compounding=compounding,
                 frequency=self.frequency
             )
         return expected_returns.mean_historical_return(
             self.asset_prices,
+            returns_data=True,
             compounding=compounding,
             frequency=self.frequency
         )
@@ -94,15 +100,18 @@ class PortfolioOptimizer:
         if method == "sample_cov":
             return risk_models.sample_cov(
                 self.asset_prices,
+                returns_data=True,
                 frequency=self.frequency
             )
         elif method == "exp_cov":
             return risk_models.exp_cov(
                 self.asset_prices,
+                returns_data=True,
                 frequency=self.frequency
             )
         return risk_models.CovarianceShrinkage(
             self.asset_prices,
+            returns_data=True,
             frequency=self.frequency
         ).ledoit_wolf(
             shrinkage_target=self.shrinkage_target
@@ -140,7 +149,6 @@ class PortfolioOptimizer:
             sector_lower: dict[str, float] | None = None,
             clean: bool = False,
             cutoff: float = 0.01,
-            risk_free_rate: float = 0,
             risk_aversion: float = 1,
             market_neutral: bool = False,
             target_volatility: float = 0.15,
@@ -149,8 +157,8 @@ class PortfolioOptimizer:
         """
         执行权重优化
         :param objective: 优化目标
-                            -1 "max_sharpe" 最小波动率
-                            -2 "min_volatility" 最大夏普比率
+                            -1 "max_sharpe" 最大夏普比率
+                            -2 "min_volatility" 最小波动率
                             -3 "efficient_risk" 在给定的目标风险下，使收益最大
                             -4 "efficient_return" 在给定的目标收益下，使风险最小
                             -5 "max_quadratic_utility" 使给定的二次方效用最大化
@@ -166,7 +174,6 @@ class PortfolioOptimizer:
         :param sector_lower: 权重下限（用于不同资产组的权重总和添加限制）
         :param clean: 是否清理微小权重
         :param cutoff: 清理微小权重上限
-        :param risk_free_rate: 无风险利率（max_sharpe参数）
         :param risk_aversion: 风险厌恶（max_quadratic_utility参数），取值范围 -> （0，1）
         :param market_neutral: 是否市场中立（权重和可为0）（max_quadratic_utility参数）
                                     PS: 权重边界需小于0
@@ -216,7 +223,7 @@ class PortfolioOptimizer:
         elif objective == "efficient_return":
             self.ef.efficient_return(target_return=target_return)
         else:
-            self.ef.max_sharpe(risk_free_rate=risk_free_rate)
+            self.ef.max_sharpe()
 
         # -4 清理微小权重
         if clean:
