@@ -36,7 +36,7 @@ class ReturnMetrics:
         return returns.shape[0] / ANNUALIZED_DAYS.get(cycle)
 
     @classmethod
-    def calc_group_returns(
+    def calc_group_returns_with_fixed_trade_cost(
             cls,
             grouped_data: dict[str, pd.DataFrame],
             cycle: str,
@@ -47,7 +47,69 @@ class ReturnMetrics:
             trade_cost: float = 0.0,
     ) -> pd.DataFrame:
         """
-        计算分组收益率
+        计算分组收益率（固定交易费率）
+        :param grouped_data: 分组数据
+        :param cycle: 周期
+        :param max_label: 最大值标签
+        :param min_label: 最小值标签
+        :param mode: 计算模式
+        :param reverse: 对冲方向
+        :param trade_cost: 交易费用
+        :return 分组收益率
+        """
+        # 手续费率
+        trade_cost /= ANNUALIZED_DAYS.get(cycle)
+
+        result = {}
+        for date, df in grouped_data.items():
+            grouped_df = df.groupby("group", observed=False)
+
+            if mode == "equal":
+                returns = grouped_df.apply(
+                    lambda y: y["pctChg"].mean()
+                )
+            elif mode == "mv_weight":
+                returns = grouped_df.apply(
+                    lambda y: (
+                            y["pctChg"] * (y["市值"] / y["市值"].sum())
+                    ).sum()
+                )
+            elif mode == "position_weight":
+                returns = grouped_df.apply(
+                    lambda y: (
+                            y["pctChg"] * y["position_weight"]
+                    ).sum()
+                )
+            else:
+                raise ValueError(f"不支持该收益率计算模式: {mode}")
+
+            # 减去交易费用
+            result[date] = returns - trade_cost
+
+        result = pd.DataFrame.from_dict(result, orient="index").sort_index(axis=1).fillna(0)
+        result = result[sorted(result.columns, key=lambda x: int(x))]
+
+        # 对冲收益率
+        result["hedge"] = (
+            result[min_label] - result[max_label] if reverse
+            else result[max_label] - result[min_label]
+        )
+
+        return result * 100
+
+    @classmethod
+    def calc_group_returns_with_turnover(
+            cls,
+            grouped_data: dict[str, pd.DataFrame],
+            cycle: str,
+            max_label: str,
+            min_label: str,
+            mode: str,
+            reverse: bool = False,
+            trade_cost: float = 0.0,
+    ) -> pd.DataFrame:
+        """
+        计算分组收益率（换手率计算交易费率）
         :param grouped_data: 分组数据
         :param cycle: 周期
         :param max_label: 最大值标签

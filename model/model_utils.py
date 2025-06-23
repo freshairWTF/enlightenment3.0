@@ -165,7 +165,8 @@ class FactorSynthesis:
 
             result_dfs.append(senior_dfs)
 
-        return pd.concat(result_dfs).dropna(ignore_index=True)
+        return (pd.concat(result_dfs).
+                dropna(subset=list(factors_synthesis_table.keys()), ignore_index=True))
 
 
 ###################################################

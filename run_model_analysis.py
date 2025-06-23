@@ -31,10 +31,10 @@
     -6 数据 行业分类表 以及 各类数据的完善
     -7 标的池
     
-    -9 样本内外区分
-    -8 分类模型 若等频划分 则以group为标签  若仅仅前100、后100 就需要重采样!!!!
+    -9 样本内外区分                                                      60%
     -3 扩张窗口因子
-    -4 因子暴露控制 风险评价模型 !!!!
+    -4 因子暴露控制 风险评价模型 !!!!                                      80%
+    -13 把以前的换手率计算手续费模块加回
     
     -11 新量价因子 
         -1 TNR = 区间涨跌幅 / 区间累加涨跌幅
@@ -42,7 +42,32 @@
         -3 up prob = up prob + 0.5 * (down prob * 1 - up prob * -1)
            down prob = down prob + 0.5 * (up prob * -1 - down prob * 1)
            u2p = up prob - down prob
+    -12 策略容量 每只个股可以成交当日成交额的5%，若当日无法完成交易，则再下一日继续尝试
+
 """
+
+"""
+商品日内
+
+
+300多个 降维后40-50个
+持股数量 80-100 选股3000+
+65% 财务因子
+25% 量价
+剩余 另类数据因子
+80%线性
+20%非线性
+年换手40-50倍
+
+微盘 + 择时 + 优选
+实盘！！！
+因子等权 75量价 25基本面 70反转 25-30动量
+市场择时 -> 仓位管理 标的池变换
+平均市值 65亿元
+单体1% 一SW级行业20%
+年化双边换手60-80倍
+"""
+
 from constant.factor_library import *
 from constant.quant_setting import ModelSetting
 
@@ -85,7 +110,7 @@ if __name__ == "__main__":
     # source_dir = "20250530-WEEK-跟踪"
     # storage_dir = "最优化测试/test-20250530W"
     source_dir = "20250613W"
-    storage_dir = "模型跟踪/traditionalLinearReg-20250613W"
+    storage_dir = "换手率交易费率测试/traditionalLinearReg-20250613W"
 
     filter_mode: FILTER_MODE = "_entire_filter"
     # 模型参数设置

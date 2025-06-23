@@ -33,11 +33,15 @@ class LinearRegressionTraditionalModel:
         self.index_data = index_data
         self.individual_position_limit = individual_position_limit
 
-        self.factors_setting = self.model_setting.factors_setting  # 因子设置
-        self.processor = DataProcessor()  # 数据处理
-        self.utils = ModelUtils()  # 模型工具
+        # 因子设置
+        self.factors_setting = self.model_setting.factors_setting
+        # 数据处理
+        self.processor = DataProcessor()
+        # 模型工具
+        self.utils = ModelUtils()
 
-        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值"]  # 保留列
+        # 保留列
+        self.keep_cols = ["date", "股票代码", "行业", "pctChg", "市值"]
 
     def _direction_reverse(
             self,
@@ -270,9 +274,12 @@ class LinearRegressionTraditionalModel:
             # ====================
             # 模型评估
             # ====================
-            metrics['MAE'].append(mean_absolute_error(y_test, y_pred))
-            metrics['RMSE'].append(np.sqrt(mean_squared_error(y_test, y_pred)))
-            metrics['R2'].append(r2_score(y_test, y_pred))
+            try:
+                metrics['MAE'].append(mean_absolute_error(y_test, y_pred))
+                metrics['RMSE'].append(np.sqrt(mean_squared_error(y_test, y_pred)))
+                metrics['R2'].append(r2_score(y_test, y_pred))
+            except ValueError:
+                continue
 
         # ====================
         # 模型评估指标聚合
