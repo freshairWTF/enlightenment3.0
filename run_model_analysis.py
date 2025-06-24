@@ -31,17 +31,15 @@
     -6 数据 行业分类表 以及 各类数据的完善
     -7 标的池
     
-    -9 样本内外区分                                                      60%
+    -9 样本内外区分                                                      70%
+    -11 新量价因子                                                       50%
+    -17 席位因子群
     -13 把以前的换手率计算手续费模块加回
     
     -3 扩张窗口因子
-    -11 新量价因子 
-        -1 TNR = 区间涨跌幅 / 区间累加涨跌幅
-        -2 TNR diff
-        -3 up prob = up prob + 0.5 * (down prob * 1 - up prob * -1)
-           down prob = down prob + 0.5 * (up prob * -1 - down prob * 1)
-           u2p = up prob - down prob
-           
+    -15 模型收益来源分析
+    -16 因子池边际贡献模块
+
     -12 策略容量 每只个股可以成交当日成交额的5%，若当日无法完成交易，则再下一日继续尝试
 """
 
@@ -74,6 +72,13 @@
 GAN 对抗网络生成模型
 升维再降维 ？？二次项？？？pca/合成？？？ ——> 树模型
 每个半小时预测一次
+
+2千个因子 -> 神经网络 -> zscore
+模型 -1 子模型 -2 参数
+模型样本内/外IC IR  t检验 因为它都是合成一个zscore
+80%+量价 基本面因子作为条件，可以理解为因子池的划分，然后再细化量价的处理
+模型组合 等权/  抽样等权？
+风控
 """
 
 from constant.factor_library import *
@@ -115,8 +120,8 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "模型因子训练集"
-    storage_dir = "最优化测试/linearTestReg-1"
+    source_dir = "模型因子测试集"
+    storage_dir = "描述性统计补回测试/linearTestReg"
 
     filter_mode: FILTER_MODE = "_entire_filter"
     # 模型参数设置

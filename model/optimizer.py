@@ -48,12 +48,9 @@ class PortfolioOptimizer:
         self.asset_prices = asset_prices
         self.shrinkage_target = shrinkage_target
         self.frequency = ANNUALIZED_DAYS.get(cycle, 252)
-        print(self.asset_prices)
 
         # 预期收益率
         self.expected_returns = self._calculate_expected_returns(expected_return_method)
-        print(self.expected_returns)
-        print(self.expected_returns[self.expected_returns > 0])
         # 协方差矩阵
         self.cov_matrix = self._calculate_covariance(cov_method)
         self.ef = None                                                  # 有效前沿对象

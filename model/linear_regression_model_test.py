@@ -20,19 +20,18 @@ class LinearRegressionTestModel:
             self,
             input_df: pd.DataFrame,
             model_setting: dataclass,
-            individual_position_limit: float = 0.1,
-            index_data: dict[str, pd.DataFrame] | None = None,
+            descriptive_factors: list[str],
+            index_data: dict[str, pd.DataFrame] | None = None
     ):
         """
         :param input_df: 数据
         :param model_setting: 模型设置
-        :param individual_position_limit: 单一持仓上限
+        :param descriptive_factors: 描述性统计因子
         :param index_data: 指数数据
         """
         self.input_df = input_df
         self.model_setting = model_setting
         self.index_data = index_data
-        self.individual_position_limit = individual_position_limit
 
         self.factors_setting = self.model_setting.factors_setting   # 因子设置
         self.processor = DataProcessor()                            # 数据处理
@@ -40,9 +39,11 @@ class LinearRegressionTestModel:
 
         # 保留列
         self.keep_cols = [
-            "date", "股票代码", "行业", "pctChg", "市值",
-            "close", "unadjusted_close", "volume"
+            "date", "股票代码", "行业", "pctChg", "市值", "市净率",
+            "close", "unadjusted_close", "volume",
         ]
+        self.keep_cols += descriptive_factors
+        self.keep_cols = list(set(self.keep_cols))
 
     def _direction_reverse(
             self,

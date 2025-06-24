@@ -232,6 +232,24 @@ class ModelAnalyzer(QuantService):
     # --------------------------
     # 计算指标
     # --------------------------
+    @classmethod
+    def _calc_descriptive_factors(
+            cls,
+            model_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        计算分组描述性统计均值
+        :param model_df: 模型运行结果
+        :return: 分组描述性统计均值
+        """
+        descriptive = model_df.groupby(['group', 'date']).agg(
+            市值=('市值', 'mean'),
+            市净率=('市净率', 'mean')
+        ).reset_index()
+        descriptive["市值"] /= 10**8
+
+        return descriptive
+
     def _calc_model_metrics(
             self,
             grouped_data: dict[str, pd.DataFrame],
@@ -333,6 +351,17 @@ class ModelAnalyzer(QuantService):
             merge_original_data=False
         )
 
+    def _store_descriptive_data(
+            self,
+            model_data: pd.DataFrame,
+    ) -> None:
+        """存储模型分组描述性统计"""
+        DataStorage(self.storage_dir).write_df_to_excel(
+            model_data,
+            file_name="描述性统计",
+            merge_original_data=False
+        )
+
     def _store_model_setting(
             self
     ) -> None:
@@ -378,7 +407,8 @@ class ModelAnalyzer(QuantService):
         self.logger.info("---------- 模型生成 ----------")
         model = self.model(
             input_df=pre_processing_df,
-            model_setting=self.model_setting
+            model_setting=self.model_setting,
+            descriptive_factors=self.DESCRIPTIVE_FACTOR
         )
         model_df, metrics_df = model.run()
         model_data = {
@@ -395,7 +425,7 @@ class ModelAnalyzer(QuantService):
                 model_data,
                 ic_test=True if "综合Z值" in model_df.columns else False
             ),
-            **{"模型评估指标": metrics_df}
+            **{"模型评估指标": metrics_df},
         }
 
         # ---------------------------------------
@@ -404,6 +434,7 @@ class ModelAnalyzer(QuantService):
         self.logger.info("---------- 结果存储、可视化 ----------")
         self._draw_charts(self.storage_dir, result, self.visual_setting)
         self._store_grouped_data(model_data)
+        self._store_descriptive_data(self._calc_descriptive_factors(model_df))
         # self._store_selected_factors(selected_factors)
 
     # --------------------------

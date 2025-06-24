@@ -51,7 +51,7 @@ def normal_analysis():
 # ---------------------------------------------------
 def factor_analysis():
     """单因子分析 -> 生成分析因子"""
-    storage_dir_name = "带波动率过滤的累计收益率"
+    storage_dir_name = "tnr"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -73,7 +73,7 @@ def factor_analysis():
         target_info={"全部": "三级行业"},
         index_code="000300",
 
-        processes_nums=10,
+        processes_nums=3,
         debug=False
     )
     analyzer.run()
@@ -141,8 +141,8 @@ def inventory_cycle_analysis():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="模型因子训练集",
-        storage_dir="模型因子训练集"
+        source_dir="tnr",
+        storage_dir="tnr"
     )
     convert.run()
 
