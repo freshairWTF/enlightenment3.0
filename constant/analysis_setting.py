@@ -1563,9 +1563,6 @@ class Factor:
     class Kline:
         def __init__(self):
             self.kline = {
-                "波动率过滤的累加收益率": [
-                    0.09
-                ],
             }
 
     class Governance:
@@ -1575,7 +1572,9 @@ class Factor:
 
     class Statistics:
         def __init__(self):
-            self.stats = []
+            self.stats = [
+                "滚动归一化", "归一化", "扩张归一化"
+            ]
 
     class Visualization:
         def __init__(self):
@@ -1701,7 +1700,9 @@ class ModelFactor:
 
     class Statistics:
         def __init__(self):
-            self.stats = ["滚动归一化"]
+            self.stats = [
+                "滚动归一化", "扩张归一化"
+            ]
 
     class Visualization:
         def __init__(self):

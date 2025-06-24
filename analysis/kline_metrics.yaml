@@ -24,6 +24,9 @@ FUNCTION_OF_KLINE:
 
     k线中继形态: _ch_relay_form
 
+    tnr: tnr
+    tnr_diff: tnr_diff
+
 FUNCTION_OF_SPECIAL:
     资本回报率_5年滚动均值: _roic_rolling_mean_5y
     资本回报率1_5年滚动均值: _roic1_rolling_mean_5y

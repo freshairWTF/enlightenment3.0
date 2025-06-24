@@ -415,3 +415,28 @@ class KLineMetrics(Metrics, KlineDetermination):
         condition_2 = (upper_shadow_p | upper_shadow_n) & reduced_quantity
 
         self.metrics["ch_relay_form"] = (condition_1 & condition_2).astype("int")
+
+    def tnr(
+            self,
+            window: int
+    ) -> None:
+        """
+        TNR = 区间涨跌幅 / 区间累加涨跌幅
+        """
+        rolling_window = int(window * self.annual_window)
+
+        tnr = self._safe_divide(
+            self.metrics["pctChg"].rolling(rolling_window).sum(),
+            self.metrics["close"].pct_change(periods=rolling_window)
+        )
+        self.metrics[f"tnr_{window}"] = tnr
+
+    @depends_on("tnr")
+    def tnr_diff(
+            self,
+            window: int
+    ) -> None:
+        """
+        TNR = 区间涨跌幅 / 区间累加涨跌幅
+        """
+        self.metrics[f"tnr_diff_{window}"] = self.metrics[f"tnr_{window}"].diff()

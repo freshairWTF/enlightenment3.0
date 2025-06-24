@@ -8,8 +8,8 @@ PARAMETERS_OF_STATISTICS:
     中位数: []
     归一化: []
     滚动归一化: []
+    扩张归一化: []
     占比: []
-
 
     离散度: []
     分布形态: []
@@ -33,8 +33,8 @@ FUNCTION_OF_STATISTICS:
     中位数: _median
     归一化: _normalized
     滚动归一化: _rolling_normalized
+    扩张归一化: _expanding_normalized
     占比: _proportion
-
 
     离散度: _calculate_dispersion
     分布形态: _calculate_distribution_morphology

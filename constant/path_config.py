@@ -18,6 +18,8 @@ class DataPATH:
     ORIGINAL_STOCK_KLINE_DATA = BASE_DIR / "kline_data" / "stock" / "original_day"
     INDEX_KLINE_DATA = BASE_DIR / "kline_data" / "index"
     ORIGINAL_INDEX_KLINE_DATA = BASE_DIR / "kline_data" / "index" / "original_day"
+    FUTURE_KLINE_DATA = BASE_DIR / "kline_data" / "future"
+    ORIGINAL_FUTURE_KLINE_DATA = BASE_DIR / "kline_data" / "future" / "original_day"
 
     SUPPORT_DATA = BASE_DIR / "support_file"
     LISTED_NUMS = BASE_DIR / "support_file" / "Listed_Nums"

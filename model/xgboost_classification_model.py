@@ -281,31 +281,33 @@ class XGBoostClassificationModel:
             # -1 获取预测日数据
             predict_date = sorted_dates[i]
             # -2 获取测试窗口数据
+            true_df = input_df.loc[input_df["date"] == predict_date]
             x_true, y_true = (
                 input_df.loc[input_df["date"] == predict_date, x_cols],
                 input_df.loc[input_df["date"] == predict_date, y_col]
             )
             # -3 模型预测
-            y_pred = pd.Series(
-                data=model.predict(x_true),
-                index=x_true.index,
-                name="predict"
-            )
+            true_df["predict"] = model.predict(x_true)
             # -4 标签转换 连续整数 -> 离散字符
-            y_pred = pd.Series(
-                self.le.inverse_transform(y_pred),
-                index=y_pred.index
+            true_df["predict"] = pd.Series(
+                self.le.inverse_transform(true_df["predict"]),
+                index=true_df.index
             )
-            output_df = input_df.loc[input_df["date"] == predict_date]
-            output_df["predict"] = y_pred
-            result_dfs.append(output_df)
+
+            # ====================
+            # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
+            # ====================
+            result_dfs.append(true_df)
 
             # ====================
             # 模型评估
             # ====================
-            metrics_series = self.calculate_metrics(y_true, y_pred)
-            metrics_series.name = predict_date
-            metrics.append(metrics_series)
+            try:
+                metrics_series = self.calculate_metrics(y_true, true_df["predict"])
+                metrics_series.name = predict_date
+                metrics.append(metrics_series)
+            except ValueError:
+                continue
 
         return (pd.concat(result_dfs, ignore_index=True),
                 pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)

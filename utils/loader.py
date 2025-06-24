@@ -430,6 +430,43 @@ class DataLoader:
         return df.sort_index()
 
     @classmethod
+    @validate_literal_params
+    def get_future(
+            cls,
+            code: str,
+            cycle: KLINE_CYCLE,
+            start_date: str | None = None,
+            end_date: str | None = None,
+            start_date_inspection: bool = False,
+            end_date_inspection: bool = False
+    ) -> pd.DataFrame:
+        """
+        获取期货量价数据
+        :param code: 代码
+        :param cycle: 周期
+        :param start_date: 起始日期
+        :param end_date: 结束日期
+        :param start_date_inspection: 起始日期完备性检查
+        :param end_date_inspection: 结束日期完备性检查
+        :return: 期货量价数据
+        """
+        # 读取文件
+        path = (DataPATH.FUTURE_KLINE_DATA / cycle / code).with_suffix(".csv")
+        df = pd.read_csv(path)
+
+        # 时间过滤
+        df = df[df.index >= pd.to_datetime(start_date)] if start_date is not None else df
+        df = df[df.index <= pd.to_datetime(end_date)] if end_date is not None else df
+
+        # 日期完备性检查
+        if start_date_inspection and start_date not in df.index:
+            return pd.DataFrame()
+        if end_date_inspection and end_date not in df.index:
+            return pd.DataFrame()
+
+        return df.sort_index()
+
+    @classmethod
     def get_top_ten_shareholders(
             cls,
             code: str,
