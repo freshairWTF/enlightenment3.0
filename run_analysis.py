@@ -51,7 +51,7 @@ def normal_analysis():
 # ---------------------------------------------------
 def factor_analysis():
     """单因子分析 -> 生成分析因子"""
-    storage_dir_name = "tnr"
+    storage_dir_name = "扩张窗口测试"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -74,7 +74,7 @@ def factor_analysis():
         index_code="000300",
 
         processes_nums=3,
-        debug=False
+        debug=True
     )
     analyzer.run()
 
@@ -151,7 +151,7 @@ def data_convert():
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    # factor_analysis()
+    factor_analysis()
     # model_factor_analysis()
     # inventory_cycle_analysis()
-    data_convert()
+    # data_convert()

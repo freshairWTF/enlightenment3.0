@@ -189,6 +189,36 @@ class Dimensionless:
         else:
             raise TypeError("仅支持 pandas DataFrame/Series 类型输入")
 
+    @staticmethod
+    def expanding_normalization(
+            factor_values: pd.DataFrame | pd.Series,
+            feature_range: tuple[float, float] = (0, 1),
+            min_periods: int | None = None
+    ) -> pd.DataFrame | pd.Series:
+        """
+        改进版归一化方法，支持滚动窗口归一化
+        :param factor_values: 输入数据（DataFrame或Series）
+        :param feature_range: 目标值域范围，默认(0,1)
+        :param min_periods: 窗口最小计算长度
+        """
+        def _process_series(s: pd.Series) -> pd.Series:
+            # 计算扩张极值
+            expanding_min = s.expanding(min_periods=min_periods).min()
+            expanding_max = s.expanding(min_periods=min_periods).max()
+            # 处理分母（避免除零）
+            denominator = (expanding_max - expanding_min).replace(0, np.nan)
+
+            scale = (feature_range[1] - feature_range[0]) / denominator
+            return (s - expanding_min) * scale + feature_range[0]
+
+        # 应用处理逻辑
+        if isinstance(factor_values, pd.DataFrame):
+            return factor_values.apply(_process_series)
+        elif isinstance(factor_values, pd.Series):
+            return _process_series(factor_values)
+        else:
+            raise TypeError("仅支持 pandas DataFrame/Series 类型输入")
+
 
 ##############################################################
 class NeutralizationDev:

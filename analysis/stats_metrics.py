@@ -232,6 +232,30 @@ class StatisticsMetrics(Metrics):
                     }
                 )
 
+    def _expanding_normalized(
+            self
+    ) -> None:
+        """扩张窗口归一化计算"""
+        applicable = {
+            "financial": self.financial_window * 3,
+            "rolling_financial": self.financial_window * 3,
+            "valuation": self.window * 3,
+            "kline": self.window * 3
+        }
+        suffix = "_expanding_normalized"
+
+        for key, window in applicable.items():
+            data = self.data_container.get(key)
+            if data:
+                self.data_container[key].update(
+                    {
+                        f"{k}{suffix}": processor.dimensionless.expanding_normalization(
+                            factor_values=df[df.columns[df.columns != "公司简称"]],
+                            min_periods=1
+                        ) * 100 for k, df in data.items() if "_"not in k
+                    }
+                )
+
     # --------------------------
     # 比较
     # --------------------------

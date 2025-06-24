@@ -1563,12 +1563,6 @@ class Factor:
     class Kline:
         def __init__(self):
             self.kline = {
-                "tnr": [
-                    0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
-                ],
-                "tnr_diff": [
-                    0.09, 0.17, 0.25, 0.5, 1, 1.5, 2
-                ],
             }
 
     class Governance:
@@ -1578,7 +1572,9 @@ class Factor:
 
     class Statistics:
         def __init__(self):
-            self.stats = []
+            self.stats = [
+                "滚动归一化", "归一化", "扩张归一化"
+            ]
 
     class Visualization:
         def __init__(self):
