@@ -34,13 +34,16 @@
     -9 样本内外区分                                                      70%
     -3 扩张窗口因子 -> 历史分位数回测
     -13 把以前的换手率计算手续费模块加回                                    30%
-    -17 席位因子群
-
-
+    -17 席位因子群 -> 期货数据纳入体系
+            回测设计 -> 股指席位因子 强弱分组 做截面
+                      席位因子 做时序
+            爬虫 -> future_seat/ic/date
+            
     -15 模型收益来源分析
     -16 因子池边际贡献模块
-
     -12 策略容量 每只个股可以成交当日成交额的5%，若当日无法完成交易，则再下一日继续尝试
+    -18 level2数据的信息挖掘
+    
 """
 
 """
@@ -120,14 +123,14 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "模型因子测试集"
-    storage_dir = "描述性统计补回测试/linearTestReg"
+    source_dir = "模型因子训练集"
+    storage_dir = "描述性统计补回测试/traditionalLinearReg"
 
     filter_mode: FILTER_MODE = "_entire_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="linearTestReg",
+        model="traditionalLinearReg",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},

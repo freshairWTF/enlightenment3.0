@@ -84,7 +84,7 @@ def model_factor_analysis():
     模型分析 -> 生成因子库中的因子
     注：更新指数数据 -> 更新交易日历 -> 最新数据
     """
-    storage_dir_name = "模型因子训练集"
+    storage_dir_name = "扩张因子分位数模型因子训练集"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -151,7 +151,7 @@ def data_convert():
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    factor_analysis()
-    # model_factor_analysis()
+    # factor_analysis()
+    model_factor_analysis()
     # inventory_cycle_analysis()
     # data_convert()

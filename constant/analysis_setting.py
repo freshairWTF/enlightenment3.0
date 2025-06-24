@@ -1700,7 +1700,9 @@ class ModelFactor:
 
     class Statistics:
         def __init__(self):
-            self.stats = ["滚动归一化"]
+            self.stats = [
+                "滚动归一化", "扩张归一化"
+            ]
 
     class Visualization:
         def __init__(self):

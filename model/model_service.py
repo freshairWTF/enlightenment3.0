@@ -244,9 +244,12 @@ class ModelAnalyzer(QuantService):
         """
         descriptive = model_df.groupby(['group', 'date']).agg(
             市值=('市值', 'mean'),
-            市净率=('市净率', 'mean')
+            仓位权重加权市值=('市值', lambda x: (x * model_df.loc[x.index, 'position_weight']).sum()),
+            市净率=('市净率', 'mean'),
+            仓位权重加权市净率=('市净率', lambda x: (x * model_df.loc[x.index, 'position_weight']).sum()),
         ).reset_index()
         descriptive["市值"] /= 10**8
+        descriptive["仓位权重加权市值"] /= 10 ** 8
 
         return descriptive
 

@@ -39,26 +39,11 @@ class LinearRegressionTestModel:
 
         # 保留列
         self.keep_cols = [
-            "date", "股票代码", "行业", "pctChg", "市值", "市净率",
+            "date", "股票代码", "行业", "pctChg", "市值",
             "close", "unadjusted_close", "volume",
         ]
         self.keep_cols += descriptive_factors
         self.keep_cols = list(set(self.keep_cols))
-
-    def _direction_reverse(
-            self,
-            input_df: pd.DataFrame
-    ) -> pd.DataFrame:
-        """
-        因子方向反转（历史回测）
-        """
-        reverse_df = input_df.copy(deep=True)
-
-        for setting in self.factors_setting:
-            if setting.reverse:
-                reverse_df[setting.factor_name] *= -1
-
-        return reverse_df
 
     def _pre_processing(
             self,
@@ -85,16 +70,20 @@ class LinearRegressionTestModel:
                 processed_col = f"{prefix}_{factor_name}"
                 df_[processed_col] = df_[factor_name].copy()
 
-                # -1 正态变换
+                # -1 方向变化
+                if setting.reverse:
+                    df_[processed_col] *= -1
+
+                # -2 正态变换
                 if setting.transfer:
                     df_[processed_col] = self.processor.refactor.yeo_johnson_transfer(df_[processed_col])
 
-                # -2 第一次 去极值、标准化
+                # -3 第一次 去极值、标准化
                 df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
                     df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
 
-                # -3 中性化
+                # -4 中性化
                 if setting.market_value_neutral:
                     df_[processed_col] = self.processor.neutralization.log_market_cap(
                         df_[processed_col],
@@ -108,7 +97,7 @@ class LinearRegressionTestModel:
                         df_["行业"]
                     )
 
-                # -4 第二次 去极值、标准化
+                # -5 第二次 去极值、标准化
                 df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
                     df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
@@ -392,11 +381,9 @@ class LinearRegressionTestModel:
         # ----------------------------------
         # 数值处理
         # ----------------------------------
-        # -1 方向反转
-        self.input_df = self._direction_reverse(self.input_df)
-        # -2 预处理
+        # -1 预处理
         self.input_df = self._pre_processing(self.input_df)
-        # -3 对称正交
+        # -2 对称正交
         self.input_df = self.utils.feature.factors_orthogonal(
             self.input_df,
             factors_name=self.utils.extract.get_factors_synthesis_table(
