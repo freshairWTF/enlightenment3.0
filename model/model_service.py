@@ -253,6 +253,48 @@ class ModelAnalyzer(QuantService):
 
         return descriptive
 
+    @classmethod
+    def _calc_trading_stats(
+            cls,
+            model_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        计算模型（分组）交易数据
+        :param model_df: 模型结果
+        """
+        all_stats = []
+        for group_name, group in model_df.groupby("group"):
+            df = group.pivot(
+                index="date",
+                columns="股票代码",
+                values="position_weight"
+            ).fillna(0)
+            # -1 每期持股数量
+            hold_counts = df.mask(df != 0).sum(axis=1)
+            # -2 最大仓位
+            max_weights = df.max(axis=1)
+            # -3 最小仓位（排除0值）
+            min_weights = df.mask(df <= 0).min(axis=1).fillna(0)
+            # -4 仓位均值
+            mean_weights = df.mean(axis=1)
+            # -5 仓位标准差
+            std_weights = df.std(axis=1)
+            # -6 换手率（相邻两期仓位变化总和的绝对值/2）
+            turnover = df.diff().abs().sum(axis=1) / 2
+
+            stats_df = pd.DataFrame({
+                '持股数量': hold_counts,
+                '最大仓位': max_weights,
+                '最小仓位': min_weights,
+                '仓位均值': mean_weights,
+                '标准差': std_weights,
+                '换手率': turnover
+            })
+            stats_df['group'] = group_name
+            all_stats.append(stats_df)
+
+        return pd.concat(all_stats, ignore_index=True)
+
     def _calc_model_metrics(
             self,
             grouped_data: dict[str, pd.DataFrame],
@@ -354,14 +396,15 @@ class ModelAnalyzer(QuantService):
             merge_original_data=False
         )
 
-    def _store_descriptive_data(
+    def _store_to_excel(
             self,
             model_data: pd.DataFrame,
+            file_name: str
     ) -> None:
         """存储模型分组描述性统计"""
         DataStorage(self.storage_dir).write_df_to_excel(
             model_data,
-            file_name="描述性统计",
+            file_name=file_name,
             merge_original_data=False
         )
 
@@ -389,13 +432,16 @@ class ModelAnalyzer(QuantService):
             yaml.safe_dump(selected_factors, f, allow_unicode=True)
 
     # --------------------------
-    # 流程分析方法
+    # 公开 API 方法
     # --------------------------
-    @validate_literal_params
-    def _analyze(
-            self
-    ) -> None:
+    def run(self) -> None:
         """执行完整分析流程"""
+        self.logger.info(f"start: {str(self.model)} | {self.filter_mode}")
+
+        # 存储模型信息
+        self._store_model_setting()
+
+        # 执行分析
         self.logger.info("---------- 模型前数据预处理 ----------")
         pre_processing_df = self._pre_processing(
             self.raw_data,
@@ -437,18 +483,12 @@ class ModelAnalyzer(QuantService):
         self.logger.info("---------- 结果存储、可视化 ----------")
         self._draw_charts(self.storage_dir, result, self.visual_setting)
         self._store_grouped_data(model_data)
-        self._store_descriptive_data(self._calc_descriptive_factors(model_df))
+        self._store_to_excel(
+            self._calc_descriptive_factors(model_df),
+            "描述性统计"
+        )
+        self._store_to_excel(
+            self._calc_trading_stats(model_df),
+            "交易统计"
+        )
         # self._store_selected_factors(selected_factors)
-
-    # --------------------------
-    # 公开 API 方法
-    # --------------------------
-    def run(self) -> None:
-        """执行完整分析流程"""
-        self.logger.info(f"start: {str(self.model)} | {self.filter_mode}")
-
-        # 存储模型信息
-        self._store_model_setting()
-
-        # 执行分析
-        self._analyze()
