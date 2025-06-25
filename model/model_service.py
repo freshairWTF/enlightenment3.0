@@ -24,7 +24,7 @@ class ModelAnalyzer(QuantService):
     """模型分析"""
 
     CORE_FACTOR = [
-        "对数市值", "open", "close", "unadjusted_close", "pctChg"
+        "对数市值", "open", "close", "pctChg"
     ]
     DESCRIPTIVE_FACTOR = [
         "市值", "市净率"
@@ -103,7 +103,7 @@ class ModelAnalyzer(QuantService):
         result = []
         primary_cats = self.model_setting.factor_primary_classification or []
         secondary_cats = self.model_setting.factor_secondary_classification or []
-        half_life_range = self.model_setting.factor_half_life or (0, float('inf'))
+        half_life_range = self.model_setting.factor_half_life or (0, float("inf"))
         filter_modes = self.model_setting.factor_filter_mode or set()
 
         for setting in self.model_setting.factors_setting:
@@ -216,7 +216,7 @@ class ModelAnalyzer(QuantService):
     ) -> pd.DataFrame:
         """行数检查 -> 行数大于分组数"""
         # 按日期分组处理
-        grouped = input_df.groupby('date')
+        grouped = input_df.groupby("date")
         result_dfs = []
 
         for date, group_df in grouped:
@@ -235,32 +235,52 @@ class ModelAnalyzer(QuantService):
     @classmethod
     def _calc_descriptive_factors(
             cls,
-            model_df: pd.DataFrame
+            model_df: pd.DataFrame,
+            cycle: str = ""
     ) -> pd.DataFrame:
         """
         计算分组描述性统计均值
         :param model_df: 模型运行结果
+        :param cycle: 统计周期
+            -1 M 月度
+            -2 Y 年度
         :return: 分组描述性统计均值
         """
-        descriptive = model_df.groupby(['group', 'date']).agg(
-            市值=('市值', 'mean'),
-            仓位权重加权市值=('市值', lambda x: (x * model_df.loc[x.index, 'position_weight']).sum()),
-            市净率=('市净率', 'mean'),
-            仓位权重加权市净率=('市净率', lambda x: (x * model_df.loc[x.index, 'position_weight']).sum()),
+        descriptive = model_df.groupby(["group", "date"]).agg(
+            市值=("市值", "mean"),
+            仓位权重加权市值=("市值", lambda x: (x * model_df.loc[x.index, "position_weight"]).sum()),
+            市净率=("市净率", "mean"),
+            仓位权重加权市净率=("市净率", lambda x: (x * model_df.loc[x.index, "position_weight"]).sum()),
         ).reset_index()
         descriptive["市值"] /= 10**8
         descriptive["仓位权重加权市值"] /= 10 ** 8
+
+
+        # if cycle:
+        #     print(descriptive)
+        #     model_df = model_df.copy().set_index("date")
+        #     model_df.index = pd.to_datetime(model_df.index, format='%Y-%m-%d')
+        #     model_df = model_df[["市值", "市净率"]].resample(cycle).mean()
+        #     print(model_df)
 
         return descriptive
 
     @classmethod
     def _calc_trading_stats(
             cls,
-            model_df: pd.DataFrame
+            model_df: pd.DataFrame,
+            commission_rate: float = 0.0003,
+            stamp_tax_rate: float = 0.001,
+            transfer_rate: float = 0.00001,
+            slippage_rate: float = 0.003,
     ) -> pd.DataFrame:
         """
         计算模型（分组）交易数据
         :param model_df: 模型结果
+        :param commission_rate: 佣金费率（默认万3）
+        :param stamp_tax_rate: 印花税率（默认千1）
+        :param transfer_rate: 过户费率（默认万0.1，沪市）
+        :param slippage_rate: 滑点（默认千3）
         """
         all_stats = []
         for group_name, group in model_df.groupby("group"):
@@ -281,87 +301,114 @@ class ModelAnalyzer(QuantService):
             std_weights = df.std(axis=1)
             # -6 换手率（相邻两期仓位变化总和的绝对值/2）
             turnover = df.diff().abs().sum(axis=1) / 2
+            # -7 交易费率
+            fee_ratio = 2 * commission_rate + stamp_tax_rate + 2 * transfer_rate + 2 * slippage_rate
+            transaction_fee_rate = turnover * fee_ratio
+            transaction_fee_rate.iloc[0] = commission_rate + transfer_rate + slippage_rate
 
             stats_df = pd.DataFrame({
-                '持股数量': hold_counts,
-                '最大仓位': max_weights,
-                '最小仓位': min_weights,
-                '仓位均值': mean_weights,
-                '标准差': std_weights,
-                '换手率': turnover
+                "日期": df.index,
+                "持股数量": hold_counts,
+                "最大仓位": max_weights,
+                "最小仓位": min_weights,
+                "仓位均值": mean_weights,
+                "标准差": std_weights,
+                "换手率": turnover,
+                "交易费率": transaction_fee_rate
             })
-            stats_df['group'] = group_name
+            stats_df["group"] = group_name
             all_stats.append(stats_df)
 
         return pd.concat(all_stats, ignore_index=True)
 
-    def _calc_model_metrics(
+    def _calc_ic_stats(
             self,
             grouped_data: dict[str, pd.DataFrame],
             ic_test: bool = False
     ) -> dict:
-        """计算模型指标"""
-        # ic检验条件：合成综合Z值
-        if ic_test:
-            ic_stats = self.calc_model_ic_metrics(
+        """
+        模型结果IC统计
+        :param grouped_data: 模型结果
+        :param ic_test: 是否进行IC评估
+        """
+        return self.calc_model_ic_metrics(
                 grouped_data, "综合Z值", self.cycle
-            )
-            ic_mean = ic_stats["ic_stats"].loc["ic", "ic_mean"]
-            reverse = True if ic_mean < 0 else False
-        else:
-            ic_stats = {}
-            reverse = False
+            ) if ic_test else {}
 
+    def _calc_model_metrics(
+            self,
+            grouped_data: dict[str, pd.DataFrame],
+            transaction_fee_rate: pd.DataFrame
+    ) -> dict:
+        """
+        模型结果收益率统计
+        :param grouped_data: 模型结果
+        :param transaction_fee_rate: 交易费率
+        """
         return {
-            "coverage": self.calc_coverage(grouped_data, self.listed_nums),
-            **ic_stats,
+            # 交易费率（换手率）
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                reverse=reverse, prefix="0.0"
+                prefix="换手率估计", fixed_cost=False, transaction_fee_rate=transaction_fee_rate
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                mode="mv_weight", reverse=reverse, prefix="0.0_mw"
+                mode="mv_weight", prefix="换手率估计_mw",
+                fixed_cost=False, transaction_fee_rate=transaction_fee_rate
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                mode="position_weight", reverse=reverse, prefix="0.0_pw"
+                mode="position_weight", prefix="换手率估计_pw",
+                fixed_cost=False, transaction_fee_rate=transaction_fee_rate
+            ),
+            # 交易费率（固定）
+            **self.calc_return_metrics(
+                grouped_data, self.cycle, self.model_setting.group_label,
+                prefix="0.0"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                reverse=reverse, trade_cost=0.01, prefix="0.01"
+                mode="mv_weight", prefix="0.0_mw"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                mode="mv_weight", reverse=reverse, trade_cost=0.01, prefix="0.01_mw"
+                mode="position_weight", prefix="0.0_pw"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                mode="position_weight", reverse=reverse, trade_cost=0.01, prefix="0.01_pw"
+                trade_cost=0.01, prefix="0.01"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                reverse=reverse, trade_cost=0.03, prefix="0.03"
+                mode="mv_weight", trade_cost=0.01, prefix="0.01_mw"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                mode="mv_weight", reverse=reverse, trade_cost=0.03, prefix="0.03_mw"
+                mode="position_weight", trade_cost=0.01, prefix="0.01_pw"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                mode="position_weight", reverse=reverse, trade_cost=0.03, prefix="0.03_pw"
+                trade_cost=0.03, prefix="0.03"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                reverse=reverse, trade_cost=0.05, prefix="0.05"
+                mode="mv_weight", trade_cost=0.03, prefix="0.03_mw"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                mode="mv_weight", reverse=reverse, trade_cost=0.05, prefix="0.05_mw"
+                mode="position_weight", trade_cost=0.03, prefix="0.03_pw"
             ),
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
-                mode="position_weight", reverse=reverse, trade_cost=0.05, prefix="0.05_pw"
+                trade_cost=0.05, prefix="0.05"
+            ),
+            **self.calc_return_metrics(
+                grouped_data, self.cycle, self.model_setting.group_label,
+                mode="mv_weight", trade_cost=0.05, prefix="0.05_mw"
+            ),
+            **self.calc_return_metrics(
+                grouped_data, self.cycle, self.model_setting.group_label,
+                mode="position_weight", trade_cost=0.05, prefix="0.05_pw"
             ),
         }
 
@@ -469,12 +516,26 @@ class ModelAnalyzer(QuantService):
         # 模型评估
         # ---------------------------------------
         self.logger.info("---------- 模型评估 ----------")
+        # 交易统计
+        trading_stats = self._calc_trading_stats(model_df)
+        # 描述性统计
+        descriptive = self._calc_descriptive_factors(model_df)
+        # descriptive_month = self._calc_descriptive_factors(model_df, "M")
+        # descriptive_year = self._calc_descriptive_factors(model_df, "Y")
+        # print(descriptive_month)
+        # print()
+        # IC/收益率/评估/覆盖度
         result = {
-            **self._calc_model_metrics(
+            **self._calc_ic_stats(
                 model_data,
                 ic_test=True if "综合Z值" in model_df.columns else False
             ),
+            **self._calc_model_metrics(
+                model_data,
+                trading_stats.groupby("日期").apply(lambda x: x.set_index("group")["交易费率"])
+            ),
             **{"模型评估指标": metrics_df},
+            "coverage": self.calc_coverage(model_data, self.listed_nums),
         }
 
         # ---------------------------------------
@@ -483,12 +544,8 @@ class ModelAnalyzer(QuantService):
         self.logger.info("---------- 结果存储、可视化 ----------")
         self._draw_charts(self.storage_dir, result, self.visual_setting)
         self._store_grouped_data(model_data)
-        self._store_to_excel(
-            self._calc_descriptive_factors(model_df),
-            "描述性统计"
-        )
-        self._store_to_excel(
-            self._calc_trading_stats(model_df),
-            "交易统计"
-        )
+        self._store_to_excel(descriptive, "描述性统计")
+        # self._store_to_excel(descriptive_month, "月度描述性统计")
+        # self._store_to_excel(descriptive_year, "年度描述性统计")
+        self._store_to_excel(trading_stats, "交易统计")
         # self._store_selected_factors(selected_factors)

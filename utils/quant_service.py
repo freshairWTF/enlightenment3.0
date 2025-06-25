@@ -385,7 +385,9 @@ class QuantService:
             mode: CALC_RETURN_MODE = "equal",
             reverse: bool = False,
             trade_cost: float = 0.0,
-            prefix: str = ""
+            prefix: str = "",
+            fixed_cost: bool = True,
+            transaction_fee_rate: pd.DataFrame | None = None
     ) -> dict[str, pd.DataFrame | pd.Series]:
         """
         计算收益率、比率指标
@@ -396,6 +398,8 @@ class QuantService:
         :param reverse: 多空反转
         :param trade_cost: 手续费率
         :param prefix: 前缀
+        :param fixed_cost: 固定交易费率
+        :param transaction_fee_rate: 交易费率序列
         :return: 收益率、比率指标
         """
         # 最劣/最优 标签
@@ -404,15 +408,25 @@ class QuantService:
         # --------------------------
         # 指标计算
         # --------------------------
-        grouped_return = cls.evaluate.returns.calc_group_returns_with_fixed_trade_cost(
-            grouped_data,
-            cycle,
-            max_label,
-            min_label,
-            mode,
-            reverse,
-            trade_cost
-        )
+        if fixed_cost:
+            grouped_return = cls.evaluate.returns.calc_group_returns_with_fixed(
+                grouped_data,
+                cycle,
+                max_label,
+                min_label,
+                mode,
+                reverse,
+                trade_cost
+            )
+        else:
+            grouped_return = cls.evaluate.returns.calc_group_returns_with_turnover(
+                grouped_data,
+                max_label,
+                min_label,
+                mode,
+                reverse,
+                transaction_fee_rate
+            )
 
         cum_return = cls.evaluate.returns.cum_return(grouped_return)
         wtl_ratio = cls.evaluate.returns.win_to_loss_ratio(grouped_return)
