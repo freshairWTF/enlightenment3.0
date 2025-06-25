@@ -60,7 +60,7 @@ def factor_monitor() -> None:
         lag_period=1,
         group_nums=10
     )
-    monitor.run()
+    monitor.stock_crawl()
 
 
 # ------------------------- 执行入口 -------------------------

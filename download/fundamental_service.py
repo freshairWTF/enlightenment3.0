@@ -18,6 +18,7 @@ from source_eastMoney import CrawlerToEastMoney, CleanerToEastMoney
 from source_sina import CrawlerToSina
 from source_juChao import CrawlerToJuChao
 from source_baoStock import BaoStockDownLoader
+from source_cffex import CrawlerToCFFEX
 from storage import DataStorage
 from loader import DataLoader
 
@@ -58,22 +59,32 @@ class Crawler:
         "semiannual_report": ROOT / "report_from_juChao",
         "firstQuarter_report": ROOT / "report_from_juChao",
         "thirdQuarter_report": ROOT / "report_from_juChao",
+
+        # 金融交易所
+        "cffex_ccpm": ROOT / "ccpm_from_cffex"
     }
     PAUSE_TIME = {
         "east_money": 5,
         "sina": 3,
         "juChao": 0.5,
+        "cffex": 0.5
     }
 
     def __init__(
             self,
             data_name: Literal[
-                "financial_data", "bonus_financing",
-                "top_ten_circulating_shareholders", "top_ten_shareholders",
-                "circulating_shares", "total_shares",
+                "financial_data",
+                "bonus_financing",
+                "top_ten_circulating_shareholders",
+                "top_ten_shareholders",
+                "circulating_shares",
+                "total_shares",
                 "announcement_title",
-                "annual_report", "semiannual_report",
-                "firstQuarter_report", "thirdQuarter_report"
+                "annual_report",
+                "semiannual_report",
+                "firstQuarter_report",
+                "thirdQuarter_report",
+                "cffex_ccpm"
             ],
             start_date: str,
             end_date: str,
@@ -85,6 +96,15 @@ class Crawler:
         """
         初始化爬虫管理器
         :param data_name: 数据类型
+            -1 financial_data: 财务数据
+            -2 bonus_financing: 分红数据
+            -3 top_ten_circulating_shareholders: 前十大流通股东
+            -4 top_ten_shareholders: 前十大股东
+            -5 circulating_shares: 流通股本
+            -6 total_shares: 总股本
+            -7 announcement_title: 公告标题
+            -8 annual_report/semiannual_report/firstQuarter_report/thirdQuarter_report: 财务报告
+            -9 cffex_ccpm: 金融交易所成交持仓排名
         :param start_date: 开始日期（YYYY-MM-DD）
         :param end_date: 结束日期（YYYY-MM-DD）
         :param code: 指定代码，当code_filter=(None, from_code)时，配合使用
@@ -105,7 +125,7 @@ class Crawler:
         # 结束时间判定
         current_date = pd.Timestamp.now()
         if self.end_date > current_date:
-            raise TypeError(f"end_date {end_date} > cur_date {current_date}")
+            raise ValueError(f"end_date {end_date} > cur_date {current_date}")
 
         # 读取类
         self.loader = DataLoader
@@ -117,6 +137,12 @@ class Crawler:
         # 行业映射字典
         self.industry_map: pd.DataFrame = self.loader.get_industry_codes(
             sheet_name="Total_A", industry_info={"全部": "二级行业"}
+        )
+        # 交易日历
+        self.trading_calendar = self.loader.get_trading_calendar(
+            sheet_name="day",
+            start_date=str(self.start_date.date()),
+            end_date=str(self.end_date.date())
         )
 
     @staticmethod
@@ -456,12 +482,50 @@ class Crawler:
             self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
 
     # --------------------------
+    # 数据下载方法 金融交易所
+    # --------------------------
+    def _download_cffex_ccpm(
+            self,
+            code: str
+    ) -> None:
+        """
+        下载金融交易所的成交持仓排名数据
+        :param code: IF/IH/IC/IM
+        :return: 成交持仓排名数据
+        """
+        # 参数检查
+        if code not in ["IF", "IH", "IC", "IM"]:
+            raise ValueError(f"股指代码有误: {code}")
+
+        # 创建文件夹
+        dir_path = self.DIR_PATH[self.data_name]
+        dir_path.mkdir(parents=True, exist_ok=True)
+
+        crawler = CrawlerToCFFEX(
+            user_agent=self.get_user_agent(),
+            code=code,
+            pause_time=self.PAUSE_TIME["cffex"],
+        )
+        try:
+            for date in self.trading_calendar:
+                date = str(date.date())
+                vol_df, buy_df, sell_df = crawler.get_ccpm(date)
+                if not vol_df.empty:
+                    self._save_data(vol_df, f"{code}_{date}_成交量排名")
+                if not buy_df.empty:
+                    self._save_data(buy_df, f"{code}_{date}_持买单量排名")
+                if not sell_df.empty:
+                    self._save_data(sell_df, f"{code}_{date}_持卖单量排名")
+        except Exception as e:
+            self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
+
+    # --------------------------
     # 公开 API 方法
     # --------------------------
-    def run(
+    def stock_crawl(
             self
     ) -> None:
-        """执行爬取任务"""
+        """股票数据爬取接口"""
         codes = self._get_code_list()
 
         self.logger.info(f"待处理股票数量：{len(codes)}")
@@ -481,6 +545,15 @@ class Crawler:
             elif self.data_name in ["annual_report", "semiannual_report",
                                     "firstQuarter_report", "thirdQuarter_report"]:
                 self._download_report(code)
+            else:
+                raise ValueError(f"暂未实现该数据的爬取: {self.data_name}")
+
+    def future_crawl(self):
+        """期货数据爬取接口"""
+        if self.data_name == "cffex_ccpm":
+            self._download_cffex_ccpm(self.code)
+        else:
+            raise ValueError(f"暂未实现该数据的爬取: {self.data_name}")
 
 
 #############################################################

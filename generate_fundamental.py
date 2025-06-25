@@ -8,10 +8,10 @@ from download.fundamental_service import Crawler, Cleaner
 
 
 # --------------------------------------------------
-def download_fundamental():
-    """下载基本面数据"""
+def download_stock_fundamental():
+    """下载股票基本面数据"""
     downloader = Crawler(
-        data_name="top_ten_circulating_shareholders",
+        data_name="financial_data",
         start_date="2000-03-31",            # 起始时间
         end_date="2025-03-31",              # 结束时间
 
@@ -21,7 +21,19 @@ def download_fundamental():
 
         announcement_max_page=1000          # 公告标题最大页数
     )
-    downloader.run()
+    downloader.stock_crawl()
+    downloader.future_crawl()
+
+# --------------------------------------------------
+def download_future_fundamental():
+    """下载期货基本面数据"""
+    downloader = Crawler(
+        data_name="cffex_ccpm",
+        start_date="2010-04-16",            # 起始时间
+        end_date="2025-06-25",              # 结束时间
+        code="IF",                          # 代码
+    )
+    downloader.future_crawl()
 
 # --------------------------------------------------
 def clean_fundamental():
@@ -40,5 +52,6 @@ def clean_fundamental():
 
 # ------------------------- 执行入口 -------------------------
 if __name__ == "__main__":
-    download_fundamental()
+    # download_stock_fundamental()
+    download_future_fundamental()
     # clean_fundamental()
