@@ -516,6 +516,7 @@ class Crawler:
                     self._save_data(buy_df, f"{code}_{date}_持买单量排名")
                 if not sell_df.empty:
                     self._save_data(sell_df, f"{code}_{date}_持卖单量排名")
+                self.logger.info(f"下载成功 | Code: {code} | Date: {date}")
         except Exception as e:
             self.logger.error(f"下载失败 | Code: {code} | Error: {str(e)}")
 
@@ -580,12 +581,15 @@ class Cleaner:
         "financial_data": RAW_ROOT / "financial_data_from_eastmoney",
         "top_ten_circulating_shareholders": RAW_ROOT / "top_ten_circulating_shareholders_from_eastmoney",
         "top_ten_shareholders": RAW_ROOT / "top_ten_shareholders_from_eastmoney",
+        "cffex_ccpm": RAW_ROOT / "ccpm_from_cffex",
+
     }
     STORAGE_DRI_PATH = {
         "bonus_financing": DataPATH.BONUS_FINANCING_DATA,
         "financial_data": DataPATH.FINANCIAL_DATA,
         "top_ten_circulating_shareholders": DataPATH.TOP_TEN_CIRCULATING_SHAREHOLDERS,
         "top_ten_shareholders": DataPATH.TOP_TEN_SHAREHOLDERS,
+        "cffex_ccpm": DataPATH.FUTURE_CCPM,
     }
 
     def __init__(

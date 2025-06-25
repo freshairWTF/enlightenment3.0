@@ -5,9 +5,13 @@ from factor.factor_service import FactorAnalyzer
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="tnr",
+        source_dir="模型因子训练集",
         index_code="000300",
         factors_name=[
+            "换手率均线_0.5",
+            "换手率均线_1", "换手率均线_1.5",
+            "换手率标准差_0.25", "换手率标准差_0.5", "换手率标准差_1",
+            "换手率标准差_1.5", "换手率标准差_2"
         ],
         cycle="week",
 

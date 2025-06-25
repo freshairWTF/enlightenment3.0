@@ -29,9 +29,9 @@ def download_future_fundamental():
     """下载期货基本面数据"""
     downloader = Crawler(
         data_name="cffex_ccpm",
-        start_date="2010-04-16",            # 起始时间
+        start_date="2022-07-22",            # 起始时间
         end_date="2025-06-25",              # 结束时间
-        code="IF",                          # 代码
+        code="IM",                          # 代码
     )
     downloader.future_crawl()
 

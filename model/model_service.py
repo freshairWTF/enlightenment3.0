@@ -240,30 +240,52 @@ class ModelAnalyzer(QuantService):
     ) -> pd.DataFrame:
         """
         计算分组描述性统计均值
-        :param model_df: 模型运行结果
+        :param model_df: 模型运行结果（需包含 date, group, 市值, 市净率, position_weight 列）
         :param cycle: 统计周期
-            -1 M 月度
-            -2 Y 年度
-        :return: 分组描述性统计均值
+            "M" : 按月统计
+            "Y" : 按年统计
+        :return: 分组描述性统计DataFrame
         """
-        descriptive = model_df.groupby(["group", "date"]).agg(
+        # -1 预处理
+        df = model_df.copy()
+        df['date'] = pd.to_datetime(df['date'])
+
+        # -2 创建临时加权计算列
+        df['市值_weighted'] = df['市值'] * df['position_weight']
+        df['市净率_weighted'] = df['市净率'] * df['position_weight']
+
+        # -3 根据周期选择分组方式
+        if cycle:
+            grouped = df.groupby([
+                "group",
+                pd.Grouper(key='date', freq=cycle)
+            ])
+        else:
+            grouped = df.groupby(["group", "date"])
+
+        # -4 聚合计算
+        descriptive = grouped.agg(
             市值=("市值", "mean"),
-            仓位权重加权市值=("市值", lambda x: (x * model_df.loc[x.index, "position_weight"]).sum()),
+            市值_weighted_sum=("市值_weighted", "sum"),
             市净率=("市净率", "mean"),
-            仓位权重加权市净率=("市净率", lambda x: (x * model_df.loc[x.index, "position_weight"]).sum()),
+            市净率_weighted_sum=("市净率_weighted", "sum"),
+            weight_sum=("position_weight", "sum")           # 权重总和用于加权平均
         ).reset_index()
-        descriptive["市值"] /= 10**8
+        descriptive["仓位权重加权市值"] = descriptive["市值_weighted_sum"] / descriptive["weight_sum"]
+        descriptive["仓位权重加权市净率"] = descriptive["市净率_weighted_sum"] / descriptive["weight_sum"]
+
+        # -5 单位转换与清理
+        descriptive["市值"] /= 10 ** 8
         descriptive["仓位权重加权市值"] /= 10 ** 8
+        descriptive.drop(
+            columns=['市值_weighted_sum', '市净率_weighted_sum', 'weight_sum'],
+            inplace=True
+        )
 
-
-        # if cycle:
-        #     print(descriptive)
-        #     model_df = model_df.copy().set_index("date")
-        #     model_df.index = pd.to_datetime(model_df.index, format='%Y-%m-%d')
-        #     model_df = model_df[["市值", "市净率"]].resample(cycle).mean()
-        #     print(model_df)
-
-        return descriptive
+        return descriptive.dropna(
+            subset=["市值", "市净率", "仓位权重加权市值", "仓位权重加权市净率"],
+            how="all"
+        )
 
     @classmethod
     def _calc_trading_stats(
@@ -520,10 +542,8 @@ class ModelAnalyzer(QuantService):
         trading_stats = self._calc_trading_stats(model_df)
         # 描述性统计
         descriptive = self._calc_descriptive_factors(model_df)
-        # descriptive_month = self._calc_descriptive_factors(model_df, "M")
-        # descriptive_year = self._calc_descriptive_factors(model_df, "Y")
-        # print(descriptive_month)
-        # print()
+        descriptive_month = self._calc_descriptive_factors(model_df, "M")
+        descriptive_year = self._calc_descriptive_factors(model_df, "Y")
         # IC/收益率/评估/覆盖度
         result = {
             **self._calc_ic_stats(
@@ -545,7 +565,7 @@ class ModelAnalyzer(QuantService):
         self._draw_charts(self.storage_dir, result, self.visual_setting)
         self._store_grouped_data(model_data)
         self._store_to_excel(descriptive, "描述性统计")
-        # self._store_to_excel(descriptive_month, "月度描述性统计")
-        # self._store_to_excel(descriptive_year, "年度描述性统计")
+        self._store_to_excel(descriptive_month, "月度描述性统计")
+        self._store_to_excel(descriptive_year, "年度描述性统计")
         self._store_to_excel(trading_stats, "交易统计")
         # self._store_selected_factors(selected_factors)

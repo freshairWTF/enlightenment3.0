@@ -12,6 +12,7 @@ class DataPATH:
     CIRCULATing_SHARES_DATA = BASE_DIR / "fundamental_data" / "cleaned_data" / "circulating_shares"
     TOP_TEN_CIRCULATING_SHAREHOLDERS = BASE_DIR / "fundamental_data" / "cleaned_data" / "top_ten_circulating_shareholders"
     TOP_TEN_SHAREHOLDERS = BASE_DIR / "fundamental_data" / "cleaned_data" / "top_ten_shareholders"
+    FUTURE_CCPM = BASE_DIR / "fundamental_data" / "cleaned_data" / "future_ccpm"
 
     KLINE_DATA = BASE_DIR / "kline_data"
     STOCK_KLINE_DATA = BASE_DIR / "kline_data" / "stock"
