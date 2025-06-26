@@ -8,7 +8,7 @@ from xgboost_regression_cv_model import XGBoostRegressionCVModel
 from xgboost_regression_model import XGBoostRegressionModel
 from xgboost_classification_model import XGBoostClassificationModel
 from randomforest_classification_model import RandomForestClassificationModel
-
+from fight_linear_regression_model import FightLinearRegressionModel, FightLinearRegressionHigherModel
 
 
 __all__ = [
@@ -19,4 +19,7 @@ __all__ = [
     "XGBoostRegressionCVModel",
     "XGBoostClassificationModel",
     "RandomForestClassificationModel",
+
+    "FightLinearRegressionModel",
+    "FightLinearRegressionHigherModel",
 ]

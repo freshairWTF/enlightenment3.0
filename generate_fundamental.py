@@ -55,7 +55,7 @@ def clean_future_fundamental():
     cleaner = Cleaner(
         data_name="cffex_ccpm",
         num_processes=10,                   # 多进程核数
-        code="IM",                      # 代码：无需sh/sz前缀
+        code="IM",                          # 代码：无需sh/sz前缀
     )
     cleaner.clean_future()
 

@@ -23,13 +23,34 @@
     -12 策略容量 每只个股可以成交当日成交额的5%，若当日无法完成交易，则再下一日继续尝试
     -18 level2数据的信息挖掘
     -19 回归模型 + 分类模型 回归模型阈值控制 -> 仓位管理
+    
+    龙珠 时序的回归器 + 截面的回归器
+    
+    时序逻辑与截面逻辑要统一
+    或者能不能策略器自带总权重 
+    或者说 使用股指/指数与全市场合成数据做回归？分类？
+    
+    起始回归器大于0的比例就是自带的权重计算器/
+    目标为大于0的分类器也是自带权重计算器
+    截面回归器 线性 -> 等频分组 top组 
+    截面回归器 线性 -> 大于0等频分组 top组  
+    截面回归器 非线性 -> 等频分组 top组 
+    截面回归器 非线性 -> 大于0等频分组 top组
+    截面分类器 分类 -> top组 
+    截面分类器 分类 -> 等频分组 top组
+    
+    择时器
+    6个策略器 可以通过集成 -> 3个策略器
+    
+    量化多头策略 
+        -1 多策略器 集成/堆叠
+        -2 单一策略器的设计
+   
 """
 
 
 """
 商品日内
-
-
 300多个 降维后40-50个
 持股数量 80-100 选股3000+
 65% 财务因子
@@ -83,6 +104,10 @@ MODEL = {
     "xgboostCVReg": XGBoostRegressionCVModel,
     "xgboostCla": XGBoostClassificationModel,
     "randomForestReg": RandomForestClassificationModel,
+
+    "fightLinearReg": FightLinearRegressionModel,
+    "fightLinearHigherReg": FightLinearRegressionHigherModel,
+
 }
 
 
@@ -103,14 +128,14 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "模型因子测试集"
-    storage_dir = "描述性统计补回测试/traditionalLinearReg"
+    source_dir = "模型因子训练集"
+    storage_dir = "实盘-fightLinearHigherReg/初始测试"
 
     filter_mode: FILTER_MODE = "_entire_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="traditionalLinearReg",
+        model="fightLinearHigherReg",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},
