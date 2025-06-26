@@ -1,6 +1,11 @@
 # ========== k线指标映射文件 ==========
 
 FUNCTION_OF_KLINE:
+    barra市场贝塔: _market_beta_barra
+    barra动量: _momentum_barra
+    barra换手率: _turnover_barra
+    日超额收益波动率: dastd
+
     市场贝塔: _market_beta
     累加收益率: _accumulated_yield
     波动率过滤的累加收益率: _accumulated_yield_with_vol_filter

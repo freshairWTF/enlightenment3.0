@@ -514,11 +514,21 @@ class Analyzer:
         # --------------------------
         split_adjusted_kline = self._calculate_kline(
             split_adjusted_kline,
-            self.index_kline
+            self.index_kline,
+            circulating_shares=self.loader.get_shares(
+                code=code,
+                financial_date=split_adjusted_kline.index,
+                circulating=True
+            )
         )
         backward_adjusted_kline = self._calculate_kline(
             backward_adjusted_kline,
-            self.index_kline
+            self.index_kline,
+            circulating_shares=self.loader.get_shares(
+                code=code,
+                financial_date=backward_adjusted_kline.index,
+                circulating=True
+            )
         )
 
         financial = self._get_financial_data(
@@ -625,11 +635,21 @@ class Analyzer:
             # --------------------------
             split_adjusted_kline = self._calculate_kline(
                 split_adjusted_kline,
-                self.index_kline
+                self.index_kline,
+                circulating_shares=self.loader.get_shares(
+                    code=code,
+                    financial_date=split_adjusted_kline.index,
+                    circulating=True
+                )
             )
             backward_adjusted_kline = self._calculate_kline(
                 backward_adjusted_kline,
-                self.index_kline
+                self.index_kline,
+                circulating_shares=self.loader.get_shares(
+                    code=code,
+                    financial_date=backward_adjusted_kline.index,
+                    circulating=True
+                )
             )
 
             financial = self._get_financial_data(
@@ -870,7 +890,8 @@ class Analyzer:
     def _calculate_kline(
             self,
             kline: pd.DataFrame,
-            index_kline: pd.DataFrame | None = None
+            index_kline: pd.DataFrame | None = None,
+            circulating_shares: pd.DataFrame | None = None
     ) -> pd.DataFrame:
         """计算量价指标"""
         calculator = KLineMetrics(
@@ -878,7 +899,8 @@ class Analyzer:
             index_data=index_kline,
             cycle=self.cycle,
             methods=self.PARAMS.kline.kline,
-            function_map=self.MAPPING["KLINE"]
+            function_map=self.MAPPING["KLINE"],
+            circulating_shares=circulating_shares
         )
         calculator.calculate()
         return calculator.metrics.round(4)

@@ -9,7 +9,6 @@ from matplotlib import pyplot as plt
 from pathlib import Path
 
 import warnings
-import traceback
 import numpy as np
 import pandas as pd
 
@@ -140,11 +139,12 @@ class FactorAnalyzer(QuantService):
         self.group_label = self.setup_group_label(self.group_nums)
         self.setting = Factor()
         self.filter_mode = Literal[
-            "_entire_filter",
-            "_overall_filter",
-            "_large_cap_filter",
-            "_mega_cap_filter",
-            "_small_cap_filter"
+            "_white_filter",
+            # "_entire_filter",
+            # "_overall_filter",
+            # "_large_cap_filter",
+            # "_mega_cap_filter",
+            # "_small_cap_filter"
         ]
 
         # --------------------------
@@ -602,7 +602,6 @@ class FactorAnalyzer(QuantService):
         :param factor_name: 因子名
         :param filter_mode: 过滤模式
         """
-        # try:
         self.logger.info(f"start: {factor_name} - {self.group_mode} - {filter_mode}")
         # --------------------------
         # 初始化
@@ -709,11 +708,6 @@ class FactorAnalyzer(QuantService):
         self.logger.info(f"单因子完成回测")
         # parquet 分组数据
         # self._store_results(grouped_data, storage_dir)
-        # except Exception as e:
-        #     self.logger.error(
-        #         f"错误信息: {factor_name} {self.group_mode} {filter_mode}|"
-        #         f"异常类型: {type(e).__name__}, 错误详情: {str(e)}, 堆栈跟踪:\n{traceback.format_exc()}"
-        #     )
 
     @validate_literal_params
     def _analyze_single_factor_debug(

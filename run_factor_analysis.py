@@ -5,17 +5,14 @@ from factor.factor_service import FactorAnalyzer
 def factor_analysis():
     """单因子分析"""
     analyzer = FactorAnalyzer(
-        source_dir="模型因子训练集",
+        source_dir="barra因子",
         index_code="000300",
         factors_name=[
-            "换手率均线_0.5",
-            "换手率均线_1", "换手率均线_1.5",
-            "换手率标准差_0.25", "换手率标准差_0.5", "换手率标准差_1",
-            "换手率标准差_1.5", "换手率标准差_2"
+            "市现率", "barra动量", "barra市场贝塔", "营业收入_yoy", "净利润_yoy"
         ],
         cycle="week",
 
-        transfer_mode="yeo_johnson",
+        transfer_mode=None,
         standardization=True,
         mv_neutral=True,
         industry_neutral=True,

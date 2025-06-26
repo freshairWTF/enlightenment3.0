@@ -700,14 +700,15 @@ ALPHA_FACTOR_LIBRARY = {
 
 # ----------------------------------------------------------
 RISK_FACTOR_LIBRARY = {
-    "营业利润-1": FactorSetting(
-        factor_name="营业利润",
-        primary_classification="基本面因子",
-        secondary_classification="质量因子",
+    "对数市值": FactorSetting(
+        factor_name="对数市值",
         cycle="week",
-        filter_mode="_entire_filter",
-        bear_market=True,
-        shocking_market=True
+        primary_classification="基本面因子",
+        secondary_classification="估值因子",
+        market_value_neutral=False,
+        reverse=True,
+        entire_filter=True,
+        small_filter=True
     ),
 }
 

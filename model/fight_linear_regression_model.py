@@ -685,10 +685,14 @@ class FightLinearRegressionHigherModel:
             )
 
             # ====================
-            # 总仓位计算
+            # 总仓位计算（若加上总仓位限制，容易得不到最优解，整体缩放更易实现）
             # ====================
-            print(true_df["predict"])
-            print(dd)
+            """
+            市场波动率 -> 总仓位？悦海
+            指数预测 -> 总仓位
+            个股 -> 整体缩放  跟最优化有区别吗？
+            """
+            positive_ratio = (true_df["predict"] > 0).sum() / true_df["predict"].count()
 
             # ====================
             # 权重优化（仓位权重、实际股数）
@@ -715,6 +719,7 @@ class FightLinearRegressionHigherModel:
                 weights = self.portfolio_optimizer(
                     price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
                     volume_df=volume_df[group_df["股票代码"].tolist()],
+                    max_position=positive_ratio,
                     industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())]
                 )
                 weights_series.append(weights)

@@ -27,6 +27,7 @@ class KLineMetrics(Metrics, KlineDetermination):
             methods: dict[str, list],
             function_map: dict[str, str],
             index_data: pd.DataFrame | None = None,
+            circulating_shares: pd.DataFrame | None = None,
     ):
         """
         :param kline_data: K线数据
@@ -34,12 +35,14 @@ class KLineMetrics(Metrics, KlineDetermination):
         :param cycle: 周期
         :param methods: 需要实现的方法
         :param function_map: 已定义的方法对应方法名
+        :param circulating_shares: 流通股本数据
         """
         self.metrics = kline_data
         self.index_data = index_data
         self.cycle = cycle
         self.function_map = function_map
         self.methods = methods
+        self.circulating_shares_data = circulating_shares
 
         self.annual_window = self._setup_window(self.cycle)
 
@@ -440,3 +443,88 @@ class KLineMetrics(Metrics, KlineDetermination):
         TNR = 区间涨跌幅 / 区间累加涨跌幅
         """
         self.metrics[f"tnr_diff_{window}"] = self.metrics[f"tnr_{window}"].diff()
+
+    def _momentum_barra(
+            self,
+            window: int,
+    ) -> None:
+        """
+        Barra动量因子（RSTR）：长期指数加权动量 - 短期指数加权动量
+            long_window: int = 504,
+            short_window: int = 21,
+            long_half_life: int = 126,
+            short_half_life: int = 5
+        """
+        if self.index_data is None or "pctChg" not in self.metrics:
+            return
+
+        # -1 计算超额收益率（股票收益 - 指数收益）
+        stock_ret = self.metrics["pctChg"]
+        index_ret = self.index_data["pctChg"]
+        aligned_stock, aligned_index = stock_ret.align(index_ret, join="inner")
+        excess_ret = aligned_stock - aligned_index
+
+        # -2 计算长短期动量（周度 -> 126/5=26 5/5=1）
+        long_momentum = excess_ret.ewm(halflife=25).mean()
+        short_momentum = excess_ret.ewm(halflife=1).mean()
+
+        # -3 生成动量因子（长期 - 短期）
+        barra_momentum = long_momentum - short_momentum
+
+        self.metrics[f"barra动量"] = barra_momentum
+
+    def _market_beta_barra(
+            self,
+            window: int,
+            half_life: int = 63
+    ) -> None:
+        """滚动计算市场贝塔系数（Barra）"""
+        if self.index_data is None:
+            return
+
+        # 1. 对齐数据并计算超额收益
+        stock_ret = self.metrics["pctChg"]
+        index_ret = self.index_data["pctChg"]
+        aligned_stock, aligned_index = stock_ret.align(index_ret, join="inner")
+
+        # 计算市场贝塔（63/5=13）
+        covariance = aligned_stock.ewm(halflife=13).cov(aligned_index)
+        market_var = aligned_index.ewm(halflife=13).var()
+        beta = self._safe_divide(
+            covariance,
+            market_var
+        )
+
+        # 4. 存储结果
+        self.metrics[f"barra市场贝塔"] = beta
+
+    def _turnover_barra(
+            self,
+            window: int,
+            half_life: int = 63
+    ) -> None:
+        """换手率（barra）"""
+        self.metrics[f"barra换手率"] = self.metrics["volume"] / self.circulating_shares_data["shares"]
+
+    def dastd(
+            self,
+            window: int = 252,
+            halflife: int = 42
+    ) -> None:
+        """
+        计算 DASTD（日超额收益波动率）
+        公式：个股日超额收益率（减市场指数及无风险利率）的半衰指数加权标准差
+        权重：半衰期42天，窗口252交易日
+        """
+        # -1 计算超额收益率（股票收益 - 指数收益）
+        stock_ret = self.metrics["pctChg"]
+        index_ret = self.index_data["pctChg"]
+        aligned_stock, aligned_index = stock_ret.align(index_ret, join="inner")
+        excess_ret = aligned_stock - aligned_index
+
+        # 指数加权标准差（半衰期42天）
+        weighted_std = excess_ret.ewm(halflife=8, ignore_na=True).std()
+        # 年化波动率
+        annualized_std = weighted_std * np.sqrt(self.annual_window)
+
+        self.metrics[f"dastd"] = annualized_std

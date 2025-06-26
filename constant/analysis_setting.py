@@ -114,7 +114,7 @@ class Individual:
         def __init__(self):
             # 基础指标
             self.basic_metrics = [
-                "市值", "对数市值", "市销率", "市净率", "核心利润市盈率", "核心利润盈利市值比",
+                "市值", "对数市值", "市销率", "市净率", "核心利润市盈率", "核心利润盈利市值比", "非线性对数市值",
             ]
             # 衍生指标
             self.derived_metrics = [
@@ -1522,6 +1522,7 @@ class Factor:
                     "所有者权益"
                 ],
                 "利润表": [
+                    "营业收入", "净利润"
                 ],
                 "现金流量表": [
                 ]
@@ -1533,6 +1534,7 @@ class Factor:
                 "运营能力": [
                 ],
                 "偿债能力": [
+                    "资产负债率"
                 ],
                 "成长能力": [
                 ],
@@ -1554,7 +1556,7 @@ class Factor:
         def __init__(self):
             # 基础指标
             self.basic_metrics = [
-                "市值", "市净率", "对数市值", "对数流通市值"
+                "市值", "市净率", "对数市值", "非线性对数市值", "账面市值比", "市现率"
             ]
             # 衍生指标
             self.derived_metrics = [
@@ -1563,6 +1565,12 @@ class Factor:
     class Kline:
         def __init__(self):
             self.kline = {
+                "barra动量": [1],
+                "barra市场贝塔": [1],
+                "barra换手率": [1],
+                "收益率标准差": [0.09],
+                "市场贝塔": [0.09],
+                "日超额收益波动率": [1]
             }
 
     class Governance:
@@ -1573,7 +1581,7 @@ class Factor:
     class Statistics:
         def __init__(self):
             self.stats = [
-                "滚动归一化", "归一化", "扩张归一化"
+                "同比"
             ]
 
     class Visualization:

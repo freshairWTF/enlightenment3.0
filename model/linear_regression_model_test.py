@@ -395,22 +395,10 @@ class LinearRegressionTestModel:
         # ----------------------------------
         # 因子降维
         # ----------------------------------
-        # -1 因子合成
-        level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
-        # -2 pca降维
-        pca_df = self.utils.feature.pca(
-            level_2_df,
-            factors_synthesis_table=self.utils.extract.get_factors_synthesis_table(
-                self.factors_setting,
-                mode="TWO_TO_ONE"
-            ),
-            keep_cols=self.keep_cols
-        )
-
-        # -3 合成 综合Z值
+        # -1 合成 综合Z值
         comprehensive_z_df = self._factors_synthesis(
-            pca_df,
-            synthesis_table={"综合Z值": pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()}
+            self.input_df,
+            synthesis_table={"综合Z值": self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist()}
         )
 
         # ----------------------------------

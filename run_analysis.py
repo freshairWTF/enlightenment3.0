@@ -18,8 +18,8 @@ def individual_analysis():
         start_date="2000-03-31",
         financial_end_date="2025-06-22",
         end_date="2025-06-22",
-        storage_dir_name="欧普康视25Q1",
-        target_info="300595",
+        storage_dir_name="测试",
+        target_info="301418",
         debug=True
     )
     analyzer.run()
@@ -51,7 +51,7 @@ def normal_analysis():
 # ---------------------------------------------------
 def factor_analysis():
     """单因子分析 -> 生成分析因子"""
-    storage_dir_name = "扩张窗口测试"
+    storage_dir_name = "barra因子"
     analyzer = Analyzer(
         quant=True,
         code_range="Total_A",
@@ -73,8 +73,8 @@ def factor_analysis():
         target_info={"全部": "三级行业"},
         index_code="000300",
 
-        processes_nums=3,
-        debug=True
+        processes_nums=5,
+        debug=False
     )
     analyzer.run()
 
@@ -141,8 +141,8 @@ def inventory_cycle_analysis():
 def data_convert():
     """分析因子 -> 量化因子"""
     convert = DataConvert(
-        source_dir="tnr",
-        storage_dir="tnr"
+        source_dir="barra因子",
+        storage_dir="barra因子"
     )
     convert.run()
 
@@ -151,7 +151,7 @@ def data_convert():
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    # factor_analysis()
-    model_factor_analysis()
+    factor_analysis()
+    # model_factor_analysis()
     # inventory_cycle_analysis()
     # data_convert()
