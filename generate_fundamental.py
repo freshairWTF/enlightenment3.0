@@ -36,8 +36,8 @@ def download_future_fundamental():
     downloader.future_crawl()
 
 # --------------------------------------------------
-def clean_fundamental():
-    """基本面数据清洗"""
+def clean_stock_fundamental():
+    """股票基本面数据清洗"""
     cleaner = Cleaner(
         data_name="top_ten_shareholders",
         num_processes=10,                   # 多进程核数
@@ -46,12 +46,24 @@ def clean_fundamental():
         filter_mode=None,                  # 可选：None/all/from_code
         industry_info=None                  # 指定行业
     )
-    cleaner.run()
-    # cleaner.multi_run()
+    cleaner.clean_stock()
+    # cleaner.multi_clean_stock()
+
+# --------------------------------------------------
+def clean_future_fundamental():
+    """股票基本面数据清洗"""
+    cleaner = Cleaner(
+        data_name="cffex_ccpm",
+        num_processes=10,                   # 多进程核数
+        code="IM",                      # 代码：无需sh/sz前缀
+    )
+    cleaner.clean_future()
 
 
 # ------------------------- 执行入口 -------------------------
 if __name__ == "__main__":
     # download_stock_fundamental()
-    download_future_fundamental()
     # clean_fundamental()
+
+    # download_future_fundamental()
+    clean_future_fundamental()

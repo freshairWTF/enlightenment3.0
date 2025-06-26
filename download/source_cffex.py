@@ -163,191 +163,38 @@ class CrawlerToCFFEX:
 
 
 ######################################################
-class CleanerToEastMoney:
+class CleanerToCFFEX:
     """
-    清洗东财数据
-        1、删除特定无用的行
-        2、修改财务科目名
-        3、转换数据类型
-        4、填充Nan（前、后各一位，最后全部0）
-        5、去重名（三张表）
+    清洗金融交易所数据
     """
     def __init__(
             self,
-            code: str,
-            is_financial: bool = False
+            code: str
     ):
         """
         :param code: 代码
-        :param is_financial: 是否为金融企业
         """
         self.code = code
-        self.is_financial = is_financial
-
-        self._load_mappings()
-
-    # --------------------------
-    # 清洗财务报表所需的类
-    # --------------------------
-    def _load_mappings(
-            self
-    ) -> None:
-        """从YAML文件加载科目映射配置"""
-        config_path = Path(__file__).parent / "financial_mappings.yaml"
-        with open(config_path, encoding='utf-8') as f:
-            mappings = yaml.safe_load(f)
-
-        self.bs_mapping = mappings['BALANCE_SHEET_NON_FINANCIAL']
-        self.ps_mapping = mappings['PROFIT_STATEMENT_NON_FINANCIAL']
-        self.cf_mapping = mappings['CASHFLOW_STATEMENT_NON_FINANCIAL']
-
-    @staticmethod
-    def _deduplicate(
-            df: pd.DataFrame
-    ) -> pd.DataFrame:
-        """去除重复列（基于报告日期）"""
-        return df.loc[~df['REPORT_DATE'].duplicated()]
-
-    @staticmethod
-    def _rename_columns(
-            df: pd.DataFrame,
-            mapping: dict
-    ) -> pd.DataFrame:
-        """重命名财务科目"""
-        return df.rename(columns=mapping)
-
-    @staticmethod
-    def _basic_clean(
-            df: pd.DataFrame
-    ) -> pd.DataFrame:
-        """基础清洗：类型转换"""
-        return df.apply(pd.to_numeric, errors='ignore')
-
-    @staticmethod
-    def _basic_fill(
-            df: pd.DataFrame
-    ) -> pd.DataFrame:
-        """填充数据：用0填充"""
-        return df.fillna(0)
-
-    @staticmethod
-    def _filter_columns(
-            df: pd.DataFrame,
-            cols: list
-    ) -> pd.DataFrame:
-        """过滤财务科目"""
-        cols[:0] = ['date']
-        return df[cols]
 
     # --------------------------
     # 公开 API 方法
     # --------------------------
-    def clean_financial_data(
-            self,
-            raw_data: pd.DataFrame,
-            data_type: str
-    ) -> pd.DataFrame:
-        """
-        清洗财务数据
-        :param raw_data: 原始数据
-        :param data_type: 数据类型
-        :return: 清洗后的数据
-        """
-        mapping = {
-            'bs': self.bs_mapping,
-            'ps': self.ps_mapping,
-            'cf': self.cf_mapping
-        }
-        df = self._deduplicate(raw_data)
-        df = self._rename_columns(df, mapping[data_type])
-        df = self._basic_clean(df)
-        df = self._basic_fill(df)
-        df = self._filter_columns(df, list(mapping[data_type].values()))
-
-        return df
-
-    @staticmethod
-    def clean_bonus_financing(
-            raw_data: pd.DataFrame,
-            data_type: str
-    ) -> pd.DataFrame | None:
-        """
-        清洗分红融资数据
-        :param raw_data: 原始数据
-        :param data_type: 数据类型
-        :return: 清洗后的数据
-        """
-        if data_type == 'lnfhrz':
-            df = raw_data.rename(columns={
-                'STATISTICS_YEAR': 'date',
-                'TOTAL_DIVIDEND': 'dividend'
-            })
-            df['date'] = df['date'].astype(str) + '-12-31'
-            return df
-
-        if data_type == 'zfmx':
-            df = raw_data.rename(columns={
-                'NOTICE_DATE': 'date',
-                'NET_RAISE_FUNDS': 'net_raise_funds'
-            })
-            return df
-
-        if data_type == 'pgmx':
-            df = raw_data.rename(columns={
-                'NOTICE_DATE': 'date',
-                'TOTAL_RAISE_FUNDS': 'net_raise_funds'
-            })
-            return df
-
-    @staticmethod
-    def clean_ten_circulating_shareholders(
+    @classmethod
+    def clean_ccpm(
+            cls,
             raw_data: pd.DataFrame,
     ) -> pd.DataFrame:
         """
-        清洗前十大流通股东
+        清洗成交持仓排名数据
+            -1 席位名称统一，去除括号及其包含文本
+            -2 删除 -> 产品ID/会员ID
         :param raw_data: 原始数据
         :return: 清洗后的数据
         """
-        # 修改列名、去除无效信息列
-        rename_dict = {
-            'END_DATE': 'date',
-            'HOLDER_RANK': '名次',
-            'HOLDER_NAME': '股东名称',
-            'HOLDER_TYPE': '股东性质',
-            'SHARES_TYPE': '股份类型',
-            'HOLD_NUM': '持股数',
-            'FREE_HOLDNUM_RATIO': '占流通股本持股比例',
-            'HOLD_NUM_CHANGE': '增减',
-            'CHANGE_RATIO': '变动比例',
-        }
-        df = raw_data.rename(columns=rename_dict)[list(rename_dict.values())]
-        # 修改日期数据类型
-        df["date"] = pd.to_datetime(df["date"]).dt.date
+        # -1 席位名称统一: 匹配英文()和中文（）括号
+        pattern = r'$.*?$|\(.*?\)'
+        raw_data['会员简称'] = raw_data['会员简称'].str.replace(pattern, '', regex=True)
+        # -2 删除产品ID/会员ID
+        raw_data.drop(["产品ID", "会员ID"], axis=1, inplace=True)
 
-        return df
-
-    @staticmethod
-    def clean_ten_shareholders(
-            raw_data: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """
-        清洗前十大股东
-        :param raw_data: 原始数据
-        :return: 清洗后的数据
-        """
-        # 修改列名、去除无效信息列
-        rename_dict = {
-                'END_DATE': 'date',
-                'HOLDER_RANK': '名次',
-                'HOLDER_NAME': '股东名称',
-                'SHARES_TYPE': '股份类型',
-                'HOLD_NUM': '持股数',
-                'HOLD_NUM_RATIO': '占总股本持股比例',
-                'HOLD_NUM_CHANGE': '增减',
-                'CHANGE_RATIO': '变动比例',
-            }
-        df = raw_data.rename(columns=rename_dict)[list(rename_dict.values())]
-        # 修改日期数据类型
-        df["date"] = pd.to_datetime(df["date"]).dt.date
-
-        return df
+        return raw_data

@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 import multiprocessing
 import random
+import os
 import pandas as pd
 
 from constant.user_agent import USER_AGENT
@@ -18,7 +19,7 @@ from source_eastMoney import CrawlerToEastMoney, CleanerToEastMoney
 from source_sina import CrawlerToSina
 from source_juChao import CrawlerToJuChao
 from source_baoStock import BaoStockDownLoader
-from source_cffex import CrawlerToCFFEX
+from source_cffex import CrawlerToCFFEX, CleanerToCFFEX
 from storage import DataStorage
 from loader import DataLoader
 
@@ -595,8 +596,11 @@ class Cleaner:
     def __init__(
             self,
             data_name: Literal[
-                "financial_data", "bonus_financing",
-                "top_ten_circulating_shareholders", "top_ten_shareholders"
+                "financial_data",
+                "bonus_financing",
+                "top_ten_circulating_shareholders",
+                "top_ten_shareholders",
+                "cffex_ccpm",
             ],
             num_processes: int,
             code: str | None = None,
@@ -851,6 +855,45 @@ class Cleaner:
         except Exception as e:
             self.logger.error(f"清洗失败 | Code: {code} | Error: {str(e)}")
 
+    def _clean_cffex_ccpm(
+            self,
+            code: str
+    ) -> None:
+        """
+        清洗股指期货成交持仓排名数据
+        :param code: 代码
+        """
+        # 参数检查
+        if code not in ["IF", "IH", "IC", "IM"]:
+            raise ValueError(f"股指代码有误: {code}")
+        try:
+            # 读取原始数据
+            files = [str(p) for p in self.source_dir.rglob("*.parquet") if p.is_file()]
+            vol_df = pd.concat(
+                [pd.read_parquet(file) for file in files if code in file and "成交量" in file],
+                ignore_index=True
+            )
+            buy_df = pd.concat(
+                [pd.read_parquet(file) for file in files if code in file and "持买单量" in file],
+                ignore_index=True
+            )
+            sell_df = pd.concat(
+                [pd.read_parquet(file) for file in files if code in file and "持卖单量" in file],
+                ignore_index=True
+            )
+            # 清洗原始数据
+            cleaner = CleanerToCFFEX(code=code)
+            cleaned_vol_df = cleaner.clean_ccpm(vol_df)
+            cleaned_buy_df = cleaner.clean_ccpm(buy_df)
+            cleaned_sell_df = cleaner.clean_ccpm(sell_df)
+            # 存储清洗后的数据
+            self._save_data(self.storage_dir, cleaned_vol_df, file_name=f"{code}_成交量排名")
+            self._save_data(self.storage_dir, cleaned_buy_df, file_name=f"{code}_持买单量排名")
+            self._save_data(self.storage_dir, cleaned_sell_df, file_name=f"{code}_持卖单量排名")
+            self.logger.info(f"清洗成功 | Code: {code}")
+        except Exception as e:
+            self.logger.error(f"清洗失败 | Code: {code} | Error: {str(e)}")
+
     # --------------------------
     # 多进程方法
     # --------------------------
@@ -941,10 +984,10 @@ class Cleaner:
     # --------------------------
     # 公开 API 方法
     # --------------------------
-    def run(
+    def clean_stock(
             self
     ) -> None:
-        """执行清洗任务"""
+        """执行股票清洗任务"""
         codes = self._get_code_list()
         self.logger.info(f"待处理股票数量：{len(codes)}")
 
@@ -959,8 +1002,10 @@ class Cleaner:
                 self._clean_top_ten_circulating_shareholders(code)
             elif self.data_name == "top_ten_shareholders":
                 self._clean_top_ten_shareholders(code)
+            else:
+                raise ValueError(f"暂未实现该数据的爬取: {self.data_name}")
 
-    def multi_run(
+    def multi_clean_stock(
             self
     ) -> None:
         """多进程执行清洗任务"""
@@ -1006,3 +1051,12 @@ class Cleaner:
         finally:
             pool.close()
             pool.join()
+
+    def clean_future(
+            self
+    ) -> None:
+        """执行期货清洗任务"""
+        if self.data_name == "cffex_ccpm":
+            self._clean_cffex_ccpm(self.code)
+        else:
+            raise ValueError(f"暂未实现该数据的爬取: {self.data_name}")

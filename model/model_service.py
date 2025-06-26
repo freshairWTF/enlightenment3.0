@@ -528,7 +528,7 @@ class ModelAnalyzer(QuantService):
             model_setting=self.model_setting,
             descriptive_factors=self.DESCRIPTIVE_FACTOR
         )
-        model_df, metrics_df = model.run()
+        model_df, metrics_df = model.clean_stock()
         model_data = {
             str(date): group
             for date, group in model_df.groupby("date")
