@@ -36,65 +36,29 @@ class MiniQMTTrader:
         self.xt_trader = XtQuantTrader(mini_qmt_path, self.session_id)
         self.account = StockAccount(account_id, account_type)
 
-        # 初始化回调处理器
+        # 创建交易回调对象，并声明接受回调
         self.callback = self.TraderCallback(self)
         self.xt_trader.register_callback(self.callback)
 
-        # 启动交易连接
+        # 启动交易线程
         self.xt_trader.start()
+        # 建立交易连接
         connect_result = self.xt_trader.connect()
         if connect_result == 0:
             print(f"连接MiniQMT成功！会话ID: {self.session_id}, 资金账号: {self.account_id}")
         else:
-            raise ConnectionError(f"连接失败，错误码: {connect_result}")
+            raise ConnectionError(f"交易连接失败，错误码: {connect_result}")
 
-        # 订阅账户
+        # 对交易回调进行订阅，订阅后可以收到交易主推
         subscribe_result = self.xt_trader.subscribe(self.account)
-        print(f"账户订阅结果: {subscribe_result}")
+        if subscribe_result == 0:
+            print(f"交易回调订阅成功: {subscribe_result}")
+        else:
+            raise ConnectionError(f"交易回调订阅失败: {subscribe_result}")
 
-    class TraderCallback(XtQuantTraderCallback):
-        """内部回调类，处理交易相关的事件"""
-        def __init__(self, outer_instance):
-            super().__init__()
-            self.outer = outer_instance
-
-        def on_disconnected(self):
-            """连接断开回调（可自动重连）"""
-            print("交易连接断开，尝试重连...")
-            self.outer.xt_trader.reconnect()
-
-        def on_stock_order(self, order):
-            """委托状态更新回调"""
-            print(
-                f"[委托状态] 合约: {order.stock_code}, "
-                f"状态: {order.order_status}, "
-                f"数量: {order.order_volume}, "
-                f"价格: {order.price}"
-            )
-
-        def on_stock_trade(self, trade):
-            """成交回报回调"""
-            print(
-                f"[成交回报] 合约: {trade.stock_code}, "
-                f"数量: {trade.traded_volume}, "
-                f"价格: {trade.traded_price}, "
-                f"方向: {trade.side}"
-            )
-
-        def on_order_error(self, order_error):
-            """委托失败回调"""
-            """
-            委托失败 需要根据订单号 再次发送委托
-            """
-            print(f"[委托错误] 错误码: {order_error.error_id}, 信息: {order_error.error_msg}")
+        # 查询证券资产
 
 
-        def on_cancel_error(self, cancel_error):
-            """撤单失败回调"""
-            """
-            撤单失败 需要根据订单号 再次发送撤单请求
-            """
-            print(f"[撤单错误] 错误码: {cancel_error.error_id}, 信息: {cancel_error.error_msg}")
 
     def subscribe_quote(
             self,
@@ -167,10 +131,59 @@ class MiniQMTTrader:
         """查询当日成交"""
         return self.xt_trader.query_stock_trades(self.account)
 
+    class TraderCallback(XtQuantTraderCallback):
+        """内部回调类，处理交易相关的事件"""
+        def __init__(self, outer_instance):
+            super().__init__()
+            self.outer = outer_instance
+
+        def on_disconnected(self):
+            """连接断开回调（可自动重连）"""
+            print("交易连接断开，尝试重连...")
+            self.outer.xt_trader.reconnect()
+
+        def on_stock_order(self, order):
+            """委托状态更新回调"""
+            print(
+                f"[委托状态] 合约: {order.stock_code}, "
+                f"状态: {order.order_status}, "
+                f"数量: {order.order_volume}, "
+                f"价格: {order.price}"
+            )
+
+        def on_stock_trade(self, trade):
+            """成交回报回调"""
+            print(
+                f"[成交回报] 合约: {trade.stock_code}, "
+                f"数量: {trade.traded_volume}, "
+                f"价格: {trade.traded_price}, "
+                f"方向: {trade.side}"
+            )
+
+        def on_order_error(self, order_error):
+            """委托失败回调"""
+            """
+            委托失败 需要根据订单号 再次发送委托
+            """
+            print(f"[委托错误] 错误码: {order_error.error_id}, 信息: {order_error.error_msg}")
+
+        def on_cancel_error(self, cancel_error):
+            """撤单失败回调"""
+            """
+            撤单失败 需要根据订单号 再次发送撤单请求
+            """
+            print(f"[撤单错误] 错误码: {cancel_error.error_id}, 信息: {cancel_error.error_msg}")
+
 
 if __name__ == "__main__":
     # 创建交易实例
-    trader = MiniQMTTrader(TRADE_MINI_QMT_PATH, ACCOUNT_ID)
+    TRADE_MINI_QMT_PATH = "D:\国金QMT交易端模拟\\userdata_mini"
+    ACCOUNT_ID = "40069146"
+    trader = MiniQMTTrader(
+        TRADE_MINI_QMT_PATH,
+        ACCOUNT_ID,
+        session_id=100000
+    )
 
     # 订阅全市场数据，传入回调函数
     trader.subscribe_quote(
@@ -185,13 +198,13 @@ if __name__ == "__main__":
     data_thread.start()
 
     # 主线程模拟交易
-    try:
-        while True:
-            # 检视账户情况与模型生成的标的池的差异，根据差异买入标的
-
-            # 示例：市价买入100股贵州茅台
-            order_id = trader.order_stock('600519.SH', 0, 100, xtconstant.STOCK_BUY, price_type=0)
-            print(f"已发送市价买单，订单ID: {order_id}")
-            time.sleep(60)  # 等待1分钟
-    except KeyboardInterrupt:
-        print("程序退出")
+    # try:
+    #     while True:
+    #         # 检视账户情况与模型生成的标的池的差异，根据差异买入标的
+    #
+    #         # 示例：市价买入100股贵州茅台
+    #         order_id = trader.order_stock('600519.SH', 0, 100, xtconstant.STOCK_BUY, price_type=0)
+    #         print(f"已发送市价买单，订单ID: {order_id}")
+    #         time.sleep(60)  # 等待1分钟
+    # except KeyboardInterrupt:
+    #     print("程序退出")
