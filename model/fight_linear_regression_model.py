@@ -4,20 +4,15 @@
     -2 大于0后的等频分组
 """
 from dataclasses import dataclass
-from type_ import Literal
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
-import numpy as np
 import pandas as pd
 
-from utils.processor import DataProcessor
-from model.model_utils import ModelUtils
-from model.optimizer import PortfolioOptimizer
+from template import ModelTemplate
 
 
 ########################################################################
-class FightLinearRegressionModel:
+class FightLinearRegressionModel(ModelTemplate):
     """线性回归模型（等频分组）"""
 
     def __init__(
@@ -33,24 +28,12 @@ class FightLinearRegressionModel:
         :param descriptive_factors: 描述性统计因子
         :param index_data: 指数数据
         """
-        self.input_df = input_df
-        self.model_setting = model_setting
+        super().__init__(
+            input_df,
+            model_setting,
+            descriptive_factors
+        )
         self.index_data = index_data
-
-        # 因子设置
-        self.factors_setting = self.model_setting.factors_setting
-        # 数据处理
-        self.processor = DataProcessor()
-        # 模型工具
-        self.utils = ModelUtils()
-
-        # 保留列
-        self.keep_cols = [
-            "date", "股票代码", "行业", "pctChg", "市值",
-            "close", "volume",
-        ]
-        self.keep_cols += descriptive_factors
-        self.keep_cols = list(set(self.keep_cols))
 
     def _pre_processing(
             self,
@@ -121,84 +104,6 @@ class FightLinearRegressionModel:
 
         # 合并处理结果
         return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
-
-    def _factors_weighting(
-            self,
-            input_df: pd.DataFrame,
-            prefix: str = "processed"
-    ) -> pd.DataFrame:
-        """
-        因子 -> 加权因子
-        :param input_df: 初始数据
-        :param prefix: 因子前缀
-        :return 加权因子
-        """
-        # -1 三级因子 ic
-        bottom_factors_name = [f"{prefix}_{f.factor_name}" for f in self.factors_setting]
-
-        # -2 三级因子因子权重
-        factors_weight = self.utils.factor_weight.get_factors_weights(
-            factors_value=input_df,
-            factors_name=bottom_factors_name,
-            method=self.model_setting.bottom_factor_weight_method,
-            window=self.model_setting.factor_weight_window
-        )
-
-        # -3 加权因子
-        return self.utils.synthesis.factors_weighting(
-            input_df,
-            bottom_factors_name,
-            factors_weight
-        )
-
-    def _factors_synthesis(
-            self,
-            input_df: pd.DataFrame,
-            synthesis_table: dict[str, list[str]] | None = None,
-            mode: Literal["THREE_TO_TWO", "TWO_TO_ONE", "ONE_TO_Z", "TWO_TO_Z", "THREE_TO_Z"] | None = None
-    ) -> pd.DataFrame:
-        """
-        三级因子合成二级因子
-            -1 三级因子 -> 二级因子
-            -2 二级因子 -> 一级因子
-            -3 一级因子 -> 综合Z值
-            -4 二级因子 -> 综合Z值
-            -5 三级因子 -> 综合Z值
-        :param input_df: 初始数据
-        :param mode: 因子生成模式
-        """
-        # -1 因子构造表
-        if mode:
-            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
-                self.factors_setting,
-                mode=mode,
-                prefix="processed"
-            )
-        elif synthesis_table:
-            factors_synthesis_table = synthesis_table
-        else:
-            raise TypeError(f"输入有效参数: {synthesis_table} | {mode}")
-
-        # -2 因子权重
-        factors_weight = []
-        for group_factors in factors_synthesis_table.values():
-            factors_weight.append(
-                self.utils.factor_weight.get_factors_weights(
-                    factors_value=input_df,
-                    factors_name=group_factors,
-                    method=self.model_setting.bottom_factor_weight_method,
-                    window=self.model_setting.factor_weight_window
-                )
-            )
-        factors_weight = pd.concat(factors_weight, axis=1)
-
-        # -3 因子合成
-        return self.utils.synthesis.synthesis_factor(
-            input_df=input_df,
-            factors_synthesis_table=factors_synthesis_table,
-            factors_weights=factors_weight,
-            keep_cols=self.keep_cols
-        )
 
     def model_training_and_predict(
             self,
@@ -313,7 +218,7 @@ class FightLinearRegressionModel:
             # 模型评估
             # ====================
             try:
-                metrics_series = self.calculate_metrics(y_true, true_df["predict"])
+                metrics_series = self.calculate_regression_metrics(y_true, true_df["predict"])
                 metrics_series.name = predict_date
                 metrics.append(metrics_series)
             except ValueError:
@@ -322,68 +227,14 @@ class FightLinearRegressionModel:
         return (pd.concat(result_dfs, ignore_index=True),
                 pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
 
-    def portfolio_optimizer(
-            self,
-            price_df: pd.DataFrame,
-            volume_df: pd.DataFrame,
-            industry_df: pd.DataFrame,
-            individual_upper: float = 1.0,
-            individual_lower: float = 0.0,
-            industry_upper: float = 1.0,
-            industry_lower: float = 0.0
-    ) -> pd.Series:
-        """
-        资产组合优化
-        :param price_df: 资产价格df（分组）
-        :param volume_df: 成交量df（分组）
-        :param industry_df: 行业映射df（分组）
-        :param individual_upper: 个体配置上限
-        :param individual_lower: 个体配置下限
-        :param industry_upper: 行业配置上限
-        :param industry_lower: 行业配置下限
-        """
-        portfolio = PortfolioOptimizer(
-            asset_prices=price_df,
-            volume=volume_df,
-            cycle=self.model_setting.cycle,
-            cov_method="ledoit_wolf",
-            shrinkage_target="constant_variance"
-        )
-        weights = portfolio.optimize_weights(
-            objective="min_volatility",
-            weight_bounds=(individual_lower, individual_upper),
-            sector_mapper=industry_df.to_dict(),
-            sector_lower={ind: industry_lower for ind in industry_df.values},
-            sector_upper={ind: industry_upper for ind in industry_df.values},
-            clean=True,
-        )
-
-        return weights
-
-    @classmethod
-    def calculate_metrics(
-            cls,
-            y_true: pd.Series,
-            y_pred: pd.Series
-    ) -> pd.Series:
-        """计算评估指标"""
-        metrics = {
-            "MAE": mean_absolute_error(y_true, y_pred),
-            "RMSE": np.sqrt(mean_squared_error(y_true, y_pred)),
-            "R2": r2_score(y_true, y_pred),
-        }
-        return pd.Series(metrics)
-
     def run(
             self
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         """
         线性模型处理流程：
             -1 因子数值处理
-            -2 因子降维
-            -3 模型训练、预测
-            -4 收益率预测分组
-            -5 仓位权重配比
+            -2 因子升维/降维
+            -3 模型训练、预测、分组
         """
         # ----------------------------------
         # 数值处理
@@ -414,7 +265,17 @@ class FightLinearRegressionModel:
             keep_cols=self.keep_cols
         )
 
-        # -3 合成 综合Z值
+        # ----------------------------------
+        # 因子相关性
+        # ----------------------------------
+        corr_df = self.calculate_factors_corr(
+            factors_df=pca_df,
+            factors_name=pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()
+        )
+
+        # ----------------------------------
+        # 合成 综合Z值
+        # ----------------------------------
         comprehensive_z_df = self._factors_synthesis(
             pca_df,
             synthesis_table={"综合Z值": pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()}
@@ -430,11 +291,15 @@ class FightLinearRegressionModel:
             window=self.model_setting.factor_weight_window
         )
 
-        return pred_df, estimate_metric
+        return {
+            "模型": pred_df,
+            "模型评估": estimate_metric,
+            "因子相关性": corr_df
+        }
 
 
 ########################################################################
-class FightLinearRegressionHigherModel:
+class FightLinearRegressionHigherModel(ModelTemplate):
     """线性回归模型（高于0等频分组）"""
 
     def __init__(
@@ -450,24 +315,12 @@ class FightLinearRegressionHigherModel:
         :param descriptive_factors: 描述性统计因子
         :param index_data: 指数数据
         """
-        self.input_df = input_df
-        self.model_setting = model_setting
+        super().__init__(
+            input_df,
+            model_setting,
+            descriptive_factors
+        )
         self.index_data = index_data
-
-        # 因子设置
-        self.factors_setting = self.model_setting.factors_setting
-        # 数据处理
-        self.processor = DataProcessor()
-        # 模型工具
-        self.utils = ModelUtils()
-
-        # 保留列
-        self.keep_cols = [
-            "date", "股票代码", "行业", "pctChg", "市值",
-            "close", "volume",
-        ]
-        self.keep_cols += descriptive_factors
-        self.keep_cols = list(set(self.keep_cols))
 
     def _pre_processing(
             self,
@@ -538,84 +391,6 @@ class FightLinearRegressionHigherModel:
 
         # 合并处理结果
         return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
-
-    def _factors_weighting(
-            self,
-            input_df: pd.DataFrame,
-            prefix: str = "processed"
-    ) -> pd.DataFrame:
-        """
-        因子 -> 加权因子
-        :param input_df: 初始数据
-        :param prefix: 因子前缀
-        :return 加权因子
-        """
-        # -1 三级因子 ic
-        bottom_factors_name = [f"{prefix}_{f.factor_name}" for f in self.factors_setting]
-
-        # -2 三级因子因子权重
-        factors_weight = self.utils.factor_weight.get_factors_weights(
-            factors_value=input_df,
-            factors_name=bottom_factors_name,
-            method=self.model_setting.bottom_factor_weight_method,
-            window=self.model_setting.factor_weight_window
-        )
-
-        # -3 加权因子
-        return self.utils.synthesis.factors_weighting(
-            input_df,
-            bottom_factors_name,
-            factors_weight
-        )
-
-    def _factors_synthesis(
-            self,
-            input_df: pd.DataFrame,
-            synthesis_table: dict[str, list[str]] | None = None,
-            mode: Literal["THREE_TO_TWO", "TWO_TO_ONE", "ONE_TO_Z", "TWO_TO_Z", "THREE_TO_Z"] | None = None
-    ) -> pd.DataFrame:
-        """
-        三级因子合成二级因子
-            -1 三级因子 -> 二级因子
-            -2 二级因子 -> 一级因子
-            -3 一级因子 -> 综合Z值
-            -4 二级因子 -> 综合Z值
-            -5 三级因子 -> 综合Z值
-        :param input_df: 初始数据
-        :param mode: 因子生成模式
-        """
-        # -1 因子构造表
-        if mode:
-            factors_synthesis_table = self.utils.extract.get_factors_synthesis_table(
-                self.factors_setting,
-                mode=mode,
-                prefix="processed"
-            )
-        elif synthesis_table:
-            factors_synthesis_table = synthesis_table
-        else:
-            raise TypeError(f"输入有效参数: {synthesis_table} | {mode}")
-
-        # -2 因子权重
-        factors_weight = []
-        for group_factors in factors_synthesis_table.values():
-            factors_weight.append(
-                self.utils.factor_weight.get_factors_weights(
-                    factors_value=input_df,
-                    factors_name=group_factors,
-                    method=self.model_setting.bottom_factor_weight_method,
-                    window=self.model_setting.factor_weight_window
-                )
-            )
-        factors_weight = pd.concat(factors_weight, axis=1)
-
-        # -3 因子合成
-        return self.utils.synthesis.synthesis_factor(
-            input_df=input_df,
-            factors_synthesis_table=factors_synthesis_table,
-            factors_weights=factors_weight,
-            keep_cols=self.keep_cols
-        )
 
     def model_training_and_predict(
             self,
@@ -740,7 +515,7 @@ class FightLinearRegressionHigherModel:
             # 模型评估
             # ====================
             try:
-                metrics_series = self.calculate_metrics(y_true, true_df["predict"])
+                metrics_series = self.calculate_regression_metrics(y_true, true_df["predict"])
                 metrics_series.name = predict_date
                 metrics.append(metrics_series)
             except ValueError:
@@ -749,68 +524,14 @@ class FightLinearRegressionHigherModel:
         return (pd.concat(result_dfs, ignore_index=True),
                 pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
 
-    def portfolio_optimizer(
-            self,
-            price_df: pd.DataFrame,
-            volume_df: pd.DataFrame,
-            industry_df: pd.DataFrame,
-            individual_upper: float = 1.0,
-            individual_lower: float = 0.0,
-            industry_upper: float = 1.0,
-            industry_lower: float = 0.0
-    ) -> pd.Series:
-        """
-        资产组合优化
-        :param price_df: 资产价格df（分组）
-        :param volume_df: 成交量df（分组）
-        :param industry_df: 行业映射df（分组）
-        :param individual_upper: 个体配置上限
-        :param individual_lower: 个体配置下限
-        :param industry_upper: 行业配置上限
-        :param industry_lower: 行业配置下限
-        """
-        portfolio = PortfolioOptimizer(
-            asset_prices=price_df,
-            volume=volume_df,
-            cycle=self.model_setting.cycle,
-            cov_method="ledoit_wolf",
-            shrinkage_target="constant_variance"
-        )
-        weights = portfolio.optimize_weights(
-            objective="min_volatility",
-            weight_bounds=(individual_lower, individual_upper),
-            sector_mapper=industry_df.to_dict(),
-            sector_lower={ind: industry_lower for ind in industry_df.values},
-            sector_upper={ind: industry_upper for ind in industry_df.values},
-            clean=True,
-        )
-
-        return weights
-
-    @classmethod
-    def calculate_metrics(
-            cls,
-            y_true: pd.Series,
-            y_pred: pd.Series
-    ) -> pd.Series:
-        """计算评估指标"""
-        metrics = {
-            "MAE": mean_absolute_error(y_true, y_pred),
-            "RMSE": np.sqrt(mean_squared_error(y_true, y_pred)),
-            "R2": r2_score(y_true, y_pred),
-        }
-        return pd.Series(metrics)
-
     def run(
             self
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         """
         线性模型处理流程：
             -1 因子数值处理
-            -2 因子降维
-            -3 模型训练、预测
-            -4 收益率预测分组
-            -5 仓位权重配比
+            -2 因子升维/降维
+            -3 模型训练、预测、分组
         """
         # ----------------------------------
         # 数值处理
@@ -841,7 +562,17 @@ class FightLinearRegressionHigherModel:
             keep_cols=self.keep_cols
         )
 
-        # -3 合成 综合Z值
+        # ----------------------------------
+        # 因子相关性
+        # ----------------------------------
+        corr_df = self.calculate_factors_corr(
+            factors_df=pca_df,
+            factors_name=pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()
+        )
+
+        # ----------------------------------
+        # 合成 综合Z值
+        # ----------------------------------
         comprehensive_z_df = self._factors_synthesis(
             pca_df,
             synthesis_table={"综合Z值": pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()}
@@ -857,4 +588,9 @@ class FightLinearRegressionHigherModel:
             window=self.model_setting.factor_weight_window
         )
 
-        return pred_df, estimate_metric
+        return {
+            "模型": pred_df,
+            "模型评估": estimate_metric,
+            "因子相关性": corr_df
+        }
+

@@ -4,6 +4,7 @@ import time
 import threading
 import pandas as pd
 from queue import Queue
+from datetime import datetime
 
 from xtquant import xtdata
 from xtquant.xttrader import XtQuantTrader
@@ -243,6 +244,45 @@ class MiniQMTTrader:
                 f"成交均价: {order.traded_price}, "
                 f"成交数量: {order.traded_volume}"
             )
+            if order.order_id not in self.outer.order_list:
+                self._create_new_order(order)
+            else:
+                self._update_existing_order(order)
+
+            # -1 新订单
+            if order.order_id not in self.outer.order_list:
+                self.outer.order_list[order.order_id] = {
+                        "订单编号": order.order_id,
+                        "报单时间": {order.order_time},
+                        "证券代码": {order.stock_code},
+                        "委托类型": {order.order_type},
+                        "委托数量": {order.order_volume},
+                        "委托价格": {order.price},
+                        "委托状态": {order.order_status},
+                        "成交均价": {order.traded_price},
+                        "成交数量": {order.traded_volume},
+                        "创建时间": datetime.now(),
+                        "更新时间": datetime.now(),
+                        "重试次数": 0
+                }
+
+        def _create_new_order(self, order):
+            """创建新订单记录"""
+            record = {
+                "order_id": order.order_id,
+                "stock_code": order.stock_code,
+                "create_time": datetime.now(),
+                "update_time": datetime.now(),
+                "state_machine": OrderStateMachine(OrderState(order.order_status)),
+                "retry_count": 0,
+                "strategy_signal_id": self._generate_signal_id(order),
+                "history": [{
+                    "timestamp": datetime.now(),
+                    "state": OrderState(order.order_status),
+                    "data": order._asdict()
+                }]
+            }
+            self.outer.order_list[order.order_id] = record
 
         def on_stock_trade(self, trade):
             """

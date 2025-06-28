@@ -135,7 +135,7 @@ if __name__ == "__main__":
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="linearTestReg",
+        model="traditionalLinearReg",
         cycle="week",
         factors_setting=list(FACTOR_TEST.values()),
         industry_info={"全部": "三级行业"},

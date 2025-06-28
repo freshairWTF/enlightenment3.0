@@ -244,6 +244,7 @@ class ModelAnalyzer(QuantService):
         :param cycle: 统计周期
             "M" : 按月统计
             "Y" : 按年统计
+            "ALL": 全部统计
         :return: 分组描述性统计DataFrame
         """
         # -1 预处理
@@ -255,7 +256,9 @@ class ModelAnalyzer(QuantService):
         df['市净率_weighted'] = df['市净率'] * df['position_weight']
 
         # -3 根据周期选择分组方式
-        if cycle:
+        if cycle == 'ALL':
+            grouped = df.groupby("group")
+        elif cycle:
             grouped = df.groupby([
                 "group",
                 pd.Grouper(key='date', freq=cycle)
@@ -295,6 +298,7 @@ class ModelAnalyzer(QuantService):
             stamp_tax_rate: float = 0.001,
             transfer_rate: float = 0.00001,
             slippage_rate: float = 0.003,
+            cycle: str = ""
     ) -> pd.DataFrame:
         """
         计算模型（分组）交易数据
@@ -303,7 +307,12 @@ class ModelAnalyzer(QuantService):
         :param stamp_tax_rate: 印花税率（默认千1）
         :param transfer_rate: 过户费率（默认万0.1，沪市）
         :param slippage_rate: 滑点（默认千3）
+        :param cycle: 统计周期
+            "M" : 按月统计
+            "Y" : 按年统计
+            "ALL": 全部统计
         """
+        # -1 计算交易统计数据
         all_stats = []
         for group_name, group in model_df.groupby("group"):
             df = group.pivot(
@@ -341,7 +350,45 @@ class ModelAnalyzer(QuantService):
             stats_df["group"] = group_name
             all_stats.append(stats_df)
 
-        return pd.concat(all_stats, ignore_index=True)
+        daily_stats = pd.concat(all_stats, ignore_index=True)
+        daily_stats['日期'] = pd.to_datetime(daily_stats['日期'])
+
+        # -2 根据周期参数进行聚合
+        if cycle == "ALL":
+            grouped = daily_stats.groupby("group")
+            agg_stats = grouped.agg({
+                "持股数量": "mean",
+                "最大仓位": "max",
+                "最小仓位": "min",
+                "仓位均值": "mean",
+                "标准差": "mean",
+                "换手率": "sum",
+                "交易费率": "sum"
+            }).reset_index()
+            agg_stats["日期"] = "ALL"
+        elif cycle in ("M", "Y"):
+            grouped = daily_stats.groupby([
+                "group",
+                pd.Grouper(key="日期", freq=cycle)
+            ])
+            agg_stats = grouped.agg({
+                "持股数量": "mean",
+                "最大仓位": "max",
+                "最小仓位": "min",
+                "仓位均值": "mean",
+                "标准差": "mean",
+                "换手率": "sum",
+                "交易费率": "sum"
+            }).reset_index()
+        else:
+            # 默认返回日级别数据
+            return daily_stats
+
+        # -3 整理并返回结果
+        # 调整列顺序以保持一致性
+        column_order = ["日期", "group", "持股数量", "最大仓位", "最小仓位",
+                        "仓位均值", "标准差", "换手率", "交易费率"]
+        return agg_stats[column_order]
 
     def _calc_ic_stats(
             self,
@@ -540,10 +587,14 @@ class ModelAnalyzer(QuantService):
         self.logger.info("---------- 模型评估 ----------")
         # 交易统计
         trading_stats = self._calc_trading_stats(model_df)
+        trading_stats_month = self._calc_trading_stats(model_df, cycle="M")
+        trading_stats_year = self._calc_trading_stats(model_df, cycle="Y")
+        trading_stats_all = self._calc_trading_stats(model_df, cycle="ALL")
         # 描述性统计
         descriptive = self._calc_descriptive_factors(model_df)
         descriptive_month = self._calc_descriptive_factors(model_df, "M")
         descriptive_year = self._calc_descriptive_factors(model_df, "Y")
+        descriptive_all = self._calc_descriptive_factors(model_df, "ALL")
         # IC/收益率/评估/覆盖度
         result = {
             **self._calc_ic_stats(
@@ -562,10 +613,18 @@ class ModelAnalyzer(QuantService):
         # 存储、可视化
         # ---------------------------------------
         self.logger.info("---------- 结果存储、可视化 ----------")
+        # IC/收益率
         self._draw_charts(self.storage_dir, result, self.visual_setting)
+        # 每日持仓
         self._store_grouped_data(model_data)
+        # 描述性统计
         self._store_to_excel(descriptive, "描述性统计")
         self._store_to_excel(descriptive_month, "月度描述性统计")
         self._store_to_excel(descriptive_year, "年度描述性统计")
+        self._store_to_excel(descriptive_all, "总描述性统计")
+        # 交易统计
         self._store_to_excel(trading_stats, "交易统计")
+        self._store_to_excel(trading_stats_month, "月度交易统计")
+        self._store_to_excel(trading_stats_year, "年度交易统计")
+        self._store_to_excel(trading_stats_all, "总交易统计")
         # self._store_selected_factors(selected_factors)
