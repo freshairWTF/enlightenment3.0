@@ -36,7 +36,11 @@ FILTER_MODE = Literal[
             ]
 
 # 因子权重
-FACTOR_WEIGHT = Literal["equal", "ic_weight", "ir_weight", "ir_decay_weight", "ir_decay_weight_by_halflife"]
+FACTOR_WEIGHT = Literal[
+    "equal",
+    "ic_weight", "ir_weight",
+    "ir_decay_weight", "ir_decay_weight_with_diff_halflife"
+]
 # 仓位权重
 POSITION_WEIGHT = Literal["equal", "group_equal","long_only", "group_long_only", "hedge", "group_hedge"]
 # 收益率计算模式

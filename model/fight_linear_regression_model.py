@@ -47,7 +47,7 @@ class FightLinearRegressionModel:
         # 保留列
         self.keep_cols = [
             "date", "股票代码", "行业", "pctChg", "市值",
-            "close", "unadjusted_close", "volume",
+            "close", "volume",
         ]
         self.keep_cols += descriptive_factors
         self.keep_cols = list(set(self.keep_cols))
@@ -273,7 +273,7 @@ class FightLinearRegressionModel:
             # -1 数据转换
             portfolio_df = input_df.loc[input_df["date"].isin(
                 sorted_dates[i - window: i+1]),
-                ["date", "股票代码", "close", "unadjusted_close", "行业", "volume", "pctChg"]
+                ["date", "股票代码", "close", "行业", "volume", "pctChg"]
             ]
             price_df = portfolio_df.pivot(
                 index="date",
@@ -464,7 +464,7 @@ class FightLinearRegressionHigherModel:
         # 保留列
         self.keep_cols = [
             "date", "股票代码", "行业", "pctChg", "市值",
-            "close", "unadjusted_close", "volume",
+            "close", "volume",
         ]
         self.keep_cols += descriptive_factors
         self.keep_cols = list(set(self.keep_cols))
@@ -700,7 +700,7 @@ class FightLinearRegressionHigherModel:
             # -1 数据转换
             portfolio_df = input_df.loc[input_df["date"].isin(
                 sorted_dates[i - window: i+1]),
-                ["date", "股票代码", "close", "unadjusted_close", "行业", "volume", "pctChg"]
+                ["date", "股票代码", "close", "行业", "volume", "pctChg"]
             ]
             price_df = portfolio_df.pivot(
                 index="date",
@@ -719,7 +719,6 @@ class FightLinearRegressionHigherModel:
                 weights = self.portfolio_optimizer(
                     price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
                     volume_df=volume_df[group_df["股票代码"].tolist()],
-                    max_position=positive_ratio,
                     industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())]
                 )
                 weights_series.append(weights)

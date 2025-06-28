@@ -507,19 +507,19 @@ class FactorWeight:
         等权权重
         :param factors_value: 因子数据
         :param factors_name: 因子名列表
-        :return 等权权重
+        :return: 等权权重
         """
-        result_dfs = []
-        for date, group in factors_value.groupby("date"):
-            result_dfs.append(
-                pd.Series(
-                    1 / len(factors_name),
-                    index=factors_name,
-                    name=date
-                )
-            )
+        # 获取唯一日期列表
+        unique_dates = factors_value['date'].unique()
 
-        return pd.concat(result_dfs) if result_dfs else pd.DataFrame()
+        # 创建等权重的DataFrame
+        weights = pd.DataFrame(
+            data=1 / len(factors_name),     # 等权重值
+            index=unique_dates,             # 日期作为索引
+            columns=factors_name            # 因子名作为列
+        )
+
+        return weights
 
     @classmethod
     def _calc_ic_weight(
@@ -720,7 +720,7 @@ class FactorWeight:
                 factors_name,
                 window
             ),
-            "_calc_ir_decay_weight_with_diff_halflife":
+            "ir_decay_weight_with_diff_halflife":
                 lambda: cls._calc_ir_decay_weight_with_diff_halflife(
                     factors_value,
                     factors_name,

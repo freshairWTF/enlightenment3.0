@@ -504,8 +504,6 @@ class Analyzer:
         # -1 估值使用后复权数据 -2 技术使用前复权数据
         backward_adjusted_kline = self._load_kline_data(code, "backward_adjusted")
         split_adjusted_kline = self._load_kline_data(code, "split_adjusted")
-        split_adjusted_kline["unadjusted_close"] = (self._load_kline_data(code, "unadjusted")["close"].
-                                                    rename("unadjusted_close"))
 
         bonus = self.loader.get_bonus(code=code)
 
@@ -626,8 +624,7 @@ class Analyzer:
             # --------------------------
             backward_adjusted_kline = self._load_kline_data(code, "backward_adjusted")
             split_adjusted_kline = self._load_kline_data(code, "split_adjusted")
-            split_adjusted_kline["unadjusted_close"] = (self._load_kline_data(code, "unadjusted")["close"].
-                                                        rename("unadjusted_close"))
+
             bonus = self.loader.get_bonus(code=code)
 
             # --------------------------
