@@ -64,9 +64,10 @@ class MiniQMTTrader:
 
         # 创建定时器
         self.timer = self.RecurringTimer(interval=interval, task=self.on_timer)
-
         # 创建行情队列
         self.data_queue = Queue(maxsize=queue_max_size)
+        # 订单列表
+        self.order_list = []
 
     # ---------------------------------------------
     # 操作方法 订阅/监听行情、k线推送处理、发送订单/撤单
@@ -116,19 +117,26 @@ class MiniQMTTrader:
         废单与未知需要 特别警示 人工排查问题
         """
         # ----------------------------------
-        # 旧订单处理
+        # 旧订单处理（已报待撤/部成待撤/部成 -> 部撤/撤单 -> 再下单）
         # ----------------------------------
         # 查询订单状态
 
         # 若还未执行就撤单
 
         # ----------------------------------
-        # 新订单处理
+        # 新订单处理（查询现有持仓与最新买卖数据汇总后的差，计算好后发送订单，根据时间戳判定该买卖数据是否已经执行）
         # ----------------------------------
-        # 查询买卖数据（生成的买卖数据需要带有时间戳，令交易端可以确认是否执行过，）
-
-        #
         last_data = list(self.data_queue.queue)[-1]
+
+    def _part_traded_order_handle(
+            self,
+            order_id
+    ):
+        """
+        部成订单处理
+        """
+
+
 
     def order_stock(
             self,

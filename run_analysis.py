@@ -151,7 +151,7 @@ def data_convert():
 if __name__ == "__main__":
     # individual_analysis()
     # normal_analysis()
-    factor_analysis()
-    # model_factor_analysis()
+    # factor_analysis()
+    model_factor_analysis()
     # inventory_cycle_analysis()
     # data_convert()

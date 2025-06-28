@@ -107,7 +107,6 @@ MODEL = {
 
     "fightLinearReg": FightLinearRegressionModel,
     "fightLinearHigherReg": FightLinearRegressionHigherModel,
-
 }
 
 
@@ -128,16 +127,17 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "模型因子测试集"
-    storage_dir = "小市值专题/初始测试"
+    source_dir = "barra因子"
+    storage_dir = "小市值专题/超级小盘股-市值+低波动+股价"
 
-    filter_mode: FILTER_MODE = "_entire_filter"
+    # filter_mode: FILTER_MODE = "_entire_filter"
+    filter_mode: FILTER_MODE = "_small_cap_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="fightLinearHigherReg",
+        model="linearTestReg",
         cycle="week",
-        factors_setting=list(FACTOR_LIBRARY.values()),
+        factors_setting=list(FACTOR_TEST.values()),
         industry_info={"全部": "三级行业"},
 
         # 目标因子
@@ -149,12 +149,12 @@ if __name__ == "__main__":
 
         # 因子处理方法
         class_level="一级行业",
-        bottom_factor_weight_method="ir_decay_weight",
+        bottom_factor_weight_method="equal",
         secondary_factor_weight_method="ir_decay_weight",
         factor_weight_window=12,
 
         # 分组
-        group_nums=20,
+        group_nums=10,
         group_mode="frequency",
 
         # 仓位

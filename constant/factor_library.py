@@ -1274,3 +1274,33 @@ FACTOR_LIBRARY = {
         small_filter=True
     ),
 }
+
+
+# ----------------------------------------------------------
+FACTOR_TEST = {
+    "对数市值": FactorSetting(
+        factor_name="对数市值",
+        cycle="week",
+        primary_classification="基本面因子",
+        secondary_classification="估值因子",
+        market_value_neutral=False,
+        reverse=True
+    ),
+    "dastd": FactorSetting(
+        factor_name="dastd",
+        cycle="week",
+        primary_classification="基本面因子",
+        secondary_classification="估值因子",
+        market_value_neutral=True,
+        reverse=True
+    ),
+    "close-1": FactorSetting(
+        factor_name="close",
+        primary_classification="基本面因子",
+        secondary_classification="估值因子",
+        cycle="week",
+        market_value_neutral=False,
+        industry_neutral=False,
+        reverse=True
+    ),
+}

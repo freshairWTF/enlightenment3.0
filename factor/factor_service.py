@@ -139,12 +139,12 @@ class FactorAnalyzer(QuantService):
         self.group_label = self.setup_group_label(self.group_nums)
         self.setting = Factor()
         self.filter_mode = Literal[
-            "_white_filter",
-            # "_entire_filter",
-            # "_overall_filter",
-            # "_large_cap_filter",
-            # "_mega_cap_filter",
-            # "_small_cap_filter"
+            # "_white_filter",
+            "_entire_filter",
+            "_overall_filter",
+            "_large_cap_filter",
+            "_mega_cap_filter",
+            "_small_cap_filter"
         ]
 
         # --------------------------

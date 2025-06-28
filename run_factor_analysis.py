@@ -8,7 +8,7 @@ def factor_analysis():
         source_dir="barra因子",
         index_code="000300",
         factors_name=[
-            "市现率", "barra动量", "barra市场贝塔", "营业收入_yoy", "净利润_yoy"
+            "dastd", "资产负债率"
         ],
         cycle="week",
 

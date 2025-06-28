@@ -384,21 +384,21 @@ class LinearRegressionTestModel:
         # -1 预处理
         self.input_df = self._pre_processing(self.input_df)
         # -2 对称正交
-        self.input_df = self.utils.feature.factors_orthogonal(
-            self.input_df,
-            factors_name=self.utils.extract.get_factors_synthesis_table(
-                self.factors_setting,
-                mode="THREE_TO_TWO"
-            )
-        )
-
+        # self.input_df = self.utils.feature.factors_orthogonal(
+        #     self.input_df,
+        #     factors_name=self.utils.extract.get_factors_synthesis_table(
+        #         self.factors_setting,
+        #         mode="THREE_TO_TWO"
+        #     )
+        # )
+        print(self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist())
         # ----------------------------------
         # 因子降维
         # ----------------------------------
         # -1 合成 综合Z值
         comprehensive_z_df = self._factors_synthesis(
             self.input_df,
-            synthesis_table={"综合Z值": self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist()}
+            mode="THREE_TO_Z"
         )
 
         # ----------------------------------
