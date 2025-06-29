@@ -230,7 +230,13 @@ class MiniQMTTrader:
         事件驱动处理方法:
             -1 接受、存储最新行情数据
         """
-        self.last_data = data
+        self.last_data = {
+            stock_code: {
+                "lastPrice": item["lastPrice"],
+                "lastClose": item["lastClose"]
+            } for stock_code, item in data.items()
+        }
+
         # with self.queue_lock:
         #     if self.data_queue.full():
         #         self.data_queue.get()
@@ -437,7 +443,9 @@ class MiniQMTTrader:
         try:
             # 获取最新价格 (实际实现需要从行情数据获取)
             # 这里简化处理：使用原订单价格或最新市价
-            retry_price = original_order_info["委托价格"]
+            quote = self.last_data.get(original_order_info["证券代码"], {})
+            last_price = quote.get("lastPrice", original_order_info["委托价格"])
+            retry_price = last_price * 1.01 if original_order_info["委托类型"] == xtconstant.STOCK_BUY else last_price * 0.99
 
             # 重新下单
             new_order_id = self.order_stock(
