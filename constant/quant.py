@@ -156,6 +156,12 @@ class ModelVisualization:
                     column="",
                     date=False
                 ),
+                "_basic_heat_map": BasicChartSpecs(
+                    title="因子相关性",
+                    data_source="因子相关性",
+                    column="",
+                    date=False
+                ),
                 "_basic_table-7": BasicChartSpecs(
                     title="模型评估",
                     data_source="模型评估指标",

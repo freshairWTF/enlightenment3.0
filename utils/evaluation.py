@@ -2,7 +2,6 @@
 from collections import deque
 from functools import reduce
 from scipy import stats
-from datetime import datetime
 from statsmodels import api as sm
 
 import numpy as np
@@ -141,7 +140,7 @@ class ReturnMetrics:
             else:
                 raise ValueError(f"不支持该收益率计算模式: {mode}")
 
-            result[date] = returns - trade_cost.loc[datetime.strptime(date, "%Y-%m-%d").date()]
+            result[date] = returns - trade_cost.loc[pd.to_datetime(date)]
 
         result = pd.DataFrame.from_dict(result, orient="index").sort_index(axis=1).fillna(0)
         result = result[sorted(result.columns, key=lambda x: int(x))]

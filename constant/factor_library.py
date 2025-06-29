@@ -1294,13 +1294,13 @@ FACTOR_TEST = {
         market_value_neutral=True,
         reverse=True
     ),
-    "close-1": FactorSetting(
-        factor_name="close",
-        primary_classification="基本面因子",
-        secondary_classification="估值因子",
-        cycle="week",
-        market_value_neutral=False,
-        industry_neutral=False,
-        reverse=True
-    ),
+    # "close-1": FactorSetting(
+    #     factor_name="close",
+    #     primary_classification="基本面因子",
+    #     secondary_classification="估值因子",
+    #     cycle="week",
+    #     market_value_neutral=False,
+    #     industry_neutral=False,
+    #     reverse=True
+    # ),
 }

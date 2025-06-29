@@ -67,6 +67,8 @@ class ModelSetting:
     factor_market: list[str] | None = None                          # 因子市场
     factor_filter_mode: list[FILTER_MODE] | None = None             # 因子过滤模式
 
+    total_capital: float | None = None                              # 策略分配资金（用于最优化获取股数）
+
 
 #####################################################
 @dataclass

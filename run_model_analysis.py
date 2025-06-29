@@ -16,7 +16,7 @@
             回测设计 -> 股指席位因子 强弱分组 做截面
                       席位因子 做时序
             爬虫 -> future_seat/ic/date                               100%
-            清洗                                                      20%
+            清洗                                                      100%
     -15 交易结果分析/风格剖析                                         70%                                                
     
     -16 因子池边际贡献模块
@@ -128,7 +128,7 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "barra因子"
-    storage_dir = "小市值专题/超级小盘股-市值+低波动+股价"
+    storage_dir = "小市值专题/超级小盘股-市值+低波动"
 
     # filter_mode: FILTER_MODE = "_entire_filter"
     filter_mode: FILTER_MODE = "_small_cap_filter"
@@ -139,6 +139,9 @@ if __name__ == "__main__":
         cycle="week",
         factors_setting=list(FACTOR_TEST.values()),
         industry_info={"全部": "三级行业"},
+
+        # 策略分配资金
+        total_capital = 2000000,
 
         # 目标因子
         factor_filter=False,

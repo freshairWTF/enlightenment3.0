@@ -43,12 +43,10 @@ class ModelTemplate:
         self.input_df = input_df
         self.model_setting = model_setting
 
-        # 因子设置
-        self.factors_setting = self.model_setting.factors_setting
-        # 数据处理
-        self.processor = DataProcessor()
-        # 模型工具
-        self.utils = ModelUtils()
+        self.factors_setting = self.model_setting.factors_setting       # 因子设置
+        self.total_capital = self.model_setting.total_capital           # 策略分配资金
+        self.processor = DataProcessor()                                # 数据处理
+        self.utils = ModelUtils()                                       # 模型工具
 
         # 保留列
         self.keep_cols = [
@@ -144,10 +142,11 @@ class ModelTemplate:
             individual_upper: float = 1.0,
             individual_lower: float = 0.0,
             industry_upper: float = 1.0,
-            industry_lower: float = 0.0
-    ) -> pd.Series:
+            industry_lower: float = 0.0,
+            allocation: bool = False
+    ) -> tuple[pd.Series, pd.Series]:
         """
-        资产组合优化
+        资产组合权重优化
         :param price_df: 资产价格df（分组）
         :param volume_df: 成交量df（分组）
         :param industry_df: 行业映射df（分组）
@@ -155,6 +154,8 @@ class ModelTemplate:
         :param individual_lower: 个体配置下限
         :param industry_upper: 行业配置上限
         :param industry_lower: 行业配置下限
+        :param allocation: 计算具体股数
+        :return 个股权重
         """
         portfolio = PortfolioOptimizer(
             asset_prices=price_df,
@@ -171,8 +172,10 @@ class ModelTemplate:
             sector_upper={ind: industry_upper for ind in industry_df.values},
             clean=True,
         )
+        alloc = portfolio.discrete_allocation(total_portfolio_value=self.total_capital) \
+            if allocation else pd.Series()
 
-        return weights
+        return weights, alloc
 
     @classmethod
     def calculate_regression_metrics(

@@ -269,6 +269,9 @@ class PortfolioOptimizer:
         )
         alloc, leftover = da.lp_portfolio(verbose=True)
 
+        print(alloc)
+        print(dd)
+
         return {
             "allocation": alloc,
             "剩余资金": leftover,

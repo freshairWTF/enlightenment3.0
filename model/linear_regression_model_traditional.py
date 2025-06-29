@@ -190,10 +190,11 @@ class LinearRegressionTraditionalModel(ModelTemplate):
             # -2 权重（分组）
             weights_series = []
             for _, group_df in true_df.groupby("group"):
-                weights = self.portfolio_optimizer(
+                weights, alloc = self.portfolio_optimizer(
                     price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
                     volume_df=volume_df[group_df["股票代码"].tolist()],
-                    industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())]
+                    industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())],
+                    allocation=True if predict_date == sorted_dates[-1] else False
                 )
                 weights_series.append(weights)
             # -3 合并

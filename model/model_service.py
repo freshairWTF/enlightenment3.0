@@ -575,7 +575,8 @@ class ModelAnalyzer(QuantService):
             model_setting=self.model_setting,
             descriptive_factors=self.DESCRIPTIVE_FACTOR
         )
-        model_df, metrics_df = model.run()
+        model_dict = model.run()
+        model_df, metrics_df, corr_df = model_dict["模型"], model_dict["模型评估"], model_dict["因子相关性"]
         model_data = {
             str(date): group
             for date, group in model_df.groupby("date")
@@ -595,6 +596,7 @@ class ModelAnalyzer(QuantService):
         descriptive_month = self._calc_descriptive_factors(model_df, "M")
         descriptive_year = self._calc_descriptive_factors(model_df, "Y")
         descriptive_all = self._calc_descriptive_factors(model_df, "ALL")
+
         # IC/收益率/评估/覆盖度
         result = {
             **self._calc_ic_stats(
@@ -607,7 +609,12 @@ class ModelAnalyzer(QuantService):
             ),
             **{"模型评估指标": metrics_df},
             "coverage": self.calc_coverage(model_data, self.listed_nums),
+            "因子相关性": corr_df,
         }
+        """
+        根据分组收益率再做计算
+        直接在方法里面做统计
+        """
 
         # ---------------------------------------
         # 存储、可视化
