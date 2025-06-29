@@ -1,9 +1,10 @@
 """xtquant策略测试"""
+import os
 import random
 import time
+import json
 import threading
-import pandas as pd
-from queue import Queue
+# from queue import Queue
 from datetime import datetime
 
 from xtquant import xtdata
@@ -12,32 +13,7 @@ from xtquant.xttrader import XtQuantTraderCallback
 from xtquant.xttype import StockAccount
 from xtquant import xtconstant
 
-from constant import *
-
-"""
-xtconstant.ORDER_UNREPORTED	48	未报
-xtconstant.ORDER_WAIT_REPORTING	49	待报
-xtconstant.ORDER_REPORTED	50	已报
-xtconstant.ORDER_REPORTED_CANCEL	51	已报待撤
-xtconstant.ORDER_PARTSUCC_CANCEL	52	部成待撤
-xtconstant.ORDER_PART_CANCEL	53	部撤（已经有一部分成交，剩下的已经撤单）
-xtconstant.ORDER_CANCELED	54	已撤
-xtconstant.ORDER_PART_SUCC	55	部成（已经有一部分成交，剩下的待成交）
-xtconstant.ORDER_SUCCEEDED	56	已成
-xtconstant.ORDER_JUNK	57	废单
-xtconstant.ORDER_UNKNOWN	255	未知
-
-订单根据订单编号进行管理 
-核心在于成交 部成 -> 撤单 -> 部撤/已撤 -> 发送新订单
-废单与未知需要 特别警示 人工排查问题
-
-
-"""
-”“”
-模型要生成json，且带时间戳
-
-“”“
-保单的价格要注意，不要超过涨跌停价格
+from constant.path_config import DataPATH
 
 
 ##############################################################
@@ -102,11 +78,131 @@ class MiniQMTTrader:
         # self.data_queue = Queue(maxsize=queue_max_size)
         # self.queue_lock = threading.Lock()
         self.last_data = None
-
         # 订单属性
+        self.target_order_dict = self.generate_orders_from_signals(DataPATH.STRATEGIC_TRADING_BOOK)
+        self.target_order_dict = self.add_market_suffix(self.target_order_dict)
         self.order_dict = {}
         self.ORDER_MAX_RETRY = 3                              # 最大重试次数
         self.ORDER_MAX_WAIT_TIME = 60                         # 最大等待时间(秒)
+
+    def generate_orders_from_signals(
+            self,
+            signal_file_path: str
+    ) -> list[dict]:
+        """
+        根据交易信号文件生成订单集合
+            -1 读取JSON交易信号
+            -2 查询当前账户持仓
+            -3 对比信号与持仓生成买卖订单
+            -4 校验价格是否在涨跌停范围内
+        :param signal_file_path: 交易信号JSON文件路径
+        :return: 生成的订单列表
+        """
+        # -1 读取交易信号文件
+        if not os.path.exists(signal_file_path):
+            raise FileNotFoundError(f"交易信号文件不存在: {signal_file_path}")
+        with open(signal_file_path, 'r', encoding='utf-8') as f:
+            try:
+                signals = json.load(f)
+                print(f"成功读取交易信号: {len(signals)}条")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"JSON文件解析错误: {str(e)}") from e
+
+        # -2 查询当前持仓
+        positions = self.get_positions()
+        position_dict = {pos.stock_code: pos.volume for pos in positions}
+        print(f"当前持仓数量: {len(position_dict)}只股票")
+
+        # -3 生成订单集合
+        orders_ = []
+        for signal in signals:
+            stock_code = signal.get("股票代码")
+            target_volume = signal.get("买入股数", 0)
+
+            if not stock_code or target_volume < 0:
+                print(f"无效信号: 股票代码={stock_code}, 目标数量={target_volume}")
+                continue
+
+            current_volume = position_dict.get(stock_code, 0)
+
+            # 计算需要交易的数量
+            volume_diff = target_volume - current_volume
+
+            # 买入信号
+            if volume_diff > 0:
+                order_type = "buy"
+            # 卖出信号
+            elif volume_diff < 0:
+                order_type = "sell"
+                volume_diff = abs(volume_diff)
+            # 无需交易
+            else:
+                continue
+
+            orders_.append({
+                "stock_code": stock_code,
+                "order_type": order_type,
+                "volume": volume_diff,
+            })
+        return orders_
+
+    def add_market_suffix(self, orders):
+        """
+        为股票订单添加交易所市场标识后缀
+        :param orders: 原始订单列表，每个订单是包含stock_code和order_type的字典
+        :return: 添加了正确市场后缀的新订单列表
+        """
+        processed_orders = []
+
+        for order in orders:
+            code = str(order["stock_code"])
+
+            # 根据股票代码开头确定交易所标识
+            if code.startswith(('600', '601', '603', '605', '688')):
+                suffix = '.SH'  # 上交所标识[1,6,8](@ref)
+            elif code.startswith(('000', '001', '002', '003')):
+                suffix = '.SZ'  # 深交所主板标识[5,8](@ref)
+            elif code.startswith(('300', '301')):
+                suffix = '.SZ'  # 深交所创业板标识[7,8](@ref)
+            elif code.startswith(('8', '9')):
+                suffix = '.BJ'  # 北交所标识[7,8](@ref)
+            else:
+                suffix = ''  # 未知类型保持原样
+
+            # 创建带后缀的新订单
+            processed_orders.append({
+                "stock_code": code + suffix,
+                "order_type": order["order_type"],
+                "volume": order["volume"]
+            })
+
+        return processed_orders
+
+    def calculate_limit_prices(self, stock_code: str, last_close: float) -> tuple:
+        """
+        计算股票的涨跌停价格
+        :param stock_code: 股票代码（带后缀，如600519.SH）
+        :param last_close: 前一日收盘价
+        :return: (涨停价, 跌停价)
+        """
+        # 根据代码前缀确定涨跌幅比例
+        code_prefix = stock_code[:3]  # 取前3位（如688）
+        if stock_code.startswith("ST") or stock_code.startswith("*ST"):
+            limit_ratio = 0.05  # ST股涨跌幅5%
+        elif code_prefix in ("688", "30"):  # 科创板/创业板
+            limit_ratio = 0.20
+        elif code_prefix in ("60", "00", "30"):  # 主板/中小板（30开头需排除创业板）
+            # 创业板以30开头但已在上一条件覆盖，此处仅处理主板
+            limit_ratio = 0.10
+        elif code_prefix in ("8", "9"):  # 北交所
+            limit_ratio = 0.30
+        else:
+            limit_ratio = 0.10  # 默认10%
+
+        # 计算涨跌停价（四舍五入保留2位小数）
+        up_limit = round(last_close * (1 + limit_ratio), 2)
+        down_limit = round(last_close * (1 - limit_ratio), 2)
+        return up_limit, down_limit
 
     # ---------------------------------------------
     # 操作方法 订阅/监听行情、k线推送处理、发送订单/撤单
@@ -150,6 +246,11 @@ class MiniQMTTrader:
         # 心跳检测
         # ----------------------------------
         self.heartbeat_detection()
+
+        # ----------------------------------
+        # 发动策略订单
+        # ----------------------------------
+        self.send_target_orders()
 
         # ----------------------------------
         # 检查并处理订单状态（已报待撤/部成待撤/部成 -> 部撤/撤单 -> 再下单）
@@ -201,6 +302,52 @@ class MiniQMTTrader:
     # ---------------------------------------------
     # 订单管理
     # ---------------------------------------------
+    def send_target_orders(self):
+        """
+        发送target_order_dict中的策略订单
+        步骤：
+            -1 检查是否有待发送订单
+            -2 获取实时行情数据
+            -3 生成限价单价格（考虑涨跌停限制）
+            -4 批量发送订单
+            -5 转移已发送订单到order_dict
+        """
+        if not self.target_order_dict or self.last_data is None:
+            return
+
+        print(f"开始发送策略订单，待处理订单数: {len(self.target_order_dict)}")
+
+        # 遍历并发送订单
+        for order_info in list(self.target_order_dict):
+            stock_code = order_info["stock_code"]
+            order_type = order_info["order_type"]
+            volume = order_info["volume"]
+
+            # 此处简化处理，使用最新行情或默认值
+            last_price = self.last_data[stock_code]["lastPrice"]
+            last_close = self.last_data[stock_code]["lastClose"]
+            limit_up, limit_down = self.calculate_limit_prices(stock_code, last_price)
+
+            # 生成委托价格
+            if order_type == "buy":
+                price = min(last_price * 1.01, limit_up)
+            else:
+                price = max(last_price * 0.99, limit_down)
+
+            print(f"生成订单: {stock_code} {order_type} {volume}股 @ {price:.2f} "
+                  f"[涨停:{limit_up:.2f} 跌停:{limit_down:.2f}]")
+
+            try:
+                self.order_stock(
+                    stock_code=stock_code,
+                    price=round(price, 2),
+                    volume=volume,
+                    order_type=order_type,
+                    price_type=1  # 限价单
+                )
+            except Exception as e:
+                print(f"订单发送异常: {stock_code} | 错误: {str(e)}")
+
     def check_and_process_orders(self):
         """
         检查所有订单状态并进行相应处理：
@@ -479,11 +626,6 @@ class MiniQMTTrader:
                 f"订单编号: {order_error.order_id}, "
                 f"下单失败错误码: {order_error.error_id}, "
                 f"下单失败具体信息: {order_error.error_msg}"
-            )
-            # 直接记录为失败状态
-            self.outer.update_order_status(
-                order_id=order_error.order_id,
-                new_status=xtconstant.ORDER_FAILED
             )
 
         def on_cancel_error(self, cancel_error):
