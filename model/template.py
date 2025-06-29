@@ -143,7 +143,8 @@ class ModelTemplate:
             individual_lower: float = 0.0,
             industry_upper: float = 1.0,
             industry_lower: float = 0.0,
-            allocation: bool = False
+            allocation: bool = False,
+            last_price_series: pd.Series | None = None
     ) -> tuple[pd.Series, pd.Series]:
         """
         资产组合权重优化
@@ -155,6 +156,7 @@ class ModelTemplate:
         :param industry_upper: 行业配置上限
         :param industry_lower: 行业配置下限
         :param allocation: 计算具体股数
+        :param last_price_series: 最新股价序列（用于计算股数）
         :return 个股权重
         """
         portfolio = PortfolioOptimizer(
@@ -172,10 +174,15 @@ class ModelTemplate:
             sector_upper={ind: industry_upper for ind in industry_df.values},
             clean=True,
         )
-        # alloc = portfolio.discrete_allocation(total_portfolio_value=self.total_capital) \
-        #     if allocation else pd.Series()
+        if allocation:
+            alloc = portfolio.discrete_allocation(
+                last_price=last_price_series,
+                total_portfolio_value=self.total_capital,
+            )
+        else:
+            alloc = pd.Series()
 
-        return weights, pd.Series()
+        return weights, alloc
 
     @classmethod
     def calculate_regression_metrics(

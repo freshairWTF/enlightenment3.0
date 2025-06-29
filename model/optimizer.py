@@ -246,37 +246,27 @@ class PortfolioOptimizer:
 
     def discrete_allocation(
             self,
+            last_price: pd.Series,
             total_portfolio_value: float = 1000000,
-            latest_prices: pd.Series = None
-    ) -> dict:
+    ) -> pd.Series:
         """
         离散化仓位分配（生成实际可交易的股数）
-            PS: 需要使用未复权价格，仅用于实盘交易
+        :param last_price: 最新资产价格
         :param total_portfolio_value: 投资组合总价值
-        :param latest_prices: 各股票最新价格（Series）
         :return: 字典 {股票代码: 股数}
         """
-        if latest_prices is None:
-            latest_prices = self.asset_prices.iloc[-1]  # 默认使用最后一天价格
-
-        weights = self.weights[self.weights != 0]
-        latest_prices = latest_prices[weights.index.tolist()]
+        weights = self.weights
+        latest_prices = last_price[weights.index.tolist()]
 
         da = DiscreteAllocation(
             weights.to_dict(),
             latest_prices,
             total_portfolio_value=total_portfolio_value
         )
-        alloc, leftover = da.lp_portfolio(verbose=True)
+        alloc, leftover = da.lp_portfolio()
+        alloc = {stock: shares // 100 * 100 for stock, shares in alloc.items()}
 
-        print(alloc)
-        print(dd)
-
-        return {
-            "allocation": alloc,
-            "剩余资金": leftover,
-            "分配比例": sum(alloc.values()) / total_portfolio_value
-        }
+        return pd.Series(alloc, name="买入股数")
 
     def risk_report(
             self

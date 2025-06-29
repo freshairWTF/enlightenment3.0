@@ -189,14 +189,19 @@ class LinearRegressionTraditionalModel(ModelTemplate):
             industry_df = portfolio_df.set_index("股票代码")["行业"]
             # -2 权重（分组）
             weights_series = []
+            alloc_series = []
             for _, group_df in true_df.groupby("group"):
                 weights, alloc = self.portfolio_optimizer(
                     price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
                     volume_df=volume_df[group_df["股票代码"].tolist()],
                     industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())],
-                    allocation=True if predict_date == sorted_dates[-1] else False
+                    allocation=True if predict_date == sorted_dates[-1] else False,
+                    last_price_series=portfolio_df.pivot(index="date", columns="股票代码", values="close").iloc[-1]
                 )
                 weights_series.append(weights)
+                if predict_date == sorted_dates[-1] and not alloc.empty:
+                    alloc_series.append(alloc)
+
             # -3 合并
             true_df = pd.merge(
                 true_df,
@@ -205,6 +210,14 @@ class LinearRegressionTraditionalModel(ModelTemplate):
                 right_index=True,
                 how='left'
             )
+            if predict_date == sorted_dates[-1] and alloc_series:
+                true_df = pd.merge(
+                    true_df,
+                    pd.concat(alloc_series).rename('买入股数'),
+                    left_on='股票代码',
+                    right_index=True,
+                    how='left'
+                )
 
             # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）

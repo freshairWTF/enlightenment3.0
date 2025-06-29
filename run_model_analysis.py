@@ -127,8 +127,8 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "模型因子测试集"
-    storage_dir = "小市值专题/超级小盘股-市值+低波动-测试不相干的"
+    source_dir = "实盘20250629"
+    storage_dir = "实盘测试/超级小盘股-市值+低波动-测试不相干的"
 
     # filter_mode: FILTER_MODE = "_entire_filter"
     filter_mode: FILTER_MODE = "_small_cap_filter"
