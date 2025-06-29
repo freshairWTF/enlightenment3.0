@@ -2,6 +2,7 @@
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from datetime import datetime
+from typing import Literal
 
 import yaml
 import numpy as np
@@ -404,7 +405,7 @@ class ModelAnalyzer(QuantService):
                 grouped_data, "综合Z值", self.cycle
             ) if ic_test else {}
 
-    def _calc_model_metrics(
+    def _calc_return_metrics(
             self,
             grouped_data: dict[str, pd.DataFrame],
             transaction_fee_rate: pd.DataFrame
@@ -414,7 +415,7 @@ class ModelAnalyzer(QuantService):
         :param grouped_data: 模型结果
         :param transaction_fee_rate: 交易费率
         """
-        return {
+        metrics = {
             # 交易费率（换手率）
             **self.calc_return_metrics(
                 grouped_data, self.cycle, self.model_setting.group_label,
@@ -481,6 +482,8 @@ class ModelAnalyzer(QuantService):
             ),
         }
 
+        return metrics
+
     # --------------------------
     # 存储、可视化 方法
     # --------------------------
@@ -515,12 +518,16 @@ class ModelAnalyzer(QuantService):
     def _store_to_excel(
             self,
             model_data: pd.DataFrame,
-            file_name: str
+            file_name: str,
+            sheet_name: str | None = None,
+            mode: Literal["a", "w"] = "w",
     ) -> None:
         """存储模型分组描述性统计"""
         DataStorage(self.storage_dir).write_df_to_excel(
             model_data,
             file_name=file_name,
+            sheet_name=sheet_name,
+            mode=mode,
             merge_original_data=False
         )
 
@@ -596,25 +603,30 @@ class ModelAnalyzer(QuantService):
         descriptive_month = self._calc_descriptive_factors(model_df, "M")
         descriptive_year = self._calc_descriptive_factors(model_df, "Y")
         descriptive_all = self._calc_descriptive_factors(model_df, "ALL")
+        # IC指标群
+        ic_stats = self._calc_ic_stats(
+            model_data,
+            ic_test=True if "综合Z值" in model_df.columns else False
+        )
+        # 收益率指标群
+        return_metrics = self._calc_return_metrics(
+            model_data,
+            trading_stats.groupby("日期").apply(lambda x: x.set_index("group")["交易费率"])
+        )
+        # 收益率分期统计
+        return_stats = self.calc_return_stats(return_metrics["换手率估计_returns"], self.cycle)
+        return_stats_month = self.calc_return_stats(return_metrics["换手率估计_returns"], self.cycle, "M")
+        return_stats_year = self.calc_return_stats(return_metrics["换手率估计_returns"], self.cycle, "Y")
+        return_stats_all = self.calc_return_stats(return_metrics["换手率估计_returns"], self.cycle, "ALL")
 
-        # IC/收益率/评估/覆盖度
+        # IC/收益率/评估/覆盖度/因子相关性
         result = {
-            **self._calc_ic_stats(
-                model_data,
-                ic_test=True if "综合Z值" in model_df.columns else False
-            ),
-            **self._calc_model_metrics(
-                model_data,
-                trading_stats.groupby("日期").apply(lambda x: x.set_index("group")["交易费率"])
-            ),
             **{"模型评估指标": metrics_df},
             "coverage": self.calc_coverage(model_data, self.listed_nums),
             "因子相关性": corr_df,
+            **ic_stats,
+            **return_metrics,
         }
-        """
-        根据分组收益率再做计算
-        直接在方法里面做统计
-        """
 
         # ---------------------------------------
         # 存储、可视化
@@ -625,13 +637,17 @@ class ModelAnalyzer(QuantService):
         # 每日持仓
         self._store_grouped_data(model_data)
         # 描述性统计
-        self._store_to_excel(descriptive, "描述性统计")
-        self._store_to_excel(descriptive_month, "月度描述性统计")
-        self._store_to_excel(descriptive_year, "年度描述性统计")
-        self._store_to_excel(descriptive_all, "总描述性统计")
+        self._store_to_excel(descriptive, "描述性统计", "颗粒数据", "a")
+        self._store_to_excel(descriptive_month, "描述性统计", "月度数据", "a")
+        self._store_to_excel(descriptive_year, "描述性统计", "年度数据", "a")
+        self._store_to_excel(descriptive_all, "描述性统计", "总体数据", "a")
         # 交易统计
-        self._store_to_excel(trading_stats, "交易统计")
-        self._store_to_excel(trading_stats_month, "月度交易统计")
-        self._store_to_excel(trading_stats_year, "年度交易统计")
-        self._store_to_excel(trading_stats_all, "总交易统计")
-        # self._store_selected_factors(selected_factors)
+        self._store_to_excel(trading_stats, "交易统计", "颗粒数据", "a")
+        self._store_to_excel(trading_stats_month, "交易统计", "月度数据", "a")
+        self._store_to_excel(trading_stats_year, "交易统计", "年度数据", "a")
+        self._store_to_excel(trading_stats_all, "交易统计", "总体数据", "a")
+        # 收益率统计
+        self._store_to_excel(return_stats, "收益率统计", "颗粒数据", "a")
+        self._store_to_excel(return_stats_month, "收益率统计", "月度数据", "a")
+        self._store_to_excel(return_stats_year, "收益率统计", "年度数据", "a")
+        self._store_to_excel(return_stats_all, "收益率统计", "总体数据", "a")

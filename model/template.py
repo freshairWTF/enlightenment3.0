@@ -172,10 +172,10 @@ class ModelTemplate:
             sector_upper={ind: industry_upper for ind in industry_df.values},
             clean=True,
         )
-        alloc = portfolio.discrete_allocation(total_portfolio_value=self.total_capital) \
-            if allocation else pd.Series()
+        # alloc = portfolio.discrete_allocation(total_portfolio_value=self.total_capital) \
+        #     if allocation else pd.Series()
 
-        return weights, alloc
+        return weights, pd.Series()
 
     @classmethod
     def calculate_regression_metrics(

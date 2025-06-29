@@ -488,6 +488,61 @@ class QuantService:
 
         return {f"{prefix}_{k}": v for k, v in result.items()} if prefix else result
 
+    @classmethod
+    @validate_literal_params
+    def calc_return_stats(
+            cls,
+            grouped_return: pd.DataFrame,
+            cycle: CYCLE,
+            period: str = ""
+    ) -> pd.DataFrame:
+        """
+        计算收益率、比率指标
+        :param grouped_return: 分组收益率
+        :param cycle: 周期
+        :param period: 统计周期
+            "M" : 按月统计
+            "Y" : 按年统计
+            "ALL": 全部统计
+        :return: 收益率、比率指标
+        """
+        # -1 日期格式转换
+        grouped_return.index = pd.to_datetime(grouped_return.index)
+        # -2 转换为长表
+        long_df = grouped_return.reset_index().melt(
+            id_vars="index",
+            var_name="group",
+            value_name="return"
+        )
+        long_df.rename(columns={"index": "date"}, inplace=True)
+
+        # -3 根据周期选择分组方式
+        if period == 'ALL':
+            grouped = long_df.groupby("group")
+        elif period:
+            grouped = long_df.groupby([
+                "group",
+                pd.Grouper(key='date', freq=period)
+            ])
+        else:
+            grouped = long_df.groupby(["group", "date"])
+
+        # -4 分组计算指标
+        def __calculate_metrics(sub_df: pd.DataFrame) -> pd.Series:
+            """为每个分组周期计算所有指标"""
+            returns = sub_df["return"]
+            cum_ret = cls.evaluate.returns.cum_return(returns)
+            return pd.Series({
+                "收益率": returns.mean(),
+                "收益率标准差": returns.std(),
+                "胜率": cls.evaluate.returns.winning_rate(returns),
+                "最大回撤": cls.evaluate.returns.maximum_drawdown(cum_ret),
+                "夏普比率": cls.evaluate.ratio.sharpe_ratio(returns, cycle)
+            })
+        result_df = grouped.apply(__calculate_metrics).reset_index()
+
+        return result_df
+
     # --------------------------
     # 存储、可视化 方法
     # --------------------------
