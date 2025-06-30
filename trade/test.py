@@ -4,7 +4,8 @@ import random
 import time
 import json
 import threading
-# from queue import Queue
+
+from loguru import logger
 from datetime import datetime
 
 from xtquant import xtdata
@@ -25,8 +26,7 @@ class MiniQMTTrader:
             account_id: str,
             session_id: int | None = None,
             account_type: str = 'STOCK',
-            interval: int = 10,
-            queue_max_size: int = 10
+            timer_interval: int = 10
     ):
         """
         初始化MiniQMT交易类
@@ -34,13 +34,19 @@ class MiniQMTTrader:
         :param account_id: 资金账号
         :param session_id: 会话ID，若不指定则随机生成（建议不同策略使用不同ID）
         :param account_type: 账户类型，默认为股票账户
-        :param interval: 定时器间隔时间
-        :param queue_max_size: 队列最大规模
+        :param timer_interval: 定时器间隔时间
         """
         self.mini_qmt_path = mini_qmt_path
         self.account_id = account_id
         self.session_id = session_id or random.randint(100000, 999999)
         self.account_type = account_type
+        self.timer_interval = timer_interval
+
+        # 日志
+        self.set_logger()
+        self.trade_logger = logger.bind(channel="trade")
+        self.market_logger = logger.bind(channel="market")
+        self.error_logger = logger.bind(channel="ERROR")
 
         # 创建交易对象和账户对象
         self.xt_trader = XtQuantTrader(mini_qmt_path, self.session_id)
@@ -55,35 +61,69 @@ class MiniQMTTrader:
         # 建立交易连接
         connect_result = self.xt_trader.connect()
         if connect_result == 0:
-            print(f"连接MiniQMT成功！会话ID: {self.session_id}, 资金账号: {self.account_id}")
+            self.trade_logger.info(f"连接MiniQMT成功！会话ID: {self.session_id}, 资金账号: {self.account_id}")
         else:
             raise ConnectionError(f"交易连接失败，错误码: {connect_result}")
 
         # 对交易回调进行订阅，订阅后可以收到交易主推
         subscribe_result = self.xt_trader.subscribe(self.account)
         if subscribe_result == 0:
-            print(f"交易回调订阅成功: {subscribe_result}")
+            self.trade_logger.info(f"交易回调订阅成功: {subscribe_result}")
         else:
             raise ConnectionError(f"交易回调订阅失败: {subscribe_result}")
 
         # 创建定时器
-        self.timer = self.RepeatingTimer(interval, self.on_timer)
+        self.timer = self.RepeatingTimer(self.timer_interval, self.on_timer)
         self.timer.daemon = True
 
         # 心跳检测相关属性
         self.last_heartbeat = datetime.now()            # 上次心跳时间
         self.heartbeat_interval = 300                   # 心跳检测间隔(秒)
 
-        # 创建行情队列（为今后交易优化做准备）
-        # self.data_queue = Queue(maxsize=queue_max_size)
-        # self.queue_lock = threading.Lock()
-        self.last_data = None
+        # 行情
+        self.last_data = {}
+
         # 订单属性
         self.target_order_dict = self.generate_orders_from_signals(DataPATH.STRATEGIC_TRADING_BOOK)
         self.target_order_dict = self.add_market_suffix(self.target_order_dict)
         self.order_dict = {}
         self.ORDER_MAX_RETRY = 3                              # 最大重试次数
         self.ORDER_MAX_WAIT_TIME = 60                         # 最大等待时间(秒)
+
+
+    @staticmethod
+    def set_logger() -> None:
+        """设置日志"""
+        # 移除默认处理器
+        # logger.remove()
+
+        # -1 交易日志
+        logger.add(
+            "trade.log",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+            filter=lambda record: record["extra"].get("func") == "trade",  # 按功能标签过滤
+            rotation="500 MB",  # 按大小轮转
+            retention="30 days",  # 保留30天
+            enqueue=True,  # 异步写入防阻塞
+            level="INFO"
+        )
+        # -2 市场行情日志
+        logger.add(
+            "market.log",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+            filter=lambda record: record["extra"].get("func") == "market",
+            rotation="00:00",  # 每日轮转
+            compression="zip",  # 自动压缩旧日志
+            level="DEBUG"
+        )
+        # -3 错误日志
+        logger.add(
+            "error.log",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+            filter=lambda record: record["level"].name == "ERROR",  # 按错误级别过滤
+            retention="7 days",
+            level="ERROR"
+        )
 
     def generate_orders_from_signals(
             self,
@@ -104,14 +144,14 @@ class MiniQMTTrader:
         with open(signal_file_path, 'r', encoding='utf-8') as f:
             try:
                 signals = json.load(f)
-                print(f"成功读取交易信号: {len(signals)}条")
+                self.trade_logger.info(f"成功读取交易信号: {len(signals)}条")
             except json.JSONDecodeError as e:
                 raise ValueError(f"JSON文件解析错误: {str(e)}") from e
 
         # -2 查询当前持仓
         positions = self.get_positions()
         position_dict = {pos.stock_code: pos.volume for pos in positions}
-        print(f"当前持仓数量: {len(position_dict)}只股票")
+        self.trade_logger.info(f"当前持仓数量: {len(position_dict)}只股票")
 
         # -3 生成订单集合
         orders_ = []
@@ -120,7 +160,8 @@ class MiniQMTTrader:
             target_volume = signal.get("买入股数", 0)
 
             if not stock_code or target_volume < 0:
-                print(f"无效信号: 股票代码={stock_code}, 目标数量={target_volume}")
+                self.trade_logger.info(f"无效信号: 股票代码={stock_code}, 目标数量={target_volume}")
+                self.error_logger.info(f"无效信号: 股票代码={stock_code}, 目标数量={target_volume}")
                 continue
 
             current_volume = position_dict.get(stock_code, 0)
@@ -230,19 +271,9 @@ class MiniQMTTrader:
         事件驱动处理方法:
             -1 接受、存储最新行情数据
         """
-        self.last_data = {
-            stock_code: {
-                "lastPrice": item["lastPrice"],
-                "lastClose": item["lastClose"]
-            } for stock_code, item in data.items()
-        }
+        self.last_data.update(data)
 
-        # with self.queue_lock:
-        #     if self.data_queue.full():
-        #         self.data_queue.get()
-        #     self.data_queue.put(data)
-
-    def on_timer(self):
+    def on_timer(self) -> None:
         """
         定时器回调方法
             -1 查询策略生成的买卖数据 -> 执行订单买卖（sleep控制多个订单生成频率）
@@ -318,41 +349,51 @@ class MiniQMTTrader:
             -4 批量发送订单
             -5 转移已发送订单到order_dict
         """
-        if not self.target_order_dict or self.last_data is None:
+        if not self.target_order_dict or not self.last_data:
             return
 
         print(f"开始发送策略订单，待处理订单数: {len(self.target_order_dict)}")
 
         # 遍历并发送订单
         for order_info in list(self.target_order_dict):
+
             stock_code = order_info["stock_code"]
             order_type = order_info["order_type"]
             volume = order_info["volume"]
 
-            # 此处简化处理，使用最新行情或默认值
-            last_price = self.last_data[stock_code]["lastPrice"]
-            last_close = self.last_data[stock_code]["lastClose"]
-            limit_up, limit_down = self.calculate_limit_prices(stock_code, last_price)
+            if stock_code not in self.last_data.keys():
+                print(f"行情暂未监听到该数据: {stock_code}")
+                continue
 
-            # 生成委托价格
+            print(order_info)
+            print(self.last_data[stock_code])
+            # 生成委托价格：使用五档行情第一档数据
             if order_type == "buy":
-                price = min(last_price * 1.01, limit_up)
+                price = self.last_data[stock_code]["askPrice"][0]
             else:
-                price = max(last_price * 0.99, limit_down)
+                price = self.last_data[stock_code]["bidPrice"][0]
 
-            print(f"生成订单: {stock_code} {order_type} {volume}股 @ {price:.2f} "
-                  f"[涨停:{limit_up:.2f} 跌停:{limit_down:.2f}]")
+            print(
+                f"生成订单: stock_code: {stock_code} | "
+                f"order_type: {order_type} | "
+                f"volume: {volume}股 | "
+                f"price: {price:.2f}"
+            )
+            print(stock_code)
+            print(round(price, 2))
+            print(volume)
+            print(order_type)
 
-            try:
-                self.order_stock(
-                    stock_code=stock_code,
-                    price=round(price, 2),
-                    volume=volume,
-                    order_type=order_type,
-                    price_type=1  # 限价单
-                )
-            except Exception as e:
-                print(f"订单发送异常: {stock_code} | 错误: {str(e)}")
+            # try:
+            self.order_stock(
+                stock_code=stock_code,
+                price=round(price, 2),
+                volume=volume,
+                order_type=order_type,
+                price_type=1  # 限价单
+            )
+            # except Exception as e:
+            #     print(f"订单发送异常: {stock_code} | 错误: {str(e)}")
 
     def check_and_process_orders(self):
         """
@@ -661,12 +702,15 @@ class MiniQMTTrader:
     # ---------------------------------------------
     class RepeatingTimer(threading.Timer):
         """继承Threading.Timer并重写run实现循环定时器"""
+        def __init__(self, interval, function):
+            super().__init__(interval, function)
+
         def run(self):
             while not self.finished.is_set():
-                try:
-                    self.function(*self.args, ** self.kwargs)
-                except Exception as e:
-                    print(f"定时器执行异常: {str(e)}")
+                # try:
+                self.function()
+                # except Exception as e:
+                #     print(f"定时器执行异常: {str(e)}")
                 self.finished.wait(self.interval)
 
 
@@ -678,8 +722,7 @@ if __name__ == "__main__":
         TRADE_MINI_QMT_PATH,
         ACCOUNT_ID,
         session_id=100000,
-        interval=60,
-        queue_max_size=10
+        timer_interval=60
     )
 
     # 订阅全市场数据，传入回调函数
@@ -689,12 +732,8 @@ if __name__ == "__main__":
 
     # 启动行情监听（独立守护线程）
     data_thread = threading.Thread(target=trader.run)
-    data_thread.daemon = True
+    # data_thread.daemon = True
     data_thread.start()
-
-    """
-    print 使用logger
-    """
 
     # 行情结束，查询当日总体情况
     asset = trader.get_asset()

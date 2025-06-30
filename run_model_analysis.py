@@ -142,6 +142,8 @@ if __name__ == "__main__":
 
         # 策略分配资金
         total_capital = 2000000,
+        # 策略生成交易文件
+        generate_trade_file=False,
 
         # 目标因子
         factor_filter=False,

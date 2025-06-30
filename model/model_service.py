@@ -665,8 +665,9 @@ class ModelAnalyzer(QuantService):
         self._store_to_excel(return_stats_year, "收益率统计", "年度数据", "a")
         self._store_to_excel(return_stats_all, "收益率统计", "总体数据", "a")
         # 交易文件
-        self._store_purchased_shares(
-            model_df[
-                (model_df["date"] == model_df['date'].max()) & (model_df["group"] == model_df["group"].max())
-            ][["股票代码", "买入股数"]].dropna(subset=["买入股数"])
-        )
+        if self.model_setting.generate_trade_file:
+            self._store_purchased_shares(
+                model_df[
+                    (model_df["date"] == model_df['date'].max()) & (model_df["group"] == model_df["group"].max())
+                ][["股票代码", "买入股数"]].dropna(subset=["买入股数"])
+            )
