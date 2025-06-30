@@ -14,10 +14,17 @@ from xtquant.xttype import StockAccount
 from xtquant import xtconstant
 
 from constant.path_config import DataPATH
+from order_mgmt import OrderManager
 
 
 xtdata.enable_hello = False
 
+"""
+线程管理：
+    -1 定时器
+    -2 行情监听
+    -3 订单超时
+"""
 
 ##############################################################
 class MiniQMTTrader:
@@ -99,9 +106,13 @@ class MiniQMTTrader:
         self.pending_orders = self._get_pending_order_btw_signals_and_position(
             DataPATH.STRATEGIC_TRADING_BOOK
         )
-
-        # -2 执行订单管理器
-        self.execute_order_mgmt = {}
+        # -2 独立超时检查线程
+        self.order_manager = OrderManager()
+        self.timeout_checker = threading.Thread(
+            target=self._check_order_timeout,
+            daemon=True
+        )
+        self.timeout_checker.start()
 
         # -----------------------------
         # 定时器/心跳检测
@@ -306,24 +317,15 @@ class MiniQMTTrader:
     def on_timer(self) -> None:
         """
         定时器回调方法
-            -1 查询策略生成的买卖数据 -> 执行订单买卖（sleep控制多个订单生成频率）
-            -2 查询订单回调 -> 根据订单状态做进一步处理
         """
-        # ----------------------------------
-        # 心跳检测
-        # ----------------------------------
+        # -1 心跳检测
         self.heartbeat_detection()
 
-        # ----------------------------------
-        # 发送策略订单
-        # ----------------------------------
+        # -2 发送策略订单
         self.send_pending_order()
 
-        # ----------------------------------
-        # 订单管理
-        # ----------------------------------
-        self.check_and_process_orders()
-        self.cleanup_finalized_orders()
+        # -3 撤单失败，再次撤单
+        self._retry_failed_orders()
 
     def order_stock(
             self,
@@ -343,6 +345,7 @@ class MiniQMTTrader:
             PS: 模拟盘不支持市价
         :return: 订单ID（用于后续撤单或查询）
         """
+        print(self.last_data[stock_code])
         self.trade_logger.info(
             f"发送订单: stock_code: {stock_code} | price: {price} | volume: {volume} | "
             f"order_type: {order_type} | price_type: {price_type}"
@@ -388,9 +391,7 @@ class MiniQMTTrader:
     # ---------------------------------------------
     # 订单管理
     # ---------------------------------------------
-    def send_pending_order(
-            self
-    ) -> None:
+    def send_pending_order(self) -> None:
         """
         发送策略订单
         步骤：
@@ -450,118 +451,48 @@ class MiniQMTTrader:
                     f"volume: {volume} | order_type: {order_type}"
                 )
 
-    def check_and_process_orders(self):
+    def _check_order_timeout(self) -> None:
         """
-        检查所有订单状态并进行相应处理：
-        - 超时未成交订单的撤单
-        - 撤单成功后重新下单
-        - 已完成订单的清理
+        独立线程检查订单超时
+            -1 超时撤单
+            -2 清理终态订单
         """
-        current_time = datetime.now()
+        while True:
+            try:
+                # 每k秒检查一次
+                time.sleep(self.ORDER_MAX_WAIT_TIME)
 
-        for order_info in list(self.execute_order_mgmt.values()):
-            order_id = order_info["订单编号"]
-            status = order_info["委托状态"]
+                # -1 获取超时订单
+                timeout_orders = self.order_manager.get_timeout_orders(
+                    timeout_sec=self.ORDER_MAX_WAIT_TIME
+                )
 
-            # 计算订单未更新时间差
-            time_diff = (current_time - order_info["更新时间"]).total_seconds()
+                # -2 触发撤单
+                for order in timeout_orders:
+                    self.trade_logger.warning(
+                        f"订单超时未成交 | ID: {order['order_id']} | 尝试撤单"
+                    )
+                    self.order_manager.mark_canceling(order["order_id"])
+                    self.cancel_order(order["order_id"])
 
-            # 处理超时未成交的订单
-            # -1 订单已报/部成 -2 订单成交超时 -3 低于最大重报次数
-            if (
-                    status in [xtconstant.ORDER_REPORTED, xtconstant.ORDER_PART_SUCC] and
-                    time_diff > self.ORDER_MAX_WAIT_TIME and
-                    order_info["重试次数"] < self.ORDER_MAX_RETRY
-            ):
-                print(f"订单 {order_id} 超时未成交({time_diff:.1f}秒)，尝试撤单并重新下单...")
-                self.cancel_and_retry_order(order_info)
+                # -3 清理终态订单
+                self.order_manager.cleanup_finalized()
 
-            # -2 处理终态订单的重试逻辑
-            elif (
-                    status in [xtconstant.ORDER_CANCELED, xtconstant.ORDER_PART_CANCEL] and
-                    order_info.get("重试状态") == "RETRY_PENDING"
-            ):
-                # 执行重试下单
-                self.retry_order_placement(order_info)
+            except Exception as e:
+                self.trade_logger.error(f"超时检查异常: {str(e)}")
 
-    def cancel_and_retry_order(self, order_info):
-        """
-        撤单并准备重试下单
-        """
-        order_id = order_info["订单编号"]
-
-        # 标记为重试中
-        order_info["重试状态"] = "RETRY_PENDING"
-        order_info["更新时间"] = datetime.now()
-
-        # 发起撤单请求
-        cancel_result = self.cancel_order(order_id)
-
-        if cancel_result == 0:
-            print(f"撤单请求已发送: 订单 {order_id}")
-        else:
-            print(f"撤单请求失败: 订单 {order_id}, 错误码: {cancel_result}")
-            # 重试次数计数
-            order_info["重试次数"] += 1
-            order_info["重试状态"] = "CANCEL_FAILED"
-
-    def cleanup_finalized_orders(self):
-        """终态订单延迟清理（新增方法）"""
-        current_time = datetime.now()
-        for order_id, order_info in list(self.execute_order_mgmt.items()):
-            status = order_info["委托状态"]
-            time_diff = (current_time - order_info["更新时间"]).total_seconds()
-
-            if (status in [
-                xtconstant.ORDER_CANCELED, xtconstant.ORDER_PART_CANCEL,
-                xtconstant.ORDER_SUCCEEDED, xtconstant.ORDER_JUNK
-            ] and time_diff > 60):
-                self.execute_order_mgmt.pop(order_id)
-                if status == xtconstant.ORDER_SUCCEEDED:
-                    print(f"订单 {order_id} 已完全成交，从订单列表移除")
-                elif status in [xtconstant.ORDER_CANCELED, xtconstant.ORDER_PART_CANCEL]:
-                    print(f"订单 {order_id} 已取消，从订单列表移除")
-                elif status == xtconstant.ORDER_JUNK:
-                    print(f"订单 {order_id} 失败，从订单列表移除")
-
-    def retry_order_placement(self, original_order_info):
-        """
-        重新下单（在撤单完成后调用）
-        """
-        # 计算剩余数量
-        remaining_quantity = original_order_info["委托数量"] - original_order_info.get("成交数量", 0)
-
-        if remaining_quantity <= 0:
-            print("无可重试数量，订单已完全成交")
-            return None
-
-        # 创建新订单
-        try:
-            # 获取最新价格 (实际实现需要从行情数据获取)
-            # 这里简化处理：使用原订单价格或最新市价
-            quote = self.last_data.get(original_order_info["证券代码"], {})
-            last_price = quote.get("lastPrice", original_order_info["委托价格"])
-            retry_price = last_price * 1.01 if original_order_info["委托类型"] == xtconstant.STOCK_BUY else last_price * 0.99
-
-            # 重新下单
-            new_order_id = self.order_stock(
-                stock_code=original_order_info["证券代码"],
-                price=retry_price,
-                volume=remaining_quantity,
-                order_type="buy" if original_order_info["委托类型"] == xtconstant.STOCK_BUY else "sell",
-                price_type=original_order_info["价格类型"]
-            )
-
-            if new_order_id:
-                print(f"重试订单已创建: 新订单ID {new_order_id} (原始订单: {original_order_info['订单编号']})")
-                return new_order_id
-            else:
-                print("重试订单创建失败")
-                return None
-
-        except Exception as e:
-            print(f"重试下单时出错: {str(e)}")
-            return None
+    def _retry_failed_orders(self) -> None:
+        """重试失败订单（非即时敏感操作）"""
+        with self.order_manager.lock:
+            for order in self.order_manager.orders.values():
+                # 只处理撤单失败的订单
+                if order["status"] == "FAILED_CANCEL":
+                    # 满足重试条件
+                    if order["cancel_retry"] <= self.ORDER_MAX_RETRY:
+                        self.trade_logger.info(
+                            f"重试撤单 | ID: {order['order_id']}"
+                        )
+                        self.cancel_order(order["order_id"])
 
     # ---------------------------------------------
     # 查询方法
@@ -588,10 +519,9 @@ class MiniQMTTrader:
     def heartbeat_detection(self):
         """心跳检测"""
         time_diff = (datetime.now() - self.last_heartbeat).seconds
-        self.trade_logger.info(f"心跳检测开始，间隔时间: {time_diff}")
 
         if time_diff > self.heartbeat_interval:
-            self.trade_logger.error(f"心跳超时({time_diff}秒)，启动连接检查...")
+            self.trade_logger.info(f"心跳检测开始，间隔时间: {time_diff}")
             if not self._check_connection():
                 self.trade_logger.error("连接验证失败，触发断连处理")
                 self.callback.on_disconnected()
@@ -640,57 +570,26 @@ class MiniQMTTrader:
             账号状态信息推送
             :param status: XtAccountStatus 对象
             """
-            print("账户信息推送")
-            print(
+            self.outer.trade_logger.info(
+                f"账户信息推送, "
                 f"账户ID: {status.account_id}, "
                 f"账户类型: {status.account_type}, "
                 f"账户状态: {status.status}, "
             )
             if status.status != 0:
-                print("账户状态异常！")
+                self.outer.trade_logger.error("！！！账户状态异常！！！")
 
         def on_stock_order(self, order):
             """
             委托状态更新回调
             :param order: XtOrder对象
             """
-            print("订单信息推送")
-            print(
-                f"订单编号: {order.order_id}, "
-                f"报单时间: {order.order_time}, "
-                f"证券代码: {order.stock_code}, "
-                f"委托类型: {order.order_type}, "
-                f"委托数量: {order.order_volume}, "
-                f"委托价格: {order.price}"
-                f"委托状态: {order.order_status}, "
-                f"成交均价: {order.traded_price}, "
-                f"成交数量: {order.traded_volume}"
+            self.outer.trade_logger.info(
+                f"订单 信息推送: 订单ID={order.order_id}, 股票代码={order.stock_code}, "
+                f"方向={order.order_type}, 价格={order.price}, "
+                f"委托数量={order.order_volume}, 已成交={order.traded_volume}, "
             )
-            order_info = {
-                "订单编号": order.order_id,
-                "报单时间": order.order_time,
-                "证券代码": order.stock_code,
-                "委托类型": order.order_type,
-                "委托数量": order.order_volume,
-                "委托价格": order.price,
-                "委托状态": order.order_status,
-                "成交均价": order.traded_price,
-                "成交数量": order.traded_volume,
-                "价格类型": order.price_type
-            }
-
-            # -1 更新订单字典
-            if order.order_id in self.outer.execute_order_mgmt:
-                self.outer.execute_order_mgmt[order.order_id].update(order_info)
-            # -2 新订单
-            else:
-                order_info.update({
-                    "创建时间": datetime.now(),
-                    "更新时间": datetime.now(),
-                    "重试次数": 0,
-                    "重试状态": ""
-                })
-                self.outer.execute_order_mgmt[order.order_id] = order_info
+            self.outer.order_manager.update_order(order)
 
         def on_stock_trade(self, trade):
             """
@@ -703,30 +602,22 @@ class MiniQMTTrader:
             traded_amount	float	成交金额
             order_id	int	订单编号
             """
-            print("成交信息推送")
-            print(
-                f"成交编号: {trade.traded_id}, "
-                f"证券代码: {trade.stock_code}, "
-                f"成交时间: {trade.traded_time}, "
-                f"成交均价: {trade.traded_price}, "
-                f"成交数量: {trade.traded_volume}, "
-                f"成交金额: {trade.traded_amount}, "
-                f"订单编号: {trade.order_id}, "
+            order = self.outer.xt_trader.query_stock_order_by_id(trade.order_id)
+            self.outer.trade_logger.info(
+                f"成交 信息推送: 订单ID={order.order_id}, 股票代码={order.stock_code}, "
+                f"方向={order.order_type}, 价格={order.price}, "
+                f"委托数量={order.order_volume}, 已成交={order.traded_volume}, "
             )
-            if trade.order_id in self.outer.execute_order_mgmt:
-                order_info = self.outer.execute_order_mgmt[trade.order_id]
-                order_info["更新时间"] = datetime.now()
-                total_value = order_info["成交数量"] * order_info["成交均价"] + trade.traded_volume * trade.traded_price
-                order_info["成交数量"] += trade.traded_volume
-                order_info["成交均价"] = total_value / order_info["成交数量"]
+            if order:
+                self.outer.order_manager.update_oupdate_orderrder(order)
 
         def on_order_error(self, order_error):
             """
             委托失败回调
             :param order_error:XtOrderError 对象
             """
-            print("订单委托失败")
-            print(
+            self.outer.trade_logger.error(
+                "订单委托失败, "
                 f"订单编号: {order_error.order_id}, "
                 f"下单失败错误码: {order_error.error_id}, "
                 f"下单失败具体信息: {order_error.error_msg}"
@@ -737,20 +628,10 @@ class MiniQMTTrader:
             撤单失败回调
             :param cancel_error: XtCancelError 对象
             """
-            print("撤单失败")
-            print(
-                f"订单编号: {cancel_error.order_id}, "
-                f"撤单失败错误码: {cancel_error.error_id}, "
-                f"撤单失败具体信息: {cancel_error.error_msg}"
+            self.outer.trade_logger.error(
+                f"撤单失败 | ID={cancel_error.order_id} | 错误: {cancel_error.error_msg}"
             )
-            if cancel_error.order_id in self.outer.execute_order_mgmt:
-                order_info = self.outer.execute_order_mgmt[cancel_error.order_id]
-                order_info["重试状态"] = "CANCEL_FAILED"
-                order_info["更新时间"] = datetime.now()
-
-                # 重试次数计数
-                if "重试次数" in order_info:
-                    order_info["重试次数"] += 1
+            self.outer.order_manager.handle_cancel_failure(cancel_error)
 
     # ---------------------------------------------
     # 定时器
