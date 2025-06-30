@@ -5,7 +5,7 @@ import json
 import threading
 
 from loguru import logger
-from datetime import datetime
+from datetime import datetime, time as time_class
 
 from xtquant import xtdata
 from xtquant.xttrader import XtQuantTrader
@@ -19,15 +19,16 @@ from order_mgmt import OrderManager
 
 xtdata.enable_hello = False
 
-"""
-线程管理：
-    -1 定时器
-    -2 行情监听
-    -3 订单超时
-"""
+
 
 ##############################################################
 class MiniQMTTrader:
+    """
+    线程管理：
+        -1 定时器
+        -2 行情监听（阻塞）
+        -3 订单管理
+    """
 
     # 订单管理类属性
     ORDER_MAX_RETRY = 3                 # 最大重试次数
@@ -58,6 +59,14 @@ class MiniQMTTrader:
         self.session_id = session_id
         self.account_type = account_type
         self.last_data = {}                     # 行情字典（用于交易）
+        self.subscribe_code = None              # 行情订阅号
+
+        # -----------------------------
+        # 线程管理
+        # -----------------------------
+        self.main_thread_blocker = threading.Event()                # 主线程阻塞器
+        self.trading_end_time = time_class(15, 0)      # 交易结束时间(15:00)
+        self.market_thread = None
 
         # -----------------------------
         # 日志
@@ -90,7 +99,7 @@ class MiniQMTTrader:
             raise ConnectionError(f"交易连接失败，错误码: {connect_result}")
 
         # -----------------------------
-        # 订阅行情
+        # 交易
         # -----------------------------
         subscribe_result = self.xt_trader.subscribe(self.account)
         if subscribe_result == 0:
@@ -118,7 +127,7 @@ class MiniQMTTrader:
         # 定时器/心跳检测
         # -----------------------------
         # -1 定时器（守护线程）
-        self.timer = self.RepeatingTimer(timer_interval, self.on_timer)
+        self.timer = self.RepeatingTimer(self, timer_interval, self.on_timer)
         # -2 心跳检测
         self.last_heartbeat = datetime.now()                            # 上次心跳时间
         self.heartbeat_interval = heartbeat_interval                    # 心跳检测间隔(秒)
@@ -189,7 +198,7 @@ class MiniQMTTrader:
                 signals = self.add_market_suffix(signals)
                 self.trade_logger.success(f"成功读取交易信号: {len(signals)}条")
             except json.JSONDecodeError as e:
-                self.trade_logger.error(f"交易信号文件不存在: {signal_file_path}")
+                self.trade_logger.error(f"JSON文件解析错误: {str(e)}")
                 raise ValueError(f"JSON文件解析错误: {str(e)}") from e
 
         # -2 查询当前持仓
@@ -228,17 +237,17 @@ class MiniQMTTrader:
 
     def add_market_suffix(
             self,
-            order_list: list[dict]
+            order: list[dict]
     ) -> list[dict]:
         """
         为股票订单添加交易所市场标识后缀
-        :param order_list: 订单列表，每个订单是包含stock_code和order_type的字典
+        :param order: 订单列表，每个订单是包含stock_code和order_type的字典
         :return: 添加了正确市场后缀的新订单列表
         """
         suffix_orders = []
 
-        for order_list in order_list:
-            code = order_list["股票代码"]
+        for order in order:
+            code = order["股票代码"]
 
             # 根据股票代码开头确定交易所标识
             if code.startswith(('600', '601', '603', '605', '688')):
@@ -256,7 +265,7 @@ class MiniQMTTrader:
             # 创建带后缀的新订单
             suffix_orders.append({
                 "stock_code": code + suffix,
-                "volume": order_list["买入股数"]
+                "volume": order["买入股数"]
             })
 
         return suffix_orders
@@ -282,30 +291,63 @@ class MiniQMTTrader:
     def run(self) -> None:
         """
         -1 启动定时器
-        -2 启动行情监听（阻塞式）
+        -2 订阅行情
+        -3 启动行情监听（非阻塞）
         """
         self.trade_logger.info(f"启动定时器 | 行情监听（阻塞）")
+
         # -1 启动定时器
         self.timer.start()
 
-        # -2 订阅/监听行情数据（阻塞式）
-        subscribe_code = xtdata.subscribe_whole_quote(['SH', 'SZ'], callback=self.on_tick)
-        if subscribe_code == -1:
-            self.market_logger.error(f"订阅全推行情数据失败: {subscribe_code}")
-            raise ConnectionError(f"订阅全推行情数据失败: {subscribe_code}")
+        # -2 订阅行情数据
+        self.subscribe_code = xtdata.subscribe_whole_quote(['SH', 'SZ'], callback=self.on_tick)
+        if self.subscribe_code == -1:
+            self.market_logger.error(f"订阅全推行情数据失败: {self.subscribe_code}")
+            raise ConnectionError(f"订阅全推行情数据失败: {self.subscribe_code}")
         else:
-            self.market_logger.success(f"订阅全推行情数据成功: {subscribe_code}")
-        # 启动监听
-        xtdata.run()
+            self.market_logger.success(f"订阅全推行情数据成功: {self.subscribe_code}")
+
+        # -3 启动行情监听线程（非阻塞/守护线程）
+        self.market_thread = threading.Thread(target=xtdata.run, daemon=True)
+        self.market_thread.start()
+
+    def block_until_end(self) -> None:
+        """
+        主线程阻塞直到交易结束
+        """
+        self.trade_logger.info("主线程进入阻塞状态，等待交易结束...")
+
+        try:
+            # 主线程阻塞，直到交易结束时间或收到关闭信号
+            while True:
+                current_time = datetime.now().time()
+                # 检查是否到达交易结束时间(15:00)
+                if current_time >= self.trading_end_time:
+                    self.trade_logger.info("到达交易结束时间(15:00)，准备关闭系统")
+                    break
+                # 每60秒检查一次
+                time.sleep(60)
+        except KeyboardInterrupt:
+            self.trade_logger.warning("用户中断，准备关闭系统")
 
     def stop(self) -> None:
         """
-        -1 结束定时器
-        -2 结束行情监听
+        停止交易系统（线程安全）
         """
-        # self.timer.cancel()
-        # xtdata.stop()
-        # self.xt_trader.disconnect()
+        self.trade_logger.info("开始关闭交易系统...")
+
+        # -1 停止定时器
+        self.timer.cancel()
+
+        # -2 取消行情订阅
+        if self.subscribe_code is not None:
+            xtdata.unsubscribe_quote(self.subscribe_code)
+            self.subscribe_code = None
+            self.market_logger.success("已取消行情订阅")
+
+        # -3 断开交易连接
+        self.xt_trader.stop()
+        self.trade_logger.success("交易系统已完全停止")
 
     def on_tick(self, data):
         """
@@ -345,7 +387,6 @@ class MiniQMTTrader:
             PS: 模拟盘不支持市价
         :return: 订单ID（用于后续撤单或查询）
         """
-        print(self.last_data[stock_code])
         self.trade_logger.info(
             f"发送订单: stock_code: {stock_code} | price: {price} | volume: {volume} | "
             f"order_type: {order_type} | price_type: {price_type}"
@@ -424,9 +465,11 @@ class MiniQMTTrader:
 
             # -2 生成委托价格：使用五档行情第一档数据
             if order_type == "buy":
-                price = self.last_data[stock_code]["askPrice"][0]
+                ask_price = self.last_data[stock_code].get("askPrice", [])
+                price = ask_price[0] if ask_price else self.last_data[stock_code]["lastPrice"] + 0.01
             else:
-                price = self.last_data[stock_code]["bidPrice"][0]
+                bid_price = self.last_data[stock_code].get("bidPrice", [])
+                price = bid_price[0] if bid_price else self.last_data[stock_code]["lastPrice"] - 0.01
 
             # -3 发送订单
             order_id = self.order_stock(
@@ -609,7 +652,7 @@ class MiniQMTTrader:
                 f"委托数量={order.order_volume}, 已成交={order.traded_volume}, "
             )
             if order:
-                self.outer.order_manager.update_oupdate_orderrder(order)
+                self.outer.order_manager.update_order(order)
 
         def on_order_error(self, order_error):
             """
@@ -638,18 +681,19 @@ class MiniQMTTrader:
     # ---------------------------------------------
     class RepeatingTimer(threading.Timer):
         """继承Threading.Timer并重写run实现循环定时器"""
-        def __init__(self, interval, function):
+        def __init__(self, outer, interval, function):
             super().__init__(interval, function)
+            self.outer = outer
             self.interval = interval
             self.daemon = True
             self.name = "timer"
 
         def run(self):
             while not self.finished.is_set():
-                # try:
-                self.function()
-                # except Exception as e:
-                #     print(f"定时器执行异常: {str(e)}")
+                try:
+                    self.function()
+                except Exception as e:
+                    self.outer.trade_logger.error(f"定时器执行异常: {str(e)}")
                 self.finished.wait(self.interval)
 
 
@@ -664,16 +708,24 @@ if __name__ == "__main__":
         timer_interval=60
     )
 
-    # 订阅全市场数据，传入回调函数 / 启动行情监听（独立守护线程）
-    data_thread = threading.Thread(target=trader.run)
-    data_thread.start()
+    try:
+        # 启动交易系统（非阻塞）
+        trader.run()
+        # 主线程阻塞直到交易结束
+        trader.block_until_end()
+    except Exception as e:
+        trader.trade_logger.error(f"系统异常: {str(e)}")
+    finally:
+        # 确保资源释放
+        trader.stop()
 
-    """
-    9点20 开始
-    15点结束
-    """
     # 行情结束，查询当日总体情况
+    trader.trade_logger.info("交易结束，查询当日总体情况")
     asset = trader.get_asset()
     orders = trader.get_orders()
     trades = trader.get_trades()
     position = trader.get_positions()
+    trader.trade_logger.info(f"当日资产: {asset.total_asset}")
+    trader.trade_logger.info(f"当日委托: {len(orders)}笔")
+    trader.trade_logger.info(f"当日成交: {len(trades)}笔")
+    trader.trade_logger.info(f"持仓数量: {len(position)}只股票")
