@@ -601,6 +601,7 @@ class ModelAnalyzer(QuantService):
             str(date): group
             for date, group in model_df.groupby("date")
         }
+        # pred_df.filter(like='shap_').abs().mean().sort_values(ascending=False)
 
         # ---------------------------------------
         # 模型评估

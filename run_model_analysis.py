@@ -85,24 +85,6 @@ GAN 对抗网络生成模型
 风控
 """
 """
-# 使用SHAP值分析因子贡献
-import shap
-model = train_factor_model()  # 训练预测模型
-explainer = shap.Explainer(model)
-shap_values = explainer(X_test)
-shap.plots.beeswarm(shap_values)  # 可视化因子贡献
-若SHAP值显示因子间存在正负抵消（如因子A推高收益，因子B拉低收益），需调整组合逻辑
-
-# 收益归因示例
-from pyfolio import timeseries
-perf_stats = timeseries.perf_stats(
-    returns=long_only_returns,  # 多头组合收益
-    factor_returns=benchmark_returns,  # 基准收益
-    positions=None, 
-    transactions=None
-)
-print(perf_stats['Annualized alpha'])  # 若alpha为负则选股失效
-
 市场环境分析
 不同市场下的收益率表现
 """
@@ -154,23 +136,24 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "20250530-WEEK-跟踪"
-    storage_dir = "标准分类/测试"
+    source_dir = "实盘20250629"
+    storage_dir = "shap/线性模型-测试"
 
     # filter_mode: FILTER_MODE = "_entire_filter"
+    # 实盘需要用 _white_filter
     filter_mode: FILTER_MODE = "_small_cap_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="xgboostCla",
+        model="traditionalLinearReg",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},
 
         # 策略分配资金
-        total_capital = 2000000,
+        total_capital = 20000000,
         # 策略生成交易文件
-        generate_trade_file=False,
+        generate_trade_file=True,
 
         # 目标因子
         factor_filter=False,

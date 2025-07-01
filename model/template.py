@@ -7,6 +7,7 @@ from sklearn.metrics import (
     f1_score, matthews_corrcoef, precision_score, recall_score
 )
 
+import shap
 import numpy as np
 import pandas as pd
 
@@ -224,6 +225,84 @@ class ModelTemplate:
 
         return pd.Series(metrics)
 
+    @staticmethod
+    def shap_for_multiclass(
+            model,
+            factors_name: list[str],
+            x_true: pd.Series,
+            y_true: list[str],
+            y_predict: list[str],
+    ) -> pd.DataFrame:
+        """
+        基于shap的归因分析（多分类模型）
+        :param model: 模型
+        :param factors_name: 因子名
+        :param x_true: 待解释数据集
+        :param y_true: 真实标签
+        :param y_predict: 预测标签
+        :return 预测、真实的shap值，以及二者差值
+        """
+        # -1 解释器
+        explainer = shap.TreeExplainer(model)
+        # -2 SHAP值（[样本数，特征数，类别]）
+        shap_values = explainer.shap_values(x_true)
+        # -3 预测类别的SHAP值
+        pred_shap = shap_values[np.arange(len(x_true)), :, y_predict]
+        # -4 真实类别的SHAP值
+        true_shap = shap_values[np.arange(len(x_true)), :, y_true]
+        # -5 差异分析（定位认知偏差）
+        delta_shap = pred_shap - true_shap
+
+        # -6 数据整合
+        shap_pred_df = pd.DataFrame(
+            pred_shap,
+            columns=[f'shap_{col}_pred' for col in factors_name],
+            index=x_true.index
+        )
+        shap_true_df = pd.DataFrame(
+            true_shap,
+            columns=[f'shap_{col}_true' for col in factors_name],
+            index=x_true.index
+        )
+        shap_delta_df = pd.DataFrame(
+            delta_shap,
+            columns=[f'shap_{col}_delta' for col in factors_name],
+            index=x_true.index
+        )
+
+        # 合并最终结果
+        return pd.concat(
+            [shap_pred_df, shap_true_df, shap_delta_df],
+            axis=1
+        )
+
+    @staticmethod
+    def shape_for_linear(
+            model,
+            factors_name: list[str],
+            x_train: pd.DataFrame,
+            x_true: pd.DataFrame,
+    ):
+        """
+        基于shap的归因分析（多分类模型）
+        :param model: 模型
+        :param factors_name: 因子名
+        :param x_train: 训练集
+        :param x_true: 测试集
+        :return 预测shap值
+        """
+        # -1 解释器
+        explainer = shap.LinearExplainer(model, x_train)
+        # -2 SHAP值（[样本数，特征数，类别]）
+        shap_values = explainer.shap_values(x_true)
+        # -3 预测类别的SHAP值（即模型预测值的解释）
+        pred_shap = shap_values
+
+        return pd.DataFrame(
+            pred_shap,
+            columns=[f'shap_{col}_pred' for col in factors_name],
+            index=x_true.index
+        )
 
     # ------------------------------------------
     # 其他

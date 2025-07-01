@@ -166,24 +166,23 @@ class XGBoostClassificationModel(ModelTemplate):
                 input_df.loc[input_df["date"] == predict_date, y_col]
             )
             # -3 模型预测
-            true_df["predict"] = model.predict(x_true)
+            y_predict = model.predict(x_true)
+
             # -4 标签转换 连续整数 -> 离散字符
             true_df["predict"] = pd.Series(
-                self.le.inverse_transform(true_df["predict"]),
+                self.le.inverse_transform(y_predict),
                 index=true_df.index
             )
 
             # ====================
             # 归因分析（多分类）
             # ====================
-            explainer = shap.TreeExplainer(model)
-            print(explainer.shap_values(x_true))
-            print([f"shap_{col}" for col in x_cols])
-            print(x_true.index)
-            shap_df = pd.DataFrame(
-                explainer.shap_values(x_true),
-                columns=[f"shap_{col}" for col in x_cols],
-                index=x_true.index  # 保持与原始数据索引一致
+            shap_df = self.shap_for_multiclass(
+                model,
+                factors_name=x_cols,
+                x_true=x_true,
+                y_true=self.le.transform(y_true),
+                y_predict=y_predict,
             )
             true_df = pd.concat([true_df, shap_df], axis=1)
 
@@ -259,5 +258,5 @@ class XGBoostClassificationModel(ModelTemplate):
             "模型": pred_df,
             "模型评估": estimate_metric,
             "因子相关性": corr_df,
-            "因子shap值": pred_df.filter(like='shap_').abs().mean().sort_values(ascending=False)
+            "因子shap值": pred_df.filter(like='shap_')
         }

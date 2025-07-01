@@ -223,11 +223,11 @@ class LinearRegressionTraditionalModel(ModelTemplate):
             # ====================
             # 归因分析
             # ====================
-            explainer = shap.LinearExplainer(model, x_train)
-            shap_df = pd.DataFrame(
-                explainer.shap_values(x_true),
-                columns=[f"shap_{col}" for col in x_cols],
-                index=x_true.index  # 保持与原始数据索引一致
+            shap_df = self.shape_for_linear(
+                model,
+                factors_name=x_cols,
+                x_train=x_train,
+                x_true=x_true
             )
             true_df = pd.concat([true_df, shap_df], axis=1)
 
@@ -313,9 +313,11 @@ class LinearRegressionTraditionalModel(ModelTemplate):
             window=self.model_setting.factor_weight_window
         )
 
+        print( pred_df.filter(like='shap_'))
+        print(dd)
         return {
             "模型": pred_df,
             "模型评估": estimate_metric,
             "因子相关性": corr_df,
-            "因子shap值": pred_df.filter(like='shap_').abs().mean().sort_values(ascending=False)
+            "因子shap值": pred_df.filter(like='shap_')
         }
