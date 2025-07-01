@@ -257,13 +257,12 @@ class PortfolioOptimizer:
         """
         weights = self.weights
         latest_prices = last_price[weights.index.tolist()]
-
         da = DiscreteAllocation(
             weights.to_dict(),
             latest_prices,
             total_portfolio_value=total_portfolio_value
         )
-        alloc, leftover = da.lp_portfolio()
+        alloc, _ = da.greedy_portfolio()
         alloc = {stock: shares // 100 * 100 for stock, shares in alloc.items()}
 
         return pd.Series(alloc, name="买入股数")

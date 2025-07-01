@@ -197,9 +197,9 @@ class MiniQMTTrader:
                 signals = json.load(f)
                 signals = self.add_market_suffix(signals)
                 self.trade_logger.success(f"成功读取交易信号: {len(signals)}条")
-            except json.JSONDecodeError as e:
-                self.trade_logger.error(f"JSON文件解析错误: {str(e)}")
-                raise ValueError(f"JSON文件解析错误: {str(e)}") from e
+            except json.JSONDecodeError as e_:
+                self.trade_logger.error(f"JSON文件解析错误: {str(e_)}")
+                raise ValueError(f"JSON文件解析错误: {str(e_)}") from e_
 
         # -2 查询当前持仓
         positions = self.get_positions()
@@ -371,9 +371,9 @@ class MiniQMTTrader:
 
     def order_stock(
             self,
-            stock_code,
-            price,
-            volume,
+            stock_code: str,
+            price: float,
+            volume: int,
             order_type: str = "buy",
             price_type=1
     ) -> int:
@@ -396,7 +396,7 @@ class MiniQMTTrader:
             account=self.account,
             stock_code=stock_code,
             order_type=xtconstant.STOCK_BUY if order_type == "buy" else xtconstant.STOCK_SELL,
-            order_volume=int(volume),
+            order_volume=volume,
             price_type=price_type,
             price=price
         )
@@ -404,6 +404,44 @@ class MiniQMTTrader:
             self.trade_logger.error(f"订单发送失败")
         else:
             self.trade_logger.success(f"订单发送成功 -> 订单ID: {order_id}")
+
+        return order_id
+
+    def order_stock_async(
+            self,
+            stock_code: str,
+            price: float,
+            volume: int,
+            order_type: str = "buy",
+            price_type: int = 1
+    ) -> int:
+        """
+        异步股票下单（非阻塞）
+        :param stock_code: 股票代码
+        :param price: 价格（市价单可填0）
+        :param volume: 数量
+        :param order_type: 交易方向，buy/sell
+        :param price_type: 价格类型，0=市价单，1=限价单
+        :return: 订单ID（用于后续撤单或查询）
+        """
+        self.trade_logger.info(
+            f"发送异步订单: stock_code={stock_code}, price={price}, "
+            f"volume={volume}, type={order_type}, price_type={price_type}"
+        )
+
+        order_id = self.xt_trader.order_stock_async(
+            account=self.account,
+            stock_code=stock_code,
+            order_type=xtconstant.STOCK_BUY if order_type == "buy" else xtconstant.STOCK_SELL,
+            order_volume=volume,
+            price_type=price_type,
+            price=price,
+        )
+
+        if order_id == -1:
+            self.trade_logger.error("异步订单发送失败")
+        else:
+            self.trade_logger.success(f"异步订单已提交，ID: {order_id}")
 
         return order_id
 
@@ -472,7 +510,7 @@ class MiniQMTTrader:
                 price = bid_price[0] if bid_price else self.last_data[stock_code]["lastPrice"] - 0.01
 
             # -3 发送订单
-            order_id = self.order_stock(
+            order_id = self.order_stock_async(
                 stock_code=stock_code,
                 price=round(price, 2),
                 volume=volume,
@@ -521,8 +559,8 @@ class MiniQMTTrader:
                 # -3 清理终态订单
                 self.order_manager.cleanup_finalized()
 
-            except Exception as e:
-                self.trade_logger.error(f"超时检查异常: {str(e)}")
+            except Exception as e_:
+                self.trade_logger.error(f"超时检查异常: {str(e_)}")
 
     def _retry_failed_orders(self) -> None:
         """重试失败订单（非即时敏感操作）"""
@@ -584,7 +622,8 @@ class MiniQMTTrader:
             if asset_ is not None:
                 return True
             return False
-        except:
+        except Exception as e_:
+            self.trade_logger.error(f"交易连接验证失败: {e_}")
             return False
 
     # ---------------------------------------------
@@ -633,6 +672,24 @@ class MiniQMTTrader:
                 f"委托数量={order.order_volume}, 已成交={order.traded_volume}, "
             )
             self.outer.order_manager.update_order(order)
+
+        def on_order_stock_async_response(self, response):
+            """
+            异步下单初始响应回调
+            :param response: XtOrderResponse对象
+                PS: 仅反馈请求是否被接收，不包含订单实际状态
+            """
+            if response.error_id != 0:
+                # 异步下单失败处理
+                self.outer.trade_logger.error(
+                    f"异步下单失败 | ID={response.order_id} | "
+                    f"错误码: {response.error_id} | 错误信息: {response.error_msg}"
+                )
+            else:
+                # 异步下单成功受理
+                self.outer.trade_logger.success(
+                    f"异步订单已被柜台受理 | ID={response.order_id}"
+                )
 
         def on_stock_trade(self, trade):
             """
@@ -692,8 +749,8 @@ class MiniQMTTrader:
             while not self.finished.is_set():
                 try:
                     self.function()
-                except Exception as e:
-                    self.outer.trade_logger.error(f"定时器执行异常: {str(e)}")
+                except Exception as e_:
+                    self.outer.trade_logger.error(f"定时器执行异常: {str(e_)}")
                 self.finished.wait(self.interval)
 
 

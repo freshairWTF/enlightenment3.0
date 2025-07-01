@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from xgboost import XGBRegressor
 
+import shap
 import pandas as pd
 
 from template import ModelTemplate
@@ -171,7 +172,18 @@ class XGBoostRegressionModel(ModelTemplate):
             )
 
             # ====================
-            # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
+            # 归因分析
+            # ====================
+            explainer = shap.TreeExplainer(model)
+            shap_df = pd.DataFrame(
+                explainer.shap_values(x_true),
+                columns=[f"shap_{col}" for col in x_cols],
+                index=x_true.index  # 保持与原始数据索引一致
+            )
+            true_df = pd.concat([true_df, shap_df], axis=1)
+
+            # ====================
+            # 数据整合（原值、预测收益率/分组、仓位权重、实际股数、shap值）
             # ====================
             result_dfs.append(true_df)
 
@@ -232,5 +244,6 @@ class XGBoostRegressionModel(ModelTemplate):
         return {
             "模型": pred_df,
             "模型评估": estimate_metric,
-            "因子相关性": corr_df
+            "因子相关性": corr_df,
+            "因子shap值": pred_df.filter(like='shap_').abs().mean().sort_values(ascending=False)
         }

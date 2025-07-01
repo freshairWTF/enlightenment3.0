@@ -664,6 +664,9 @@ class ModelAnalyzer(QuantService):
         self._store_to_excel(return_stats_month, "收益率统计", "月度数据", "a")
         self._store_to_excel(return_stats_year, "收益率统计", "年度数据", "a")
         self._store_to_excel(return_stats_all, "收益率统计", "总体数据", "a")
+        # 因子shap值
+        if "因子shap值" in model_dict:
+            self._store_to_excel(model_dict["因子shap值"], "shap值", mode="w")
         # 交易文件
         if self.model_setting.generate_trade_file:
             self._store_purchased_shares(
