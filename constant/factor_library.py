@@ -1291,9 +1291,36 @@ FACTOR_TEST = {
     #     cycle="week",
     #     primary_classification="基本面因子",
     #     secondary_classification="估值因子",
-    #     market_value_neutral=True,
     #     reverse=True
     # ),
+    # "营业收入": FactorSetting(
+    #     factor_name="营业收入_yoy",
+    #     cycle="week",
+    #     primary_classification="基本面因子",
+    #     secondary_classification="估值因子",
+    #     reverse=False
+    # ),
+    "barra换手率": FactorSetting(
+        factor_name="barra换手率",
+        cycle="week",
+        primary_classification="基本面因子",
+        secondary_classification="估值因子",
+        reverse=True
+    ),
+    "barra市场贝塔": FactorSetting(
+        factor_name="barra市场贝塔",
+        cycle="week",
+        primary_classification="基本面因子",
+        secondary_classification="估值因子",
+        reverse=False
+    ),
+    "账面市值比": FactorSetting(
+        factor_name="账面市值比",
+        cycle="week",
+        primary_classification="基本面因子",
+        secondary_classification="估值因子",
+        reverse=False
+    ),
     # "close-1": FactorSetting(
     #     factor_name="close",
     #     primary_classification="基本面因子",

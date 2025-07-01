@@ -121,9 +121,15 @@ MODEL = {
     "linearReg": LinearRegressionModel,
     "traditionalLinearReg": LinearRegressionTraditionalModel,
     "linearTestReg": LinearRegressionTestModel,
+
     "xgboostReg": XGBoostRegressionModel,
     "xgboostCVReg": XGBoostRegressionCVModel,
+
     "xgboostCla": XGBoostClassificationModel,
+    "xgboostClaNS": XGBoostClassificationNSModel,
+    "xgboostClaCV": XGBoostClassificationCVModel,
+    "xgboostClaNSCV": XGBoostClassificationNSCVModel,
+
     "randomForestReg": RandomForestClassificationModel,
 
     "fightLinearReg": FightLinearRegressionModel,
@@ -148,15 +154,15 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "实盘20250629"
-    storage_dir = "归因分析/测试"
+    source_dir = "20250530-WEEK-跟踪"
+    storage_dir = "标准分类/测试"
 
     # filter_mode: FILTER_MODE = "_entire_filter"
     filter_mode: FILTER_MODE = "_small_cap_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="traditionalLinearReg",
+        model="xgboostCla",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},

@@ -819,22 +819,24 @@ class Classification:
     def divide_into_group(
             cls,
             factor_values: pd.DataFrame,
-            factor_col: str,
             processed_factor_col: str,
             group_mode: GROUP_MODE,
             group_nums: int,
             group_label: list[str],
-            negative: bool = False
+            factor_col: str = "",
+            negative: bool = False,
+            full_data: bool = False
     ) -> pd.DataFrame:
         """
         分组 -1等距 distant；-2 等频 frequency
         :param factor_values: 分组数据
-        :param factor_col: 分组因子列名
         :param processed_factor_col: 分组预处理因子列名
         :param group_mode: 分组模式
         :param group_nums: 分组数
         :param group_label: 分组标签
+        :param factor_col: 分组因子列名（原因子需要负值单列时给出原因子名）
         :param negative: 负值单列
+        :param full_data: 返回完整数据（不因分箱失败而舍弃数据）
         """
         method = {
             "distant": cls.distant,
@@ -850,6 +852,9 @@ class Classification:
                 result_df.append(df)
             except Exception as e:
                 print(f"分组出现错误: {date} | {e} -> {df.shape} - {group_nums}")
+                if full_data:
+                    df["group"] = np.nan
+                    result_df.append(df)
                 continue
 
         return pd.concat(result_df)

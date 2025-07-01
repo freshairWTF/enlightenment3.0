@@ -10,8 +10,8 @@ from template import ModelTemplate
 
 
 ########################################################################
-class XGBoostClassificationModel(ModelTemplate):
-    """XGBoost分类模型"""
+class XGBoostClassificationCVModel(ModelTemplate):
+    """XGBoost分类模型（超参调优）"""
 
     def __init__(
             self,
@@ -36,6 +36,16 @@ class XGBoostClassificationModel(ModelTemplate):
         # 分类器参数
         self.keep_cols.append("group")
         self.le = LabelEncoder()                                                # 标签转换实例
+
+        # 超参数网格
+        # n_estimators/learning_rate
+        # max_depth/min_child_weight/gamma
+        # reg_alpha/reg_lambda
+        # subsample/colsample_bytree
+        self.model_param_grid = {
+            'learning_rate': [0.01, 0.05, 0.1],
+            'n_estimators': [10, 50, 100, 500, 1000, 3000, 5000]
+        }
 
     def _pre_processing(
             self,
@@ -122,6 +132,10 @@ class XGBoostClassificationModel(ModelTemplate):
         :param window: 滚动窗口长度
         :return: 预期收益率
         """
+        """
+        测试下过采样
+        以及 分类加权 哪种效果好
+        """
         # 按日期排序并转换为列表
         sorted_dates = sorted(input_df["date"].unique())
 
@@ -141,12 +155,13 @@ class XGBoostClassificationModel(ModelTemplate):
                 input_df.loc[input_df["date"].isin(train_window), x_cols],
                 input_df.loc[input_df["date"].isin(train_window), y_col]
             )
+            # -3 过采样（平衡训练集）
+            x_train, y_train = self.utils.feature.over_sampling(x_train, y_train)
             # -4 标签转换 离散字符 -> 连续整数
             y_train = pd.Series(
                 self.le.fit_transform(y_train),
                 index=y_train.index
             )
-
             # -5 训练模型
             model = XGBClassifier(objective='multi:softmax')
             model.fit(
@@ -224,7 +239,6 @@ class XGBoostClassificationModel(ModelTemplate):
             group_nums=self.model_setting.group_nums,
             group_label=self.model_setting.group_label
         )
-
 
         # ----------------------------------
         # 因子降维

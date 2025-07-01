@@ -10,8 +10,8 @@ from template import ModelTemplate
 
 
 ########################################################################
-class XGBoostClassificationModel(ModelTemplate):
-    """XGBoost分类模型"""
+class XGBoostClassificationNSModel(ModelTemplate):
+    """XGBoost分类模型（非标）"""
 
     def __init__(
             self,
@@ -33,9 +33,24 @@ class XGBoostClassificationModel(ModelTemplate):
         )
         self.index_data = index_data
 
-        # 分类器参数
-        self.keep_cols.append("group")
+        # 分组实参
+        self.group_condition = [
+            lambda df: df["pctChg"] < df["pctChg"].quantile(0.05),
+            lambda df: ((df["pctChg"] <= df["pctChg"].quantile(0.95)) &
+                        (df["pctChg"] >= df["pctChg"].quantile(0.05))),
+            lambda df: df["pctChg"] > df["pctChg"].quantile(0.95),
+        ]
         self.le = LabelEncoder()                                                # 标签转换实例
+
+        # 超参数网格
+        # n_estimators/learning_rate
+        # max_depth/min_child_weight/gamma
+        # reg_alpha/reg_lambda
+        # subsample/colsample_bytree
+        self.model_param_grid = {
+            'learning_rate': [0.01, 0.05, 0.1],
+            'n_estimators': [10, 50, 100, 500, 1000, 3000, 5000]
+        }
 
     def _pre_processing(
             self,
@@ -53,6 +68,7 @@ class XGBoostClassificationModel(ModelTemplate):
         :param prefix: 预处理生成因子前缀
         :return: 处理过的数据
         """
+
         def __process_single_date(
                 df_: pd.DataFrame,
         ) -> pd.DataFrame:
@@ -60,22 +76,14 @@ class XGBoostClassificationModel(ModelTemplate):
             for setting in self.factors_setting:
                 factor_name = setting.factor_name
                 processed_col = f"{prefix}_{factor_name}"
+
                 df_[processed_col] = df_[factor_name].copy()
-
-                # -1 方向变化
-                if setting.reverse:
-                    df_[processed_col] *= -1
-
-                # -2 正态变换
-                if setting.transfer:
-                    df_[processed_col] = self.processor.refactor.yeo_johnson_transfer(df_[processed_col])
-
-                # -3 第一次 去极值、标准化
+                # -1 第一次 去极值、标准化
                 df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
                     df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
 
-                # -4 中性化
+                # -2 中性化
                 if setting.market_value_neutral:
                     df_[processed_col] = self.processor.neutralization.log_market_cap(
                         df_[processed_col],
@@ -89,7 +97,7 @@ class XGBoostClassificationModel(ModelTemplate):
                         df_["行业"]
                     )
 
-                # -5 第二次 去极值、标准化
+                # -3 第二次 去极值、标准化
                 df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
                     df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
@@ -122,6 +130,10 @@ class XGBoostClassificationModel(ModelTemplate):
         :param window: 滚动窗口长度
         :return: 预期收益率
         """
+        """
+        测试下过采样
+        以及 分类加权 哪种效果好
+        """
         # 按日期排序并转换为列表
         sorted_dates = sorted(input_df["date"].unique())
 
@@ -141,12 +153,13 @@ class XGBoostClassificationModel(ModelTemplate):
                 input_df.loc[input_df["date"].isin(train_window), x_cols],
                 input_df.loc[input_df["date"].isin(train_window), y_col]
             )
+            # -3 过采样（平衡训练集）
+            x_train, y_train = self.utils.feature.over_sampling(x_train, y_train)
             # -4 标签转换 离散字符 -> 连续整数
             y_train = pd.Series(
                 self.le.fit_transform(y_train),
                 index=y_train.index
             )
-
             # -5 训练模型
             model = XGBClassifier(objective='multi:softmax')
             model.fit(
@@ -214,17 +227,15 @@ class XGBoostClassificationModel(ModelTemplate):
         # ----------------------------------
         # 数值处理
         # ----------------------------------
-        # 数据预处理
-        self.input_df = self._pre_processing(self.input_df)
-        # 标签预设
-        self.input_df = self.processor.classification.divide_into_group(
+        self.input_df = self.processor.classification.custom_divide_into_group(
             self.input_df,
-            processed_factor_col="pctChg",
-            group_mode=self.model_setting.group_mode,
             group_nums=self.model_setting.group_nums,
-            group_label=self.model_setting.group_label
+            group_label=self.model_setting.group_label,
+            group_condition=self.group_condition
         )
 
+        self.input_df = self._direction_reverse(self.input_df)
+        self.input_df = self._pre_processing(self.input_df)
 
         # ----------------------------------
         # 因子降维

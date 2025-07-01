@@ -190,12 +190,15 @@ class LinearRegressionTestModel(ModelTemplate):
             # -2 权重（分组）
             weights_series = []
             for _, group_df in true_df.groupby("group"):
-                weights = self.portfolio_optimizer(
+                weights, _ = self.portfolio_optimizer(
                     price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
                     volume_df=volume_df[group_df["股票代码"].tolist()],
-                    industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())]
+                    industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())],
+                    allocation=True if predict_date == sorted_dates[-1] else False,
+                    last_price_series=portfolio_df.pivot(index="date", columns="股票代码", values="close").iloc[-1]
                 )
                 weights_series.append(weights)
+
             # -3 合并
             true_df = pd.merge(
                 true_df,
