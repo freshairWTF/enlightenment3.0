@@ -172,11 +172,15 @@ class XGBoostClassificationModel(ModelTemplate):
                 self.le.inverse_transform(true_df["predict"]),
                 index=true_df.index
             )
-
+            print(true_df)
+            print(true_df.columns)
             # ====================
             # 归因分析
             # ====================
             explainer = shap.TreeExplainer(model)
+            print(explainer.shap_values(x_true))
+            print([f"shap_{col}" for col in x_cols])
+            print(x_true.index)
             shap_df = pd.DataFrame(
                 explainer.shap_values(x_true),
                 columns=[f"shap_{col}" for col in x_cols],
