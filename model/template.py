@@ -56,6 +56,9 @@ class ModelTemplate:
         self.keep_cols += descriptive_factors
         self.keep_cols = list(set(self.keep_cols))
 
+    # ------------------------------------------
+    # 因子降维
+    # ------------------------------------------
     def _factors_weighting(
             self,
             input_df: pd.DataFrame,
@@ -134,6 +137,9 @@ class ModelTemplate:
             keep_cols=self.keep_cols
         )
 
+    # ------------------------------------------
+    # 最优化
+    # ------------------------------------------
     def portfolio_optimizer(
             self,
             price_df: pd.DataFrame,
@@ -184,6 +190,9 @@ class ModelTemplate:
 
         return weights, alloc
 
+    # ------------------------------------------
+    # 评估方法
+    # ------------------------------------------
     @classmethod
     def calculate_regression_metrics(
             cls,
@@ -215,6 +224,10 @@ class ModelTemplate:
 
         return pd.Series(metrics)
 
+
+    # ------------------------------------------
+    # 其他
+    # ------------------------------------------
     def _direction_reverse(
             self,
             input_df: pd.DataFrame
