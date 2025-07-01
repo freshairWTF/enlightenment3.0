@@ -1,5 +1,6 @@
 """xtquant策略测试"""
 import os
+import sys
 import time
 import json
 import threading
@@ -19,6 +20,11 @@ from order_mgmt import OrderManager
 
 xtdata.enable_hello = False
 
+"""
+9点20之后才能接受数据
+9点25-9点30也能有行情
+一旦策略订单发送完毕，不再重复记录
+"""
 
 
 ##############################################################
@@ -58,15 +64,17 @@ class MiniQMTTrader:
         self.account_id = account_id
         self.session_id = session_id
         self.account_type = account_type
-        self.last_data = {}                     # 行情字典（用于交易）
-        self.subscribe_code = None              # 行情订阅号
+        self.last_data = {}                                     # 行情字典（用于交易）
+        self.subscribe_code = None                              # 行情订阅号
+        self.data_start_time = time_class(9, 20)   # 行情数据开始时间(9:20)
+        self.trading_end_time = time_class(15, 0)  # 交易结束时间(15:00)
 
         # -----------------------------
         # 线程管理
         # -----------------------------
-        self.main_thread_blocker = threading.Event()                # 主线程阻塞器
-        self.trading_end_time = time_class(15, 0)      # 交易结束时间(15:00)
-        self.market_thread = None
+        self.main_thread_blocker = threading.Event()                            # 主线程阻塞器
+        self.market_thread = None                                               # 行情监听线程
+        self.timer = self.RepeatingTimer(self, timer_interval, self.on_timer)   # 定时器
 
         # -----------------------------
         # 日志
@@ -124,11 +132,8 @@ class MiniQMTTrader:
         self.timeout_checker.start()
 
         # -----------------------------
-        # 定时器/心跳检测
+        # 心跳检测
         # -----------------------------
-        # -1 定时器（守护线程）
-        self.timer = self.RepeatingTimer(self, timer_interval, self.on_timer)
-        # -2 心跳检测
         self.last_heartbeat = datetime.now()                            # 上次心跳时间
         self.heartbeat_interval = heartbeat_interval                    # 心跳检测间隔(秒)
 
@@ -139,9 +144,11 @@ class MiniQMTTrader:
     def _set_logger() -> None:
         """设置日志"""
         # 移除默认处理器
-        # logger.remove()
+        logger.remove()
 
-        # -1 交易日志
+        # --------------------------------
+        # -1 交易日志（trade.log）
+        # --------------------------------
         logger.add(
             "trade.log",
             format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
@@ -152,18 +159,22 @@ class MiniQMTTrader:
             level="INFO",
             backtrace=True
         )
-        # -2 市场行情日志
+        # --------------------------------
+        # -2 市场行情日志（market.log）
+        # --------------------------------
         logger.add(
             "market.log",
             format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
             filter=lambda record: record["extra"].get("func") == "market",
-            rotation="00:00",
-            retention="365 days",
+            rotation="100 MB",
+            retention="7 days",
             enqueue=True,
             level="INFO",
             backtrace=True
         )
-        # -3 错误日志
+        # --------------------------------
+        # -3 错误日志（error.log）
+        # --------------------------------
         logger.add(
             "error.log",
             format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
@@ -173,6 +184,15 @@ class MiniQMTTrader:
             enqueue=True,
             level="ERROR",
             backtrace=True
+        )
+        # --------------------------------
+        # 4. 控制台输出配置（排除market日志）
+        # --------------------------------
+        logger.add(
+            sink=sys.stdout,  # 输出到控制台
+            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | {message}",
+            filter=lambda record: record["extra"].get("func") != "market",  # 关键过滤：跳过market日志[6,7](@ref)
+            level="INFO"
         )
 
     def _get_pending_order_btw_signals_and_position(
@@ -353,8 +373,10 @@ class MiniQMTTrader:
         """
         事件驱动处理方法: 仅用于接收、存储最新行情数据
         """
-        self.market_logger.info(f"接收到行情推送")
-        self.last_data.update(data)
+        current_time = datetime.now().time()
+        if current_time > self.data_start_time:
+            self.market_logger.info(f"接收到行情推送")
+            self.last_data.update(data)
 
     def on_timer(self) -> None:
         """
@@ -434,7 +456,7 @@ class MiniQMTTrader:
             stock_code=stock_code,
             order_type=xtconstant.STOCK_BUY if order_type == "buy" else xtconstant.STOCK_SELL,
             order_volume=volume,
-            price_type=price_type,
+            price_type=xtconstant.FIX_PRICE,
             price=price,
         )
 
@@ -461,9 +483,31 @@ class MiniQMTTrader:
             order_id=order_id
         )
         if resp == -1:
-            self.trade_logger.error(f"订单发送失败")
+            self.trade_logger.error(f"撤单请求发送失败")
         else:
-            self.trade_logger.success(f"订单发送成功 -> 订单ID: {order_id}")
+            self.trade_logger.success(f"撤单请求发送成功 -> 订单ID: {order_id}")
+
+        return resp
+
+    def cancel_order_async(
+            self,
+            order_id
+    ) -> int:
+        """
+        异步股票撤单（非阻塞）
+        :param order_id: 订单编号
+        :return: 是否成功发出撤单指令，0: 成功, -1: 表示撤单失败
+        """
+        self.trade_logger.info(f"撤单: order_id: {order_id}")
+
+        resp = self.xt_trader.cancel_order_stock_async(
+            account=self.account,
+            order_id=order_id
+        )
+        if resp == -1:
+            self.trade_logger.error(f"异步撤单请求发送失败")
+        else:
+            self.trade_logger.success(f"异步撤单请求发送成功 -> 订单ID: {order_id}")
 
         return resp
 
@@ -532,6 +576,15 @@ class MiniQMTTrader:
                     f"volume: {volume} | order_type: {order_type}"
                 )
 
+        # -6 清理已发送订单
+        self.pending_orders = [
+            order for order in self.pending_orders
+            if not (
+                    order["status"] == "SENT"
+                    or (order["status"] == "FAILED" and order["retry_count"] > self.ORDER_MAX_RETRY)
+            )
+        ]
+
     def _check_order_timeout(self) -> None:
         """
         独立线程检查订单超时
@@ -554,7 +607,7 @@ class MiniQMTTrader:
                         f"订单超时未成交 | ID: {order['order_id']} | 尝试撤单"
                     )
                     self.order_manager.mark_canceling(order["order_id"])
-                    self.cancel_order(order["order_id"])
+                    self.cancel_order_async(order["order_id"])
 
                 # -3 清理终态订单
                 self.order_manager.cleanup_finalized()
@@ -573,7 +626,7 @@ class MiniQMTTrader:
                         self.trade_logger.info(
                             f"重试撤单 | ID: {order['order_id']}"
                         )
-                        self.cancel_order(order["order_id"])
+                        self.cancel_order_async(order["order_id"])
 
     # ---------------------------------------------
     # 查询方法
@@ -608,6 +661,7 @@ class MiniQMTTrader:
                 self.callback.on_disconnected()
             # 更新心跳时间戳
             self.last_heartbeat = datetime.now()
+            self.trade_logger.info(f"心跳检测正常，重新计时: {self.last_heartbeat}")
 
     def _check_connection(self) -> bool:
         """
@@ -670,6 +724,7 @@ class MiniQMTTrader:
                 f"订单 信息推送: 订单ID={order.order_id}, 股票代码={order.stock_code}, "
                 f"方向={order.order_type}, 价格={order.price}, "
                 f"委托数量={order.order_volume}, 已成交={order.traded_volume}, "
+                f"委托状态={order.order_status}"
             )
             self.outer.order_manager.update_order(order)
 
@@ -679,17 +734,30 @@ class MiniQMTTrader:
             :param response: XtOrderResponse对象
                 PS: 仅反馈请求是否被接收，不包含订单实际状态
             """
-            if response.error_id != 0:
-                # 异步下单失败处理
-                self.outer.trade_logger.error(
-                    f"异步下单失败 | ID={response.order_id} | "
-                    f"错误码: {response.error_id} | 错误信息: {response.error_msg}"
+            if response.error_id == 0:
+                self.outer.trade_logger.success(
+                    f"异步订单已被柜台受理 | ID: {response.order_id}"
                 )
             else:
-                # 异步下单成功受理
-                self.outer.trade_logger.success(
-                    f"异步订单已被柜台受理 | ID={response.order_id}"
+                self.outer.trade_logger.error(
+                    f"异步下单失败 | ID: {response.order_id}"
                 )
+
+        def on_cancel_order_stock_async_response(self, response):
+            """
+            异步撤单初始响应回调
+            :param response: XtCancelOrderResponse 对象
+            :return:
+            """
+            if response.error_id == 0:
+                self.outer.trade_logger.success(
+                    f"异步撤单已被柜台受理 | ID: {response.order_id}"
+                )
+            else:
+                self.outer.trade_logger.error(
+                    f"异步撤单失败 | ID: {response.order_id}"
+                )
+                self.outer.order_manager.handle_cancel_failure(response.order_id)
 
         def on_stock_trade(self, trade):
             """
@@ -731,7 +799,7 @@ class MiniQMTTrader:
             self.outer.trade_logger.error(
                 f"撤单失败 | ID={cancel_error.order_id} | 错误: {cancel_error.error_msg}"
             )
-            self.outer.order_manager.handle_cancel_failure(cancel_error)
+            self.outer.order_manager.handle_cancel_failure(cancel_error.order_id)
 
     # ---------------------------------------------
     # 定时器
