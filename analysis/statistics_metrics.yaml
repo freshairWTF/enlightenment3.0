@@ -1,0 +1,50 @@
+# ========== 统计指标映射文件 ==========
+
+PARAMETERS_OF_STATISTICS:
+    同比: []
+    环比: []
+    复合增长率: []
+    均值: []
+    中位数: []
+    归一化: []
+    滚动归一化: []
+    扩张归一化: []
+    占比: []
+
+    离散度: []
+    分布形态: []
+    亏损占比: [净利润]
+    行业亏损占比: [净利润]
+    盈亏程度: [净利润]
+    行业盈亏程度: [净利润]
+    资不抵债占比: [所有者权益]
+    库存周期: [营业收入, 存货]
+    库销比: [营业收入, 存货]
+    涨跌幅: []
+    相对涨跌幅: []
+    周期性检测: [营业收入, 净利润]
+
+
+FUNCTION_OF_STATISTICS:
+    同比: _yoy
+    环比: _qoq
+    复合增长率: _cagr
+    均值: _mean
+    中位数: _median
+    归一化: _normalized
+    滚动归一化: _rolling_normalized
+    扩张归一化: _expanding_normalized
+    占比: _proportion
+
+    离散度: _calculate_dispersion
+    分布形态: _calculate_distribution_morphology
+    亏损占比: _proportion_of_loss
+    行业亏损占比: _proportion_of_industry_loss
+    盈亏程度: _degree_of_profit_or_loss
+    行业盈亏程度: _degree_of_industry_profit_or_loss
+    资不抵债占比: _proportion_of_insolvency
+    库存周期: _inventory_cycle
+    库销比: _inventory_to_sales_ratio
+    涨跌幅: _merger_price_change
+    相对涨跌幅: _relative_price_change
+    周期性检测: _periodic_testing
