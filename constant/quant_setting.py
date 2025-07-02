@@ -52,6 +52,8 @@ class ModelSetting:
     group_label: list = None                                        # 分组标签
     group_mode: GROUP_MODE = "frequency"                            # 分组方法
 
+    optimizer_func: str = ""                                        # 最优化目标
+
     secondary_factor_weight_method: FACTOR_WEIGHT = "equal"         # 二级分类因子权重方法
     bottom_factor_weight_method: FACTOR_WEIGHT = "equal"            # 底层因子权重方法
     factor_weight_window: int = 12                                  # 因子权重窗口数

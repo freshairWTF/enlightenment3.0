@@ -136,18 +136,17 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "实盘20250629"
-    storage_dir = "shap/非线性模型-测试"
+    source_dir = "barra因子"
+    storage_dir = "小市值专题/xgboost分类模型-市值"
 
     # filter_mode: FILTER_MODE = "_entire_filter"
-    # 实盘需要用 _white_filter
     filter_mode: FILTER_MODE = "_small_cap_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
         model="xgboostCla",
         cycle="week",
-        factors_setting=list(FACTOR_LIBRARY.values()),
+        factors_setting=list(FACTOR_TEST.values()),
         industry_info={"全部": "三级行业"},
 
         # 目标因子
@@ -166,10 +165,6 @@ if __name__ == "__main__":
         # 分组
         group_nums=10,
         group_mode="frequency",
-
-        # 仓位
-        position_weight_method="group_long_only",
-        position_distribution=(3, 1),
     )
 
     # 回测
