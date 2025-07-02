@@ -100,8 +100,10 @@ from constant.type_ import FILTER_MODE
 # 模型工厂
 # -----------------------------
 MODEL = {
-    "linearReg": LinearRegressionModel,
     "traditionalLinearReg": LinearRegressionTraditionalModel,
+    "traditionalLinearHigherReg": LinearRegressionHigherModel,
+
+    "linearReg": LinearRegressionModel,
     "linearTestReg": LinearRegressionTestModel,
 
     "xgboostReg": XGBoostRegressionModel,
@@ -113,9 +115,6 @@ MODEL = {
     "xgboostClaNSCV": XGBoostClassificationNSCVModel,
 
     "randomForestReg": RandomForestClassificationModel,
-
-    "fightLinearReg": FightLinearRegressionModel,
-    "fightLinearHigherReg": FightLinearRegressionHigherModel,
 }
 
 

@@ -1,28 +1,20 @@
-"""xgboost分类模型"""
+"""
+线性回归模型
+    -1 等频分组
+    -2 大于0后的等频分组
+    -3 大于0占比的仓位缩放
+"""
 from dataclasses import dataclass
-from xgboost import XGBClassifier
-from sklearn.preprocessing import LabelEncoder
+from sklearn.linear_model import LinearRegression
+
 import pandas as pd
 
 from template import ModelTemplate
 
 
 ########################################################################
-class XGBoostClassificationModel(ModelTemplate):
-    """
-    XGBoost分类模型
-        booster	'gbtree'	基学习器类型	使用树模型（CART）作为基础分类器，若需线性模型可改为 'gblinear'
-        max_depth	6	树的最大深度	值越大模型越复杂（易过拟合），典型值范围 3–10
-        n_estimators	100	弱学习器数量	树的数量越多模型越强（但可能过拟合），需与学习率平衡
-        learning_rate	0.3	学习率/步长	值越小需更多树迭代，典型值 0.01–0.2
-        gamma	0	分裂最小损失下降阈值	值越大分裂越保守（正则化作用），常用值 0–1
-        min_child_weight	1	叶子节点样本权重和下限	值越大分裂越保守（防过拟合），典型值 1–10
-        subsample	1	样本采样比例	<1 时可降低过拟合风险（如 0.8）
-        colsample_bytree	1	特征采样比例	<1 时增强多样性（如 0.7–0.9）
-        reg_alpha	0	L1 正则化系数	>0 时增强稀疏性（适合高维特征）
-        reg_lambda	1	L2 正则化系数	控制权重平滑度（防过拟合）
-        objective	'multi:softmax'	多分类目标函数	​需额外指定 num_class（类别数）​，否则报错
-    """
+class LinearRegressionHigherModel(ModelTemplate):
+    """线性回归模型（高于0等频分组）"""
 
     def __init__(
             self,
@@ -43,10 +35,6 @@ class XGBoostClassificationModel(ModelTemplate):
             descriptive_factors
         )
         self.index_data = index_data
-
-        # 分类器参数
-        self.keep_cols.append("group")
-        self.le = LabelEncoder()                                                # 标签转换实例
 
     def _pre_processing(
             self,
@@ -145,44 +133,44 @@ class XGBoostClassificationModel(ModelTemplate):
             # ====================
             # 样本内训练
             # ====================
-            # -1 获取训练窗口数据
+            # 获取训练窗口数据
             train_window = sorted_dates[i - window: i]
-            # -2 获取训练数据
             x_train, y_train = (
                 input_df.loc[input_df["date"].isin(train_window), x_cols],
                 input_df.loc[input_df["date"].isin(train_window), y_col]
             )
-            # -4 标签转换 离散字符 -> 连续整数
-            y_train = pd.Series(
-                self.le.fit_transform(y_train),
-                index=y_train.index
-            )
-
-            # -5 训练模型
-            model = XGBClassifier(objective='multi:softmax')
-            model.fit(
-                x_train,
-                y_train,
-            )
+            # 训练模型
+            try:
+                model = LinearRegression(fit_intercept=True)
+                model.fit(x_train, y_train)
+            except Exception as e:
+                print(str(e))
+                continue
 
             # ====================
             # 样本外预测
             # ====================
-            # -1 获取预测日数据
+            # 获取预测日数据
             predict_date = sorted_dates[i]
-            # -2 获取测试窗口数据
+            # 获取测试窗口数据
             true_df = input_df.loc[input_df["date"] == predict_date]
             x_true, y_true = (
                 input_df.loc[input_df["date"] == predict_date, x_cols],
                 input_df.loc[input_df["date"] == predict_date, y_col]
             )
-            # -3 模型预测
-            y_predict = model.predict(x_true)
+            # 模型预测
+            true_df["predict"] = model.predict(x_true)
 
-            # -4 标签转换 连续整数 -> 离散字符
-            true_df["predict"] = pd.Series(
-                self.le.inverse_transform(y_predict),
-                index=true_df.index
+            # ====================
+            # 预测分组
+            # ====================
+            true_df["group"] = self.processor.classification.frequency(
+                true_df,
+                factor_col="",
+                processed_factor_col="predict",
+                group_nums=self.model_setting.group_nums,
+                group_label=self.model_setting.group_label,
+                negative=False
             )
 
             # ====================
@@ -237,14 +225,21 @@ class XGBoostClassificationModel(ModelTemplate):
                 )
 
             # ====================
-            # 归因分析（多分类）
+            # 总仓位约束
+            # -1 总仓位限制，可能得不到最优解
+            # -2 整体缩放，按照预测大于0的股数
             # ====================
-            shap_df = self.shap_for_multiclass(
+            positive_ratio = (true_df["predict"] > 0).sum() / true_df["predict"].count()
+            true_df["position_weight"] *= positive_ratio
+
+            # ====================
+            # 归因分析
+            # ====================
+            shap_df = self.shape_for_linear(
                 model,
                 factors_name=x_cols,
-                x_true=x_true,
-                y_true=self.le.transform(y_true),
-                y_predict=y_predict,
+                x_train=x_train,
+                x_true=x_true
             )
             true_df = pd.concat([true_df, shap_df], axis=1)
 
@@ -257,7 +252,7 @@ class XGBoostClassificationModel(ModelTemplate):
             # 模型评估
             # ====================
             try:
-                metrics_series = self.calculate_classification_metrics(y_true, true_df["predict"])
+                metrics_series = self.calculate_regression_metrics(y_true, true_df["predict"])
                 metrics_series.name = predict_date
                 metrics.append(metrics_series)
             except ValueError:
@@ -278,41 +273,55 @@ class XGBoostClassificationModel(ModelTemplate):
         # ----------------------------------
         # 数值处理
         # ----------------------------------
-        # 数据预处理
+        # -1 预处理
         self.input_df = self._pre_processing(self.input_df)
-        # 标签预设
-        self.input_df = self.processor.classification.divide_into_group(
+        # -2 对称正交
+        self.input_df = self.utils.feature.factors_orthogonal(
             self.input_df,
-            processed_factor_col="pctChg",
-            group_mode=self.model_setting.group_mode,
-            group_nums=self.model_setting.group_nums,
-            group_label=self.model_setting.group_label
+            factors_name=self.utils.extract.get_factors_synthesis_table(
+                self.factors_setting,
+                mode="THREE_TO_TWO"
+            )
         )
-
 
         # ----------------------------------
         # 因子降维
         # ----------------------------------
-        level_2_df = self._factors_synthesis(
-            self.input_df,
-            mode="THREE_TO_TWO"
+        # -1 因子合成
+        level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
+        # -2 pca降维
+        pca_df = self.utils.feature.pca(
+            level_2_df,
+            factors_synthesis_table=self.utils.extract.get_factors_synthesis_table(
+                self.factors_setting,
+                mode="TWO_TO_ONE"
+            ),
+            keep_cols=self.keep_cols
         )
 
         # ----------------------------------
         # 因子相关性
         # ----------------------------------
         corr_df = self.calculate_factors_corr(
-            factors_df=level_2_df,
-            factors_name=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist()
+            factors_df=pca_df,
+            factors_name=pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()
+        )
+
+        # ----------------------------------
+        # 合成 综合Z值
+        # ----------------------------------
+        comprehensive_z_df = self._factors_synthesis(
+            pca_df,
+            synthesis_table={"综合Z值": pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()}
         )
 
         # ----------------------------------
         # 模型
         # ----------------------------------
         pred_df, estimate_metric = self.model_training_and_predict(
-            input_df=level_2_df,
-            x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
-            y_col="group",
+            input_df=comprehensive_z_df,
+            x_cols=["综合Z值"],
+            y_col="pctChg",
             window=self.model_setting.factor_weight_window
         )
 
@@ -322,3 +331,4 @@ class XGBoostClassificationModel(ModelTemplate):
             "因子相关性": corr_df,
             "因子shap值": pred_df.filter(regex=r'shap_|^date$|^group$', axis=1)
         }
+

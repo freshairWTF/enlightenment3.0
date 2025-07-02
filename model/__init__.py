@@ -14,13 +14,14 @@ from xgboost_classification_NS_CV_model import XGBoostClassificationNSCVModel
 
 from randomforest_classification_model import RandomForestClassificationModel
 
-from fight_linear_regression_model import FightLinearRegressionModel, FightLinearRegressionHigherModel
+from linear_regression_higher_model import LinearRegressionHigherModel
 
 
 __all__ = [
     # 线性
     "LinearRegressionModel",
     "LinearRegressionTraditionalModel",
+    "LinearRegressionHigherModel",
     "LinearRegressionTestModel",
 
     "XGBoostRegressionModel",
@@ -33,8 +34,4 @@ __all__ = [
     "XGBoostClassificationNSCVModel",
 
     "RandomForestClassificationModel",
-
-    # 实盘
-    "FightLinearRegressionModel",
-    "FightLinearRegressionHigherModel",
 ]

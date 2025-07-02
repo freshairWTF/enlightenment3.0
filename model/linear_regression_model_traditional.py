@@ -2,7 +2,6 @@
 from dataclasses import dataclass
 from sklearn.linear_model import LinearRegression
 
-import shap
 import pandas as pd
 
 from template import ModelTemplate
@@ -196,7 +195,7 @@ class LinearRegressionTraditionalModel(ModelTemplate):
                     price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
                     volume_df=volume_df[group_df["股票代码"].tolist()],
                     industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())],
-                    allocation=True if predict_date == sorted_dates[-1] else False,
+                    allocation=True if predict_date == sorted_dates[-1] and self.model_setting.generate_trade_file else False,
                     last_price_series=portfolio_df.pivot(index="date", columns="股票代码", values="close").iloc[-1]
                 )
                 weights_series.append(weights)
