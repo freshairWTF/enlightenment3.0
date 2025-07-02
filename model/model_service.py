@@ -403,51 +403,30 @@ class ModelAnalyzer(QuantService):
         :param cycle: 统计周期("M"/"Y"/"ALL")
         :return: 分组统计DataFrame
         """
-        # 1. 预处理：复制数据 & 转换日期
+        # -1 预处理
         df = shap_df.copy()
         df['date'] = pd.to_datetime(df['date'])
 
-        # 2. 动态识别所有SHAP列
+        # -2 动态识别所有SHAP列
         shap_cols = [col for col in df.columns if "shap" in col]
         if not shap_cols:
             raise ValueError(f"数据中未找到SHAP列")
 
-        # 3. 按周期分组
-        group_keys = ["group"]
+        # -3 按周期分组
         if cycle == 'ALL':
-            pass  # 仅按group分组
+            grouped = df.groupby("group")
         elif cycle:
-            group_keys.append(pd.Grouper(key='date', freq=cycle))
+            grouped = df.groupby([
+                "group",
+                pd.Grouper(key='date', freq=cycle)
+            ])
         else:
-            group_keys.append("date")
+            grouped = df.groupby(["group", "date"])
 
-        grouped = df.groupby(group_keys)
+        # -4 计算均值
+        result = grouped[shap_cols].agg('mean')
 
-        # 4. 定义统计函数
-        def _shap_stats(series):
-            return pd.Series({
-                f"{series.name}_count": series.count(),
-                f"{series.name}_mean": series.mean(),
-                f"{series.name}_median": series.median(),
-                f"{series.name}_std": series.std(),
-                f"{series.name}_min": series.min(),
-                f"{series.name}_max": series.max(),
-                f"{series.name}_q25": series.quantile(0.25),
-                f"{series.name}_q75": series.quantile(0.75)
-            })
-
-        # 5. 聚合计算
-        result_dfs = []
-        for col in shap_cols:
-            # 对每个SHAP列独立计算统计量[8,10](@ref)
-            stats_df = grouped[col].apply(_shap_stats).unstack()
-            stats_df.columns = [f"{col}_{stat}" for stat in stats_df.columns]
-            result_dfs.append(stats_df)
-
-        # 6. 合并结果
-        descriptive = pd.concat(result_dfs, axis=1).reset_index()
-
-        return descriptive
+        return result
 
     def _calc_ic_stats(
             self,
@@ -660,16 +639,6 @@ class ModelAnalyzer(QuantService):
             for date, group in model_df.groupby("date")
         }
 
-        shap_stats = self.calc_shap_stats(model_dict["因子shap值"])
-        print(shap_stats)
-        shap_stats = self.calc_shap_stats(model_dict["因子shap值"], cycle="M")
-        print(shap_stats)
-        shap_stats = self.calc_shap_stats(model_dict["因子shap值"], cycle="Y")
-        print(shap_stats)
-        shap_stats = self.calc_shap_stats(model_dict["因子shap值"], cycle="ALL")
-        print(shap_stats)
-
-        print(dd)
         # ---------------------------------------
         # 模型评估
         # ---------------------------------------
@@ -684,6 +653,11 @@ class ModelAnalyzer(QuantService):
         descriptive_month = self._calc_descriptive_factors(model_df, "M")
         descriptive_year = self._calc_descriptive_factors(model_df, "Y")
         descriptive_all = self._calc_descriptive_factors(model_df, "ALL")
+        # 归因分析
+        shap_stats = self.calc_shap_stats(model_dict["因子shap值"])
+        shap_stats_month = self.calc_shap_stats(model_dict["因子shap值"], cycle="M")
+        shap_stats_year = self.calc_shap_stats(model_dict["因子shap值"], cycle="Y")
+        shap_stats_all = self.calc_shap_stats(model_dict["因子shap值"], cycle="ALL")
         # IC指标群
         ic_stats = self._calc_ic_stats(
             model_data,
@@ -732,6 +706,11 @@ class ModelAnalyzer(QuantService):
         self._store_to_excel(return_stats_month, "收益率统计", "月度数据", "a")
         self._store_to_excel(return_stats_year, "收益率统计", "年度数据", "a")
         self._store_to_excel(return_stats_all, "收益率统计", "总体数据", "a")
+        # 归因分析
+        self._store_to_excel(shap_stats, "归因分析", "颗粒数据", "a")
+        self._store_to_excel(shap_stats_month, "归因分析", "月度数据", "a")
+        self._store_to_excel(shap_stats_year, "归因分析", "年度数据", "a")
+        self._store_to_excel(shap_stats_all, "归因分析", "总体数据", "a")
         # 因子shap值
         if "因子shap值" in model_dict:
             self._store_to_excel(model_dict["因子shap值"], "shap值", mode="w")

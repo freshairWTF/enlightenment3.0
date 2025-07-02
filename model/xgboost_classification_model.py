@@ -2,8 +2,6 @@
 from dataclasses import dataclass
 from xgboost import XGBClassifier
 from sklearn.preprocessing import LabelEncoder
-
-import shap
 import pandas as pd
 
 from template import ModelTemplate

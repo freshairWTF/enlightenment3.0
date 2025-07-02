@@ -137,7 +137,7 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "实盘20250629"
-    storage_dir = "shap/线性模型-测试"
+    storage_dir = "shap/非线性模型-测试"
 
     # filter_mode: FILTER_MODE = "_entire_filter"
     # 实盘需要用 _white_filter
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="traditionalLinearReg",
+        model="xgboostCla",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},
