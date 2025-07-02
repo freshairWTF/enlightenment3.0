@@ -173,6 +173,57 @@ class XGBoostClassificationModel(ModelTemplate):
             )
 
             # ====================
+            # 权重优化（仓位权重、实际股数）
+            # ====================
+            # -1 数据转换
+            portfolio_df = input_df.loc[input_df["date"].isin(
+                sorted_dates[i - window: i+1]),
+                ["date", "股票代码", "close", "行业", "volume", "pctChg"]
+            ]
+            price_df = portfolio_df.pivot(
+                index="date",
+                columns="股票代码",
+                values="pctChg"
+            )
+            volume_df = portfolio_df.pivot(
+                index="date",
+                columns="股票代码",
+                values="volume"
+            )
+            industry_df = portfolio_df.set_index("股票代码")["行业"]
+            # -2 权重（分组）
+            weights_series = []
+            alloc_series = []
+            for _, group_df in true_df.groupby("group"):
+                weights, alloc = self.portfolio_optimizer(
+                    price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
+                    volume_df=volume_df[group_df["股票代码"].tolist()],
+                    industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())],
+                    allocation=True if predict_date == sorted_dates[-1] else False,
+                    last_price_series=portfolio_df.pivot(index="date", columns="股票代码", values="close").iloc[-1]
+                )
+                weights_series.append(weights)
+                if predict_date == sorted_dates[-1] and not alloc.empty:
+                    alloc_series.append(alloc)
+
+            # -3 合并
+            true_df = pd.merge(
+                true_df,
+                pd.concat(weights_series).rename('position_weight'),
+                left_on='股票代码',
+                right_index=True,
+                how='left'
+            )
+            if predict_date == sorted_dates[-1] and alloc_series:
+                true_df = pd.merge(
+                    true_df,
+                    pd.concat(alloc_series).rename('买入股数'),
+                    left_on='股票代码',
+                    right_index=True,
+                    how='left'
+                )
+
+            # ====================
             # 归因分析（多分类）
             # ====================
             shap_df = self.shap_for_multiclass(

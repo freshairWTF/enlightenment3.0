@@ -150,11 +150,6 @@ if __name__ == "__main__":
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},
 
-        # 策略分配资金
-        total_capital = 20000000,
-        # 策略生成交易文件
-        generate_trade_file=True,
-
         # 目标因子
         factor_filter=False,
         factor_filter_mode=["_entire_filter"],

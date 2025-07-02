@@ -42,11 +42,7 @@ class ModelSetting:
     """模型配置信息"""
     model: str                                                      # 模型
     cycle: CYCLE                                                    # 周期
-
-    industry_info: dict[str, str]                                   # 行业信息
-
-    position_weight_method: POSITION_WEIGHT                         # 仓位权重方法
-    position_distribution: tuple[float, float]                      # 仓位集中度
+    industry_info: dict[str, str]                                   # 行业（用以筛选标的池）
 
     factors_setting: list[FactorSetting]                            # 因子设置
     class_level: CLASS_LEVEL = "一级行业"                             # 中性化行业
@@ -69,6 +65,9 @@ class ModelSetting:
 
     total_capital: float | None = None                              # 策略分配资金（用于最优化获取股数）
     generate_trade_file: bool = False                               # 是否生成交易文件
+
+    position_weight_method: POSITION_WEIGHT | None = None           # 仓位权重方法
+    position_distribution: tuple[float, float] | None = None        # 仓位集中度
 
 
 #####################################################
