@@ -47,4 +47,5 @@ class DataPATH:
     QUANT_FACTOR_MONITOR_RESULT = BASE_DIR / "result_data" / "监控因子"
     KLINE_MONITOR_RESULT = BASE_DIR / "result_data" / "监控量价"
 
-    STRATEGIC_TRADING_BOOK = BASE_DIR / "trade" / "trade_signals.json"
+    STRATEGIC_TRADING_BOOK = BASE_DIR / "trade_file" / "trade_signals.json"
+    TRADING_LOGGER = BASE_DIR / "trade_file"

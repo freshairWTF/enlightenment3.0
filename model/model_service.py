@@ -391,6 +391,64 @@ class ModelAnalyzer(QuantService):
                         "仓位均值", "标准差", "换手率", "交易费率"]
         return agg_stats[column_order]
 
+    @classmethod
+    def calc_shap_stats(
+            cls,
+            shap_df: pd.DataFrame,
+            cycle: str = "",
+    ) -> pd.DataFrame:
+        """
+        计算多SHAP列的分组描述统计（无权重版）
+        :param shap_df: 含date, group及多个shap_*列的DataFrame
+        :param cycle: 统计周期("M"/"Y"/"ALL")
+        :return: 分组统计DataFrame
+        """
+        # 1. 预处理：复制数据 & 转换日期
+        df = shap_df.copy()
+        df['date'] = pd.to_datetime(df['date'])
+
+        # 2. 动态识别所有SHAP列
+        shap_cols = [col for col in df.columns if "shap" in col]
+        if not shap_cols:
+            raise ValueError(f"数据中未找到SHAP列")
+
+        # 3. 按周期分组
+        group_keys = ["group"]
+        if cycle == 'ALL':
+            pass  # 仅按group分组
+        elif cycle:
+            group_keys.append(pd.Grouper(key='date', freq=cycle))
+        else:
+            group_keys.append("date")
+
+        grouped = df.groupby(group_keys)
+
+        # 4. 定义统计函数
+        def _shap_stats(series):
+            return pd.Series({
+                f"{series.name}_count": series.count(),
+                f"{series.name}_mean": series.mean(),
+                f"{series.name}_median": series.median(),
+                f"{series.name}_std": series.std(),
+                f"{series.name}_min": series.min(),
+                f"{series.name}_max": series.max(),
+                f"{series.name}_q25": series.quantile(0.25),
+                f"{series.name}_q75": series.quantile(0.75)
+            })
+
+        # 5. 聚合计算
+        result_dfs = []
+        for col in shap_cols:
+            # 对每个SHAP列独立计算统计量[8,10](@ref)
+            stats_df = grouped[col].apply(_shap_stats).unstack()
+            stats_df.columns = [f"{col}_{stat}" for stat in stats_df.columns]
+            result_dfs.append(stats_df)
+
+        # 6. 合并结果
+        descriptive = pd.concat(result_dfs, axis=1).reset_index()
+
+        return descriptive
+
     def _calc_ic_stats(
             self,
             grouped_data: dict[str, pd.DataFrame],
@@ -602,7 +660,15 @@ class ModelAnalyzer(QuantService):
             for date, group in model_df.groupby("date")
         }
 
-        print(model_dict["因子shap值"])
+        shap_stats = self.calc_shap_stats(model_dict["因子shap值"])
+        print(shap_stats)
+        shap_stats = self.calc_shap_stats(model_dict["因子shap值"], cycle="M")
+        print(shap_stats)
+        shap_stats = self.calc_shap_stats(model_dict["因子shap值"], cycle="Y")
+        print(shap_stats)
+        shap_stats = self.calc_shap_stats(model_dict["因子shap值"], cycle="ALL")
+        print(shap_stats)
+
         print(dd)
         # ---------------------------------------
         # 模型评估

@@ -258,5 +258,5 @@ class XGBoostClassificationModel(ModelTemplate):
             "模型": pred_df,
             "模型评估": estimate_metric,
             "因子相关性": corr_df,
-            "因子shap值": pred_df.filter(like='shap_')
+            "因子shap值": pred_df.filter(regex=r'shap_|^date$|^group$', axis=1)
         }
