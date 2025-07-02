@@ -1,5 +1,0 @@
-2025-05-08 20:08:03.685 | INFO     | analysis.analysis_service:run:1089 - 分析流程开始
-2025-05-08 20:08:24.186 | ERROR    | analysis.analysis_service:_unpack_results:464 - 301456 - 财务数据完整性检查未通过
-2025-05-08 20:08:24.187 | ERROR    | analysis.analysis_service:_unpack_results:464 - 301232 - 财务数据完整性检查未通过
-2025-05-08 20:08:24.187 | ERROR    | analysis.analysis_service:_unpack_results:464 - 300904 - 财务数据完整性检查未通过
-2025-05-08 20:08:35.903 | INFO     | analysis.analysis_service:run:1115 - 分析流程结束

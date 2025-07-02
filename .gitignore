@@ -8,4 +8,7 @@
 /result_data/
 /示例/
 .idea/
-/.venv/
+*.iml
+.venv/
+/documentation/
+/trade_file/
