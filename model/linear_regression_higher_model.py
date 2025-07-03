@@ -331,4 +331,3 @@ class LinearRegressionHigherModel(ModelTemplate):
             "因子相关性": corr_df,
             "因子shap值": pred_df.filter(regex=r'shap_|^date$|^group$', axis=1)
         }
-

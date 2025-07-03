@@ -6,7 +6,8 @@ import json
 import threading
 
 from loguru import logger
-from datetime import datetime, time as time_class, timedelta
+from datetime import datetime, time as time_class, timezone
+from zoneinfo import ZoneInfo
 
 from xtquant import xtdata
 from xtquant.xttrader import XtQuantTrader
@@ -396,12 +397,14 @@ class MiniQMTTrader:
                 self.m_start_time < current_time < self.m_end_time) or
                 (self.a_start_time < current_time < self.a_end_time)
         ):
-            print(data)
-            print(len(data))
-            utc_time = datetime.utcfromtimestamp(list(data.values())[0]["time"] / 1000)
-            beijing_time = utc_time + timedelta(hours=8)
-            print(beijing_time)
-            self.market_logger.info(f"{beijing_time}: 接收到行情推送")
+            timestamp_ms = next(iter(data.values()))["time"]  # 直接获取首个值
+            utc_time = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+            beijing_time = utc_time.astimezone(ZoneInfo("Asia/Shanghai"))
+            self.market_logger.info(
+                f"{beijing_time}: 接收到行情推送，"
+                f"共有{len(data)}个数据，"
+                f"股票：{data.keys()}"
+            )
             self.last_data.update(data)
 
     def on_timer(self) -> None:
@@ -526,6 +529,7 @@ class MiniQMTTrader:
     ) -> int:
         """
         异步股票撤单（非阻塞）
+            若异步撤单迟迟没有收到回调，是否需要重复撤单？
         :param order_id: 订单编号
         :return: 是否成功发出撤单指令，0: 成功, -1: 表示撤单失败
         """

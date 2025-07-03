@@ -689,8 +689,6 @@ class ModelAnalyzer(QuantService):
         self.logger.info("---------- 结果存储、可视化 ----------")
         # IC/收益率
         self._draw_charts(self.storage_dir, result, self.visual_setting)
-        # 每日持仓
-        self._store_grouped_data(model_data)
         # 描述性统计
         self._store_to_excel(descriptive, "描述性统计", "颗粒数据", "a")
         self._store_to_excel(descriptive_month, "描述性统计", "月度数据", "a")
@@ -713,8 +711,11 @@ class ModelAnalyzer(QuantService):
         self._store_to_excel(shap_stats_all, "归因分析", "总体数据", "a")
         # 交易文件
         if self.model_setting.generate_trade_file:
+            # 买卖股数
             self._store_purchased_shares(
                 model_df[
                     (model_df["date"] == model_df['date'].max()) & (model_df["group"] == model_df["group"].max())
                 ][["股票代码", "买入股数"]].dropna(subset=["买入股数"])
             )
+            # 每日持仓
+            self._store_grouped_data(model_data)

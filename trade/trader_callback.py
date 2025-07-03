@@ -109,7 +109,17 @@ class TraderCallback(XtQuantTraderCallback):
         """
         异步撤单初始响应回调
         :param response: XtCancelOrderResponse 对象
-        :return:
+            xtconstant.ORDER_UNREPORTED	48	未报
+            xtconstant.ORDER_WAIT_REPORTING	49	待报
+            xtconstant.ORDER_REPORTED	50	已报
+            xtconstant.ORDER_REPORTED_CANCEL	51	已报待撤
+            xtconstant.ORDER_PARTSUCC_CANCEL	52	部成待撤
+            xtconstant.ORDER_PART_CANCEL	53	部撤（已经有一部分成交，剩下的已经撤单）
+            xtconstant.ORDER_CANCELED	54	已撤
+            xtconstant.ORDER_PART_SUCC	55	部成（已经有一部分成交，剩下的待成交）
+            xtconstant.ORDER_SUCCEEDED	56	已成
+            xtconstant.ORDER_JUNK	57	废单
+            xtconstant.ORDER_UNKNOWN	255	未知
         """
         if response.error_id == 0:
             self.outer.trade_logger.success(

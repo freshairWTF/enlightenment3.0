@@ -282,7 +282,7 @@ class ModelTemplate:
             factors_name: list[str],
             x_train: pd.DataFrame,
             x_true: pd.DataFrame,
-    ):
+    ) -> pd.DataFrame:
         """
         基于shap的归因分析（多分类模型）
         :param model: 模型
@@ -303,6 +303,14 @@ class ModelTemplate:
             columns=[f'shap_{col}_pred' for col in factors_name],
             index=x_true.index
         )
+
+    def calculate_linear_importance(
+            self
+    ) -> pd.DataFrame:
+        """
+        线性因子重要性检查
+        :return:
+        """
 
     # ------------------------------------------
     # 其他

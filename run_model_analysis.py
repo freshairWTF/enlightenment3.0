@@ -11,13 +11,7 @@
     -7 标的池
     
     -9 样本内外区分                                                      70%
-    -3 扩张窗口因子 -> 历史分位数回测
-    -17 席位因子群 -> 期货数据纳入体系
-            回测设计 -> 股指席位因子 强弱分组 做截面
-                      席位因子 做时序
-            爬虫 -> future_seat/ic/date                               100%
-            清洗                                                      100%
-    -15 交易结果分析/风格剖析                                         70%                                                
+    -3 扩张窗口因子 -> 历史分位数回测                                            
     
     -16 因子池边际贡献模块
     -12 策略容量 每只个股可以成交当日成交额的5%，若当日无法完成交易，则再下一日继续尝试
@@ -102,8 +96,8 @@ from constant.type_ import FILTER_MODE
 MODEL = {
     "traditionalLinearReg": LinearRegressionTraditionalModel,
     "traditionalLinearHigherReg": LinearRegressionHigherModel,
-
     "linearReg": LinearRegressionModel,
+
     "linearTestReg": LinearRegressionTestModel,
 
     "xgboostReg": XGBoostRegressionModel,
@@ -131,21 +125,21 @@ def model_backtest():
     )
     analyzer.run()
 
-
+# ’‘分类模型收益率没那么夸张，为什么draw会这么奇怪？？？
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "barra因子"
-    storage_dir = "小市值专题/xgboost分类模型-市值"
+    source_dir = "模型因子测试集"
+    storage_dir = "特征重要性评估/线性模型-测试"
 
     # filter_mode: FILTER_MODE = "_entire_filter"
     filter_mode: FILTER_MODE = "_small_cap_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="xgboostCla",
+        model="linearReg",
         cycle="week",
-        factors_setting=list(FACTOR_TEST.values()),
+        factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},
 
         # 目标因子
@@ -157,12 +151,12 @@ if __name__ == "__main__":
 
         # 因子处理方法
         class_level="一级行业",
-        bottom_factor_weight_method="equal",
+        bottom_factor_weight_method="ir_decay_weight",
         secondary_factor_weight_method="ir_decay_weight",
         factor_weight_window=12,
 
         # 分组
-        group_nums=10,
+        group_nums=20,
         group_mode="frequency",
     )
 
