@@ -371,7 +371,7 @@ class LinearRegressionTestModel(ModelTemplate):
         # ----------------------------------
         # 模型
         # ----------------------------------
-        pred_df, estimate_metric = self.model_training_and_predict(
+        model_dict = self.model_training_and_predict(
             input_df=self.input_df,
             x_cols=self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist(),
             y_col="pctChg",
@@ -379,8 +379,9 @@ class LinearRegressionTestModel(ModelTemplate):
         )
 
         return {
-            "模型": pred_df,
-            "模型评估": estimate_metric,
+            "模型": model_dict["模型"],
+            "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": pred_df.filter(like='shap_').abs().mean().sort_values(ascending=False)
+            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子评估": model_dict["因子评估"],
         }

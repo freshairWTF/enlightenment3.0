@@ -7,6 +7,7 @@
 from dataclasses import dataclass
 from sklearn.linear_model import LinearRegression
 
+import numpy as np
 import pandas as pd
 
 from template import ModelTemplate
@@ -112,7 +113,7 @@ class LinearRegressionHigherModel(ModelTemplate):
             x_cols: list[str],
             y_col: str,
             window: int = 12
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> dict:
         """
         模型训练与预测
         :param input_df: 输入数据
@@ -126,6 +127,7 @@ class LinearRegressionHigherModel(ModelTemplate):
 
         # 评估指标
         metrics = []
+        factors_metrics = []
 
         # 滚动窗口遍历
         result_dfs = []
@@ -258,8 +260,41 @@ class LinearRegressionHigherModel(ModelTemplate):
             except ValueError:
                 continue
 
-        return (pd.concat(result_dfs, ignore_index=True),
-                pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
+            # ====================
+            # 因子评估
+            # ====================
+            if not metrics_series.empty:
+                # -1 拟合系数
+                feature_beta = pd.DataFrame(
+                    {
+                        "因子": x_cols,
+                        "拟合系数": model.coef_,
+                        "绝对系数占比": np.abs(model.coef_) / np.abs(model.coef_).sum() * 100
+                    }
+                ).sort_values(by="绝对系数占比", ascending=False)
+                # -2 重要性评估
+                factors_importance = self.calculate_linear_importance(
+                    model_metrics=metrics_series,
+                    x_cols=x_cols,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_true=x_true,
+                    y_true=y_true
+                )
+
+                factors_metric = feature_beta.merge(
+                    factors_importance,
+                    left_on="因子",
+                    right_on="因子"
+                )
+                factors_metric["date"] = predict_date
+                factors_metrics.append(factors_metric)
+
+        return {
+            "模型": pd.concat(result_dfs, ignore_index=True),
+            "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子评估": pd.concat(factors_metrics, ignore_index=True),
+        }
 
     def run(
             self
@@ -318,7 +353,7 @@ class LinearRegressionHigherModel(ModelTemplate):
         # ----------------------------------
         # 模型
         # ----------------------------------
-        pred_df, estimate_metric = self.model_training_and_predict(
+        model_dict = self.model_training_and_predict(
             input_df=comprehensive_z_df,
             x_cols=["综合Z值"],
             y_col="pctChg",
@@ -326,8 +361,9 @@ class LinearRegressionHigherModel(ModelTemplate):
         )
 
         return {
-            "模型": pred_df,
-            "模型评估": estimate_metric,
+            "模型": model_dict["模型"],
+            "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": pred_df.filter(regex=r'shap_|^date$|^group$', axis=1)
+            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子评估": model_dict["因子评估"],
         }
