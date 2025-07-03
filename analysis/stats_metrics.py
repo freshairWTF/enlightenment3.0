@@ -240,7 +240,6 @@ class StatisticsMetrics(Metrics):
             "financial": self.financial_window * 3,
             "rolling_financial": self.financial_window * 3,
             "valuation": self.window * 3,
-            "kline": self.window * 3
         }
         suffix = "_expanding_normalized"
 

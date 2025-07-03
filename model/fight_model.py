@@ -1,4 +1,4 @@
-"""线性回归模型"""
+"""实盘模型"""
 from dataclasses import dataclass
 from sklearn.linear_model import LinearRegression
 
@@ -9,8 +9,8 @@ from template import ModelTemplate
 
 
 ########################################################################
-class LinearRegressionTraditionalModel(ModelTemplate):
-    """线性回归模型"""
+class LinearRegressionZScoreModel(ModelTemplate):
+    """线性回归模型（使用综合Z值）"""
 
     def __init__(
             self,

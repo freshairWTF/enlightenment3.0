@@ -13,7 +13,6 @@
     -9 样本内外区分                                                      70%
     -3 扩张窗口因子 -> 历史分位数回测                                            
     
-    -16 因子池边际贡献模块
     -12 策略容量 每只个股可以成交当日成交额的5%，若当日无法完成交易，则再下一日继续尝试
     -18 level2数据的信息挖掘
     -19 回归模型 + 分类模型 回归模型阈值控制 -> 仓位管理
@@ -42,42 +41,6 @@
    
 """
 
-
-"""
-商品日内
-300多个 降维后40-50个
-持股数量 80-100 选股3000+
-65% 财务因子
-25% 量价
-剩余 另类数据因子
-80%线性
-20%非线性
-年换手40-50倍
-
-微盘 + 择时 + 优选
-实盘！！！
-因子等权 75量价 25基本面 70反转 25-30动量
-市场择时 -> 仓位管理 标的池变换
-平均市值 65亿元
-单体1% 一SW级行业20%
-年化双边换手60-80倍
-
-指增 跟踪误差 超额
-相关性分组
-海外营收、国央企
-流动性3000+
-成分股至少40-50%
-GAN 对抗网络生成模型
-升维再降维 ？？二次项？？？pca/合成？？？ ——> 树模型
-每个半小时预测一次
-
-2千个因子 -> 神经网络 -> zscore
-模型 -1 子模型 -2 参数
-模型样本内/外IC IR  t检验 因为它都是合成一个zscore
-80%+量价 基本面因子作为条件，可以理解为因子池的划分，然后再细化量价的处理
-模型组合 等权/  抽样等权？
-风控
-"""
 """
 市场环境分析
 不同市场下的收益率表现
@@ -94,11 +57,11 @@ from constant.type_ import FILTER_MODE
 # 模型工厂
 # -----------------------------
 MODEL = {
-    "traditionalLinearReg": LinearRegressionTraditionalModel,
-    "traditionalLinearHigherReg": LinearRegressionHigherModel,
-    "linearReg": LinearRegressionModel,
-
-    "linearTestReg": LinearRegressionTestModel,
+    "ZScoreLinearReg": LinearRegressionZScoreModel,
+    "ZScorePCLinearReg": LinearRegressionPCModel,
+    "ZScoreHigherZeroLinearReg": LinearRegressionHigherZeroModel,
+    "level2linearReg": LinearRegressionLevel2Model,
+    "testLineaReg": LinearRegressionTestModel,
 
     "xgboostReg": XGBoostRegressionModel,
     "xgboostCVReg": XGBoostRegressionCVModel,
@@ -130,13 +93,13 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "模型因子训练集"
-    storage_dir = "特征重要性评估/线性模型"
+    storage_dir = "模型回测/traditionalLinearReg"
 
     filter_mode: FILTER_MODE = "_white_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="linearTestReg",
+        model="traditionalLinearReg",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},
