@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from sklearn.linear_model import LinearRegression
 
-import shap
+import numpy as np
 import pandas as pd
 
 from template import ModelTemplate
@@ -107,7 +107,7 @@ class LinearRegressionTestModel(ModelTemplate):
             x_cols: list[str],
             y_col: str,
             window: int = 12
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> dict:
         """
         模型训练与预测
         :param input_df: 输入数据
@@ -121,6 +121,7 @@ class LinearRegressionTestModel(ModelTemplate):
 
         # 评估指标
         metrics = []
+        factors_metrics = []
 
         # 滚动窗口遍历
         result_dfs = []
@@ -189,15 +190,18 @@ class LinearRegressionTestModel(ModelTemplate):
             industry_df = portfolio_df.set_index("股票代码")["行业"]
             # -2 权重（分组）
             weights_series = []
+            alloc_series = []
             for _, group_df in true_df.groupby("group"):
-                weights, _ = self.portfolio_optimizer(
+                weights, alloc = self.portfolio_optimizer(
                     price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
                     volume_df=volume_df[group_df["股票代码"].tolist()],
                     industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())],
-                    allocation=True if predict_date == sorted_dates[-1] else False,
+                    allocation=True if predict_date == sorted_dates[-1] and self.model_setting.generate_trade_file else False,
                     last_price_series=portfolio_df.pivot(index="date", columns="股票代码", values="close").iloc[-1]
                 )
                 weights_series.append(weights)
+                if predict_date == sorted_dates[-1] and not alloc.empty:
+                    alloc_series.append(alloc)
 
             # -3 合并
             true_df = pd.merge(
@@ -207,15 +211,23 @@ class LinearRegressionTestModel(ModelTemplate):
                 right_index=True,
                 how='left'
             )
+            if predict_date == sorted_dates[-1] and alloc_series:
+                true_df = pd.merge(
+                    true_df,
+                    pd.concat(alloc_series).rename('买入股数'),
+                    left_on='股票代码',
+                    right_index=True,
+                    how='left'
+                )
 
             # ====================
             # 归因分析
             # ====================
-            explainer = shap.LinearExplainer(model, x_train)
-            shap_df = pd.DataFrame(
-                explainer.shap_values(x_true),
-                columns=[f"shap_{col}" for col in x_cols],
-                index=x_true.index  # 保持与原始数据索引一致
+            shap_df = self.shape_for_linear(
+                model,
+                factors_name=x_cols,
+                x_train=x_train,
+                x_true=x_true
             )
             true_df = pd.concat([true_df, shap_df], axis=1)
 
@@ -232,10 +244,98 @@ class LinearRegressionTestModel(ModelTemplate):
                 metrics_series.name = predict_date
                 metrics.append(metrics_series)
             except ValueError:
-                continue
+                metrics_series = pd.Series()
 
-        return (pd.concat(result_dfs, ignore_index=True),
-                pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
+            # ====================
+            # 因子评估
+            # ====================
+            if not metrics_series.empty:
+                # -1 拟合系数
+                feature_beta = pd.DataFrame(
+                    {
+                        "因子": x_cols,
+                        "拟合系数": model.coef_,
+                        "绝对系数占比": np.abs(model.coef_) / np.abs(model.coef_).sum() * 100
+                    }
+                ).sort_values(by="绝对系数占比", ascending=False)
+                # -2 重要性评估
+                factors_importance = self.calculate_linear_importance(
+                    model_metrics=metrics_series,
+                    x_cols=x_cols,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_true=x_true,
+                    y_true=y_true
+                )
+
+                factors_metric = feature_beta.merge(
+                    factors_importance,
+                    left_on="因子",
+                    right_on="因子"
+                )
+                factors_metric["date"] = predict_date
+                factors_metrics.append(factors_metric)
+
+        return {
+            "模型": pd.concat(result_dfs, ignore_index=True),
+            "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子评估": pd.concat(factors_metrics, ignore_index=True),
+        }
+
+    # def run(
+    #         self
+    # ) -> dict[str, pd.DataFrame]:
+    #     """
+    #     线性模型处理流程：
+    #         -1 因子数值处理
+    #         -2 因子升维/降维
+    #         -3 模型训练、预测、分组
+    #     """
+    #     # ----------------------------------
+    #     # 数值处理
+    #     # ----------------------------------
+    #     # -1 预处理
+    #     self.input_df = self._pre_processing(self.input_df)
+    #     # -2 对称正交
+    #     # self.input_df = self.utils.feature.factors_orthogonal(
+    #     #     self.input_df,
+    #     #     factors_name=self.utils.extract.get_factors_synthesis_table(
+    #     #         self.factors_setting,
+    #     #         mode="THREE_TO_TWO"
+    #     #     )
+    #     # )
+    #
+    #     # ----------------------------------
+    #     # 因子相关性
+    #     # ----------------------------------
+    #     corr_df = self.calculate_factors_corr(
+    #         factors_df=self.input_df,
+    #         mode="THREE_TO_Z"
+    #     )
+    #     # ----------------------------------
+    #     # 合成 综合Z值
+    #     # ----------------------------------
+    #     comprehensive_z_df = self._factors_synthesis(
+    #         self.input_df,
+    #         mode="THREE_TO_Z"
+    #     )
+    #
+    #     # ----------------------------------
+    #     # 模型
+    #     # ----------------------------------
+    #     pred_df, estimate_metric = self.model_training_and_predict(
+    #         input_df=comprehensive_z_df,
+    #         x_cols=["综合Z值"],
+    #         y_col="pctChg",
+    #         window=self.model_setting.factor_weight_window
+    #     )
+    #
+    #     return {
+    #         "模型": pred_df,
+    #         "模型评估": estimate_metric,
+    #         "因子相关性": corr_df,
+    #         "因子shap值": pred_df.filter(like='shap_').abs().mean().sort_values(ascending=False)
+    #     }
 
     def run(
             self
@@ -252,13 +352,13 @@ class LinearRegressionTestModel(ModelTemplate):
         # -1 预处理
         self.input_df = self._pre_processing(self.input_df)
         # -2 对称正交
-        # self.input_df = self.utils.feature.factors_orthogonal(
-        #     self.input_df,
-        #     factors_name=self.utils.extract.get_factors_synthesis_table(
-        #         self.factors_setting,
-        #         mode="THREE_TO_TWO"
-        #     )
-        # )
+        self.input_df = self.utils.feature.factors_orthogonal(
+            self.input_df,
+            factors_name=self.utils.extract.get_factors_synthesis_table(
+                self.factors_setting,
+                mode="THREE_TO_TWO"
+            )
+        )
 
         # ----------------------------------
         # 因子相关性
@@ -267,20 +367,13 @@ class LinearRegressionTestModel(ModelTemplate):
             factors_df=self.input_df,
             mode="THREE_TO_Z"
         )
-        # ----------------------------------
-        # 合成 综合Z值
-        # ----------------------------------
-        comprehensive_z_df = self._factors_synthesis(
-            self.input_df,
-            mode="THREE_TO_Z"
-        )
 
         # ----------------------------------
         # 模型
         # ----------------------------------
         pred_df, estimate_metric = self.model_training_and_predict(
-            input_df=comprehensive_z_df,
-            x_cols=["综合Z值"],
+            input_df=self.input_df,
+            x_cols=self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist(),
             y_col="pctChg",
             window=self.model_setting.factor_weight_window
         )

@@ -129,15 +129,14 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "模型因子测试集"
-    storage_dir = "特征重要性评估/线性模型-测试-剔除流动性因子"
+    source_dir = "模型因子训练集"
+    storage_dir = "特征重要性评估/线性模型"
 
-    # filter_mode: FILTER_MODE = "_entire_filter"
-    filter_mode: FILTER_MODE = "_small_cap_filter"
+    filter_mode: FILTER_MODE = "_white_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="linearReg",
+        model="linearTestReg",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},

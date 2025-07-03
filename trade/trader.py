@@ -587,13 +587,13 @@ class MiniQMTTrader:
                 bid_price = self.last_data[stock_code].get("bidPrice", [])
                 price = bid_price[0] if bid_price else self.last_data[stock_code]["lastPrice"] - 0.01
 
-            # -3 发送订单
+            # -3 发送订单（若最后一次还无法成交，直接使用市价成交）
             order_id = self.order_stock_async(
                 stock_code=stock_code,
                 price=round(price, 2),
                 volume=volume,
                 order_type=order_type,
-                price_type=1
+                price_type=0 if order["retry_count"] == self.ORDER_MAX_RETRY else 1
             )
 
             # -4 更新订单状态（PENDING/SENT/FAILED）
