@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from xgboost import XGBRegressor
 
-import shap
+import numpy as np
 import pandas as pd
 
 from template import ModelTemplate
@@ -58,7 +58,6 @@ class XGBoostRegressionModel(ModelTemplate):
         :param prefix: 预处理生成因子前缀
         :return: 处理过的数据
         """
-
         def __process_single_date(
                 df_: pd.DataFrame,
         ) -> pd.DataFrame:
@@ -66,14 +65,22 @@ class XGBoostRegressionModel(ModelTemplate):
             for setting in self.factors_setting:
                 factor_name = setting.factor_name
                 processed_col = f"{prefix}_{factor_name}"
-
                 df_[processed_col] = df_[factor_name].copy()
-                # -1 第一次 去极值、标准化
+
+                # -1 方向变化
+                if setting.reverse:
+                    df_[processed_col] *= -1
+
+                # -2 正态变换
+                if setting.transfer:
+                    df_[processed_col] = self.processor.refactor.yeo_johnson_transfer(df_[processed_col])
+
+                # -3 第一次 去极值、标准化
                 df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
                     df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
 
-                # -2 中性化
+                # -4 中性化
                 if setting.market_value_neutral:
                     df_[processed_col] = self.processor.neutralization.log_market_cap(
                         df_[processed_col],
@@ -87,7 +94,7 @@ class XGBoostRegressionModel(ModelTemplate):
                         df_["行业"]
                     )
 
-                # -3 第二次 去极值、标准化
+                # -5 第二次 去极值、标准化
                 df_[processed_col] = self.processor.winsorizer.percentile(df_[processed_col])
                 if setting.standardization:
                     df_[processed_col] = self.processor.dimensionless.standardization(df_[processed_col])
@@ -111,7 +118,7 @@ class XGBoostRegressionModel(ModelTemplate):
             x_cols: list[str],
             y_col: str,
             window: int = 12
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> dict:
         """
         模型训练与预测
         :param input_df: 输入数据
@@ -125,6 +132,7 @@ class XGBoostRegressionModel(ModelTemplate):
 
         # 评估指标
         metrics = []
+        factors_metrics = []
 
         # 滚动窗口遍历
         result_dfs = []
@@ -172,13 +180,64 @@ class XGBoostRegressionModel(ModelTemplate):
             )
 
             # ====================
+            # 权重优化（仓位权重、实际股数）
+            # ====================
+            # -1 数据转换
+            portfolio_df = input_df.loc[input_df["date"].isin(
+                sorted_dates[i - window: i+1]),
+                ["date", "股票代码", "close", "行业", "volume", "pctChg"]
+            ]
+            price_df = portfolio_df.pivot(
+                index="date",
+                columns="股票代码",
+                values="pctChg"
+            )
+            volume_df = portfolio_df.pivot(
+                index="date",
+                columns="股票代码",
+                values="volume"
+            )
+            industry_df = portfolio_df.set_index("股票代码")["行业"]
+            # -2 权重（分组）
+            weights_series = []
+            alloc_series = []
+            for _, group_df in true_df.groupby("group"):
+                weights, alloc = self.portfolio_optimizer(
+                    price_df=price_df[group_df["股票代码"].tolist()].ffill().bfill(),
+                    volume_df=volume_df[group_df["股票代码"].tolist()],
+                    industry_df=industry_df[industry_df.index.isin(group_df["股票代码"].tolist())],
+                    allocation=True if predict_date == sorted_dates[-1] and self.model_setting.generate_trade_file else False,
+                    last_price_series=portfolio_df.pivot(index="date", columns="股票代码", values="close").iloc[-1]
+                )
+                weights_series.append(weights)
+                if predict_date == sorted_dates[-1] and not alloc.empty:
+                    alloc_series.append(alloc)
+
+            # -3 合并
+            true_df = pd.merge(
+                true_df,
+                pd.concat(weights_series).rename('position_weight'),
+                left_on='股票代码',
+                right_index=True,
+                how='left'
+            )
+            if predict_date == sorted_dates[-1] and alloc_series:
+                true_df = pd.merge(
+                    true_df,
+                    pd.concat(alloc_series).rename('买入股数'),
+                    left_on='股票代码',
+                    right_index=True,
+                    how='left'
+                )
+
+            # ====================
             # 归因分析
             # ====================
-            explainer = shap.TreeExplainer(model)
-            shap_df = pd.DataFrame(
-                explainer.shap_values(x_true),
-                columns=[f"shap_{col}" for col in x_cols],
-                index=x_true.index  # 保持与原始数据索引一致
+            shap_df = self.shape_for_linear(
+                model,
+                factors_name=x_cols,
+                x_train=x_train,
+                x_true=x_true
             )
             true_df = pd.concat([true_df, shap_df], axis=1)
 
@@ -197,8 +256,41 @@ class XGBoostRegressionModel(ModelTemplate):
             except ValueError:
                 continue
 
-        return (pd.concat(result_dfs, ignore_index=True),
-                pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
+            # ====================
+            # 因子评估
+            # ====================
+            if not metrics_series.empty:
+                # -1 拟合系数
+                feature_beta = pd.DataFrame(
+                    {
+                        "因子": x_cols,
+                        "拟合系数": model.coef_,
+                        "绝对系数占比": np.abs(model.coef_) / np.abs(model.coef_).sum() * 100
+                    }
+                ).sort_values(by="绝对系数占比", ascending=False)
+                # -2 重要性评估
+                factors_importance = self.calculate_linear_importance(
+                    model_metrics=metrics_series,
+                    x_cols=x_cols,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_true=x_true,
+                    y_true=y_true
+                )
+
+                factors_metric = feature_beta.merge(
+                    factors_importance,
+                    left_on="因子",
+                    right_on="因子"
+                )
+                factors_metric["date"] = predict_date
+                factors_metrics.append(factors_metric)
+
+        return {
+            "模型": pd.concat(result_dfs, ignore_index=True),
+            "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子评估": pd.concat(factors_metrics, ignore_index=True),
+        }
 
     def run(
             self
@@ -234,7 +326,7 @@ class XGBoostRegressionModel(ModelTemplate):
         # ----------------------------------
         # 模型
         # ----------------------------------
-        pred_df, estimate_metric = self.model_training_and_predict(
+        model_dict = self.model_training_and_predict(
             input_df=level_2_df,
             x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
             y_col="pctChg",
@@ -242,8 +334,9 @@ class XGBoostRegressionModel(ModelTemplate):
         )
 
         return {
-            "模型": pred_df,
-            "模型评估": estimate_metric,
+            "模型": model_dict["模型"],
+            "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": pred_df.filter(like='shap_').abs().mean().sort_values(ascending=False)
+            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子评估": model_dict["因子评估"],
         }
