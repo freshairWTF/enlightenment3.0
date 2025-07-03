@@ -21,7 +21,7 @@ class XGBoostClassificationModel(ModelTemplate):
         colsample_bytree	1	特征采样比例	<1 时增强多样性（如 0.7–0.9）
         reg_alpha	0	L1 正则化系数	>0 时增强稀疏性（适合高维特征）
         reg_lambda	1	L2 正则化系数	控制权重平滑度（防过拟合）
-        objective	'multi:softmax'	多分类目标函数	​需额外指定 num_class（类别数）​，否则报错
+        objective	'multi:softmax'	多分类目标函数	需额外指定 num_class（类别数），否则报错
     """
 
     def __init__(

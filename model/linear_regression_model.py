@@ -250,7 +250,7 @@ class LinearRegressionLevel2Model(ModelTemplate):
             # ====================
             # 因子评估
             # ====================
-            if not metrics_series.empty:
+            if not metrics_series.empty and len(x_cols) > 1:
                 # -1 拟合系数
                 feature_beta = pd.DataFrame(
                     {
@@ -581,7 +581,7 @@ class LinearRegressionZScoreModel(ModelTemplate):
             # ====================
             # 因子评估
             # ====================
-            if not metrics_series.empty:
+            if not metrics_series.empty and len(x_cols) > 1:
                 # -1 拟合系数
                 feature_beta = pd.DataFrame(
                     {
@@ -937,7 +937,7 @@ class LinearRegressionPCModel(ModelTemplate):
             # ====================
             # 因子评估
             # ====================
-            if not metrics_series.empty:
+            if not metrics_series.empty and len(x_cols) > 1:
                 # -1 拟合系数
                 feature_beta = pd.DataFrame(
                     {
@@ -1285,7 +1285,7 @@ class LinearRegressionHigherZeroModel(ModelTemplate):
             # ====================
             # 因子评估
             # ====================
-            if not metrics_series.empty:
+            if not metrics_series.empty and len(x_cols) > 1:
                 # -1 拟合系数
                 feature_beta = pd.DataFrame(
                     {
@@ -1633,7 +1633,7 @@ class LinearRegressionTestModel(ModelTemplate):
             # ====================
             # 因子评估
             # ====================
-            if not metrics_series.empty:
+            if not metrics_series.empty and len(x_cols) > 1:
                 # -1 拟合系数
                 feature_beta = pd.DataFrame(
                     {

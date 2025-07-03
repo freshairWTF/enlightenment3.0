@@ -53,7 +53,7 @@ class ModelTemplate:
         # 保留列
         self.keep_cols = [
             "date", "股票代码", "行业", "pctChg", "市值",
-            "close", "volume",
+            "close", "volume", "origin_group"
         ]
         self.keep_cols += descriptive_factors
         self.keep_cols = list(set(self.keep_cols))

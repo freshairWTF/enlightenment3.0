@@ -92,14 +92,14 @@ def model_backtest():
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
-    source_dir = "模型因子训练集"
-    storage_dir = "模型回测/traditionalLinearReg"
+    source_dir = "模型因子测试集"
+    storage_dir = "测试/ZScoreLinearReg"
 
     filter_mode: FILTER_MODE = "_white_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="traditionalLinearReg",
+        model="ZScoreLinearReg",
         cycle="week",
         factors_setting=list(FACTOR_LIBRARY.values()),
         industry_info={"全部": "三级行业"},
