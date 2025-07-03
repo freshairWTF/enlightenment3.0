@@ -825,7 +825,8 @@ class Classification:
             group_label: list[str],
             factor_col: str = "",
             negative: bool = False,
-            full_data: bool = False
+            full_data: bool = False,
+            group_col: str = "group"
     ) -> pd.DataFrame:
         """
         分组 -1等距 distant；-2 等频 frequency
@@ -837,6 +838,8 @@ class Classification:
         :param factor_col: 分组因子列名（原因子需要负值单列时给出原因子名）
         :param negative: 负值单列
         :param full_data: 返回完整数据（不因分箱失败而舍弃数据）
+        :param group_col: 分组标签
+        :return 分组数据
         """
         method = {
             "distant": cls.distant,
@@ -846,14 +849,14 @@ class Classification:
         result_df = []
         for date, df in factor_values.groupby("date"):
             try:
-                df["group"] = method(
+                df[group_col] = method(
                     df, factor_col, processed_factor_col, group_nums, group_label, negative
                 )
                 result_df.append(df)
             except Exception as e:
                 print(f"分组出现错误: {date} | {e} -> {df.shape} - {group_nums}")
                 if full_data:
-                    df["group"] = np.nan
+                    df[group_col] = np.nan
                     result_df.append(df)
                 continue
 
@@ -948,7 +951,8 @@ class Classification:
             factor_values: pd.DataFrame,
             group_nums: int,
             group_label: list[str | int],
-            group_condition: list
+            group_condition: list,
+            group_col: str = "group"
     ) -> pd.DataFrame:
         """
         定制分箱
@@ -956,6 +960,7 @@ class Classification:
         :param group_nums: 分箱数
         :param group_label: 分箱标签
         :param group_condition: 分箱条件
+        :param group_col: 分组标签
         :return: 定制分箱series
         """
         # 验证参数一致性
@@ -985,9 +990,9 @@ class Classification:
             return group_series
 
         result_df = factor_values.copy()
-        result_df["group"] = pd.Series(dtype=str)
+        result_df[group_col] = pd.Series(dtype=str)
         for date, group in result_df.groupby("date"):
             group_labels = _sector_divide(group)
-            result_df.loc[group.index, "group"] = group_labels
+            result_df.loc[group.index, group_col] = group_labels
 
         return result_df

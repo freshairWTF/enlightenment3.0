@@ -179,7 +179,7 @@ class XGBoostClassificationModel(ModelTemplate):
             # -3 模型预测
             y_predict = model.predict(x_true)
             # -4 标签转换 连续整数 -> 离散字符
-            true_df["predict"] = pd.Series(
+            true_df["group"] = pd.Series(
                 self.le.inverse_transform(y_predict),
                 index=true_df.index
             )
@@ -256,7 +256,7 @@ class XGBoostClassificationModel(ModelTemplate):
             # 模型评估
             # ====================
             try:
-                metrics_series = self.calculate_classification_metrics(y_true, true_df["predict"])
+                metrics_series = self.calculate_classification_metrics(y_true, true_df["group"])
                 metrics_series.name = predict_date
                 metrics.append(metrics_series)
             except ValueError:
@@ -285,9 +285,9 @@ class XGBoostClassificationModel(ModelTemplate):
             processed_factor_col="pctChg",
             group_mode=self.model_setting.group_mode,
             group_nums=self.model_setting.group_nums,
-            group_label=self.model_setting.group_label
+            group_label=self.model_setting.group_label,
+            group_col="origin_group"
         )
-
 
         # ----------------------------------
         # 因子降维
@@ -311,7 +311,7 @@ class XGBoostClassificationModel(ModelTemplate):
         pred_df, estimate_metric = self.model_training_and_predict(
             input_df=level_2_df,
             x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
-            y_col="group",
+            y_col="origin_group",
             window=self.model_setting.factor_weight_window
         )
 
@@ -497,7 +497,7 @@ class XGBoostClassificationCVModel(ModelTemplate):
             # -3 模型预测
             y_predict = model.predict(x_true)
             # -4 标签转换 连续整数 -> 离散字符
-            true_df["predict"] = pd.Series(
+            true_df["group"] = pd.Series(
                 self.le.inverse_transform(y_predict),
                 index=true_df.index
             )
@@ -523,7 +523,7 @@ class XGBoostClassificationCVModel(ModelTemplate):
             # 模型评估
             # ====================
             try:
-                metrics_series = self.calculate_classification_metrics(y_true, true_df["predict"])
+                metrics_series = self.calculate_classification_metrics(y_true, true_df["group"])
                 metrics_series.name = predict_date
                 metrics.append(metrics_series)
             except ValueError:
@@ -552,7 +552,8 @@ class XGBoostClassificationCVModel(ModelTemplate):
             processed_factor_col="pctChg",
             group_mode=self.model_setting.group_mode,
             group_nums=self.model_setting.group_nums,
-            group_label=self.model_setting.group_label
+            group_label=self.model_setting.group_label,
+            group_col="origin_group"
         )
 
         # ----------------------------------
@@ -577,7 +578,7 @@ class XGBoostClassificationCVModel(ModelTemplate):
         pred_df, estimate_metric = self.model_training_and_predict(
             input_df=level_2_df,
             x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
-            y_col="group",
+            y_col="origin_group",
             window=self.model_setting.factor_weight_window
         )
 
@@ -761,7 +762,7 @@ class XGBoostClassificationNSModel(ModelTemplate):
             # -3 模型预测
             y_predict = model.predict(x_true)
             # -4 标签转换 连续整数 -> 离散字符
-            true_df["predict"] = pd.Series(
+            true_df["group"] = pd.Series(
                 self.le.inverse_transform(y_predict),
                 index=true_df.index
             )
@@ -787,7 +788,7 @@ class XGBoostClassificationNSModel(ModelTemplate):
             # 模型评估
             # ====================
             try:
-                metrics_series = self.calculate_classification_metrics(y_true, true_df["predict"])
+                metrics_series = self.calculate_classification_metrics(y_true, true_df["group"])
                 metrics_series.name = predict_date
                 metrics.append(metrics_series)
             except ValueError:
@@ -808,11 +809,14 @@ class XGBoostClassificationNSModel(ModelTemplate):
         # ----------------------------------
         # 数值处理
         # ----------------------------------
-        self.input_df = self.processor.classification.custom_divide_into_group(
+        # 标签预设
+        self.input_df = self.processor.classification.divide_into_group(
             self.input_df,
+            processed_factor_col="pctChg",
+            group_mode=self.model_setting.group_mode,
             group_nums=self.model_setting.group_nums,
             group_label=self.model_setting.group_label,
-            group_condition=self.group_condition
+            group_col="origin_group"
         )
 
         self.input_df = self._direction_reverse(self.input_df)
@@ -840,7 +844,7 @@ class XGBoostClassificationNSModel(ModelTemplate):
         pred_df, estimate_metric = self.model_training_and_predict(
             input_df=level_2_df,
             x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
-            y_col="group",
+            y_col="origin_group",
             window=self.model_setting.factor_weight_window
         )
 
@@ -1024,7 +1028,7 @@ class XGBoostClassificationNSCVModel(ModelTemplate):
             # -3 模型预测
             y_predict = model.predict(x_true)
             # -4 标签转换 连续整数 -> 离散字符
-            true_df["predict"] = pd.Series(
+            true_df["group"] = pd.Series(
                 self.le.inverse_transform(y_predict),
                 index=true_df.index
             )
@@ -1050,7 +1054,7 @@ class XGBoostClassificationNSCVModel(ModelTemplate):
             # 模型评估
             # ====================
             try:
-                metrics_series = self.calculate_classification_metrics(y_true, true_df["predict"])
+                metrics_series = self.calculate_classification_metrics(y_true, true_df["group"])
                 metrics_series.name = predict_date
                 metrics.append(metrics_series)
             except ValueError:
@@ -1071,11 +1075,14 @@ class XGBoostClassificationNSCVModel(ModelTemplate):
         # ----------------------------------
         # 数值处理
         # ----------------------------------
-        self.input_df = self.processor.classification.custom_divide_into_group(
+        # 标签预设
+        self.input_df = self.processor.classification.divide_into_group(
             self.input_df,
+            processed_factor_col="pctChg",
+            group_mode=self.model_setting.group_mode,
             group_nums=self.model_setting.group_nums,
             group_label=self.model_setting.group_label,
-            group_condition=self.group_condition
+            group_col="origin_group"
         )
 
         self.input_df = self._direction_reverse(self.input_df)
@@ -1103,7 +1110,7 @@ class XGBoostClassificationNSCVModel(ModelTemplate):
         pred_df, estimate_metric = self.model_training_and_predict(
             input_df=level_2_df,
             x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
-            y_col="group",
+            y_col="origin_group",
             window=self.model_setting.factor_weight_window
         )
 
