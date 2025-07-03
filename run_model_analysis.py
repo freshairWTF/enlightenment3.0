@@ -125,12 +125,12 @@ def model_backtest():
     )
     analyzer.run()
 
-# ’‘分类模型收益率没那么夸张，为什么draw会这么奇怪？？？
+
 # --------------------------------------------
 if __name__ == "__main__":
     # 路径参数
     source_dir = "模型因子测试集"
-    storage_dir = "特征重要性评估/线性模型-测试"
+    storage_dir = "特征重要性评估/线性模型-测试-剔除流动性因子"
 
     # filter_mode: FILTER_MODE = "_entire_filter"
     filter_mode: FILTER_MODE = "_small_cap_filter"
@@ -144,10 +144,6 @@ if __name__ == "__main__":
 
         # 目标因子
         factor_filter=False,
-        factor_filter_mode=["_entire_filter"],
-        # factor_primary_classification=["基本面因子"],
-        # factor_secondary_classification=["质量因子"],
-        # factor_half_life=(3, 6),
 
         # 因子处理方法
         class_level="一级行业",

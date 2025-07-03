@@ -6,6 +6,7 @@ from sklearn.metrics import (
     r2_score, mean_absolute_error, mean_squared_error,
     f1_score, matthews_corrcoef, precision_score, recall_score
 )
+from sklearn.linear_model import LinearRegression
 
 import shap
 import numpy as np
@@ -305,12 +306,45 @@ class ModelTemplate:
         )
 
     def calculate_linear_importance(
-            self
+            self,
+            model_metrics: pd.Series,
+            x_cols: list[str],
+            x_train: pd.DataFrame,
+            y_train: pd.Series,
+            x_true: pd.DataFrame,
+            y_true: pd.Series
     ) -> pd.DataFrame:
         """
-        线性因子重要性检查
+        线性因子重要性检查（单因子剔除：减少该因子计算评估指标的差值）
+        :param model_metrics: 模型评估指标
+        :param x_cols: 因子列名
+        :param x_train: 训练因子集
+        :param y_train: 训练目标集
+        :param x_true: 真实因子集
+        :param y_true: 真实目标集
         :return:
         """
+        metrics = []
+        for feature in x_cols:
+
+            # -1 剔除该因子后训练、预测模型
+            reduced_cols = [col for col in x_cols if col != feature]
+            reduced_model = LinearRegression()
+            reduced_model.fit(x_train[reduced_cols], y_train)
+            reduced_pred = reduced_model.predict(x_true[reduced_cols])
+
+            # -2 计算模型评估指标变化
+            reduced_metrics = self.calculate_regression_metrics(y_true, reduced_pred)
+            metrics.append(
+                {
+                    "因子": feature,
+                    "delta_MAE": reduced_metrics['MAE'] - model_metrics['MAE'],
+                    "delta_RMSE": reduced_metrics['RMSE'] - model_metrics['RMSE'],
+                    "delta_R2": reduced_metrics['R2'] - model_metrics['R2'],
+                }
+            )
+
+        return pd.DataFrame(metrics)
 
     # ------------------------------------------
     # 其他

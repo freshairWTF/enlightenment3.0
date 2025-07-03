@@ -428,6 +428,34 @@ class ModelAnalyzer(QuantService):
 
         return result
 
+    @classmethod
+    def calc_grouped_mean(
+            cls,
+            df: pd.DataFrame,
+            groups: list,
+            cols: list[str] = None,
+            agg_func: str = "mean",
+    ) -> pd.DataFrame:
+        """
+        通用分组均值计算方法（支持多分组维度和自定义统计列）
+        :param df: 输入数据框
+        :param groups: 分组依据的列名列表（至少1列）
+        :param cols: 需计算统计量的目标列（默认所有数值列）
+        :param agg_func: 聚合函数（"mean"/"sum"/"count"等）
+        :return: 分组统计结果DataFrame
+        """
+        # -1 预处理
+        df = df.copy()
+        df['date'] = pd.to_datetime(df['date'])
+
+        # -3 按周期分组
+        grouped = df.groupby(groups) if groups else df
+
+        # -4 计算均值
+        result = grouped[cols].agg(agg_func)
+
+        return result.dropna(how="any")
+
     def _calc_ic_stats(
             self,
             grouped_data: dict[str, pd.DataFrame],
@@ -653,11 +681,54 @@ class ModelAnalyzer(QuantService):
         descriptive_month = self._calc_descriptive_factors(model_df, "M")
         descriptive_year = self._calc_descriptive_factors(model_df, "Y")
         descriptive_all = self._calc_descriptive_factors(model_df, "ALL")
-        # 归因分析
-        shap_stats = self.calc_shap_stats(model_dict["因子shap值"])
-        shap_stats_month = self.calc_shap_stats(model_dict["因子shap值"], cycle="M")
-        shap_stats_year = self.calc_shap_stats(model_dict["因子shap值"], cycle="Y")
-        shap_stats_all = self.calc_shap_stats(model_dict["因子shap值"], cycle="ALL")
+        # SHAP归因分析
+        shap_stats = self.calc_grouped_mean(
+            model_dict["因子shap值"],
+            groups=["group", "date"],
+            cols=[col for col in model_dict["因子shap值"].columns if "shap" in col],
+        )
+        shap_stats_month = self.calc_grouped_mean(
+            model_dict["因子shap值"],
+            groups=["group", pd.Grouper(key='date', freq="M")],
+            cols=[col for col in model_dict["因子shap值"].columns if "shap" in col],
+        )
+        shap_stats_year = self.calc_grouped_mean(
+            model_dict["因子shap值"],
+            groups=["group", pd.Grouper(key='date', freq="Y")],
+            cols=[col for col in model_dict["因子shap值"].columns if "shap" in col],
+        )
+        shap_stats_all = self.calc_grouped_mean(
+            model_dict["因子shap值"],
+            groups=["group"],
+            cols=[col for col in model_dict["因子shap值"].columns if "shap" in col],
+        )
+        # 线性模型归因分析
+        if "因子评估" in model_dict:
+            factors_metrics = self.calc_grouped_mean(
+                model_dict["因子评估"],
+                groups=["date", "因子"],
+                cols=[col for col in model_dict["因子评估"].columns if col not in ["因子", "date"]],
+            )
+            factors_metrics_month = self.calc_grouped_mean(
+                model_dict["因子评估"],
+                groups=[pd.Grouper(key='date', freq="M"), "因子"],
+                cols=[col for col in model_dict["因子评估"].columns if col not in ["因子", "date"]],
+            )
+            factors_metrics_year = self.calc_grouped_mean(
+                model_dict["因子评估"],
+                groups=[pd.Grouper(key='date', freq="Y"), "因子"],
+                cols=[col for col in model_dict["因子评估"].columns if col not in ["因子", "date"]],
+            )
+            factors_metrics_all = self.calc_grouped_mean(
+                model_dict["因子评估"],
+                groups=["因子"],
+                cols=[col for col in model_dict["因子评估"].columns if col not in ["因子", "date"]],
+            )
+            self._store_to_excel(factors_metrics, "因子评估", "颗粒数据", "a")
+            self._store_to_excel(factors_metrics_month, "因子评估", "月度数据", "a")
+            self._store_to_excel(factors_metrics_year, "因子评估", "年度数据", "a")
+            self._store_to_excel(factors_metrics_all, "因子评估", "总体数据", "a")
+
         # IC指标群
         ic_stats = self._calc_ic_stats(
             model_data,

@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from sklearn.linear_model import LinearRegression
 
+import numpy as np
 import pandas as pd
 
 from template import ModelTemplate
@@ -107,7 +108,7 @@ class LinearRegressionModel(ModelTemplate):
             x_cols: list[str],
             y_col: str,
             window: int = 12
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> dict:
         """
         模型训练与预测
         :param input_df: 输入数据
@@ -121,7 +122,7 @@ class LinearRegressionModel(ModelTemplate):
 
         # 评估指标
         metrics = []
-        marginal_results = []
+        factors_metrics = []
 
         # 滚动窗口遍历
         result_dfs = []
@@ -232,61 +233,6 @@ class LinearRegressionModel(ModelTemplate):
             true_df = pd.concat([true_df, shap_df], axis=1)
 
             # ====================
-            # 特征重要性评估
-            # ====================
-            try:
-                base_metrics = self.calculate_regression_metrics(y_true, true_df["predict"])
-                print(base_metrics)
-                # 递归特征消除(RFE)分析
-                feature_importances = pd.Series(
-                    model.coef_, index=x_cols
-                ).abs().sort_values(ascending=False)
-                print(feature_importances)
-                # 动态阈值设置（基于搜索结果[1,4](@ref)）
-                auto_threshold = max(
-                    0.01,
-                    feature_importances.mean() * 2
-                )
-                print(feature_importances.mean() * 2)
-                print(auto_threshold)
-                # 单因子剔除实验
-                delta_metrics = []
-                for feature in x_cols:
-                    print(feature)
-                    reduced_cols = [col for col in x_cols if col != feature]
-                    # 训练剔除后的模型
-                    reduced_model = LinearRegression()
-                    reduced_model.fit(x_train[reduced_cols], y_train)
-                    reduced_pred = reduced_model.predict(x_true[reduced_cols])
-
-                    # 计算性能变化
-                    reduced_metrics = self.calculate_regression_metrics(y_true, reduced_pred)
-                    print(base_metrics)
-                    print(reduced_metrics)
-                    delta_metrics.append(
-                        pd.Series(
-                            {
-                                ""
-                            }
-                        )
-                    )
-                    delta_metrics[feature] = {
-                        'delta_MAE': reduced_metrics['MAE'] - base_metrics['MAE'],
-                        'delta_R2': reduced_metrics['R2'] - base_metrics['R2'],
-                        'importance': feature_importances.get(feature, 0)
-                    }
-                    print(delta_metrics)
-                    print(dd)
-                print(delta_metrics)
-                print(ss)
-                marginal_results.append({
-                    'date': predict_date,
-                    **delta_metrics,
-                    'threshold_used': auto_threshold
-                })
-            except ValueError:
-                continue
-            # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
             # ====================
             result_dfs.append(true_df)
@@ -299,12 +245,43 @@ class LinearRegressionModel(ModelTemplate):
                 metrics_series.name = predict_date
                 metrics.append(metrics_series)
             except ValueError:
-                continue
+                metrics_series = pd.Series()
 
-        print(pd.DataFrame(marginal_results).set_index('date'))
-        print(dd)
-        return (pd.concat(result_dfs, ignore_index=True),
-                pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
+            # ====================
+            # 因子评估
+            # ====================
+            if not metrics_series.empty:
+                # -1 拟合系数
+                feature_beta = pd.DataFrame(
+                    {
+                        "因子": x_cols,
+                        "拟合系数": model.coef_,
+                        "绝对系数占比": np.abs(model.coef_) / np.abs(model.coef_).sum() * 100
+                    }
+                ).sort_values(by="绝对系数占比", ascending=False)
+                # -2 重要性评估
+                factors_importance = self.calculate_linear_importance(
+                    model_metrics=metrics_series,
+                    x_cols=x_cols,
+                    x_train=x_train,
+                    y_train=y_train,
+                    x_true=x_true,
+                    y_true=y_true
+                )
+
+                factors_metric = feature_beta.merge(
+                    factors_importance,
+                    left_on="因子",
+                    right_on="因子"
+                )
+                factors_metric["date"] = predict_date
+                factors_metrics.append(factors_metric)
+
+        return {
+            "模型": pd.concat(result_dfs, ignore_index=True),
+            "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子评估": pd.concat(factors_metrics, ignore_index=True),
+        }
 
     def run(
             self
@@ -334,55 +311,29 @@ class LinearRegressionModel(ModelTemplate):
         # ----------------------------------
         # -1 因子合成
         level_2_df = self._factors_synthesis(self.input_df, mode="THREE_TO_TWO")
-        # -2 pca降维
-        # pca_df = self.utils.feature.pca(
-        #     level_2_df,
-        #     factors_synthesis_table=self.utils.extract.get_factors_synthesis_table(
-        #         self.factors_setting,
-        #         mode="TWO_TO_ONE"
-        #     ),
-        #     keep_cols=self.keep_cols
-        # )
 
         # ----------------------------------
         # 因子相关性
         # ----------------------------------
-        # corr_df = self.calculate_factors_corr(
-        #     factors_df=pca_df,
-        #     factors_name=pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()
-        # )
         corr_df = self.calculate_factors_corr(
             factors_df=level_2_df,
             factors_name=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist()
         )
 
         # ----------------------------------
-        # 合成 综合Z值
-        # ----------------------------------
-        # comprehensive_z_df = self._factors_synthesis(
-        #     pca_df,
-        #     synthesis_table={"综合Z值": pca_df.columns[~pca_df.columns.isin(self.keep_cols)].tolist()}
-        # )
-
-        # ----------------------------------
         # 模型
         # ----------------------------------
-        pred_df, estimate_metric = self.model_training_and_predict(
+        model_dict = self.model_training_and_predict(
             input_df=level_2_df,
             x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
             y_col="pctChg",
             window=self.model_setting.factor_weight_window
         )
-        # pred_df, estimate_metric = self.model_training_and_predict(
-        #     input_df=comprehensive_z_df,
-        #     x_cols=["综合Z值"],
-        #     y_col="pctChg",
-        #     window=self.model_setting.factor_weight_window
-        # )
 
         return {
-            "模型": pred_df,
-            "模型评估": estimate_metric,
+            "模型": model_dict["模型"],
+            "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": pred_df.filter(regex=r'shap_|^date$|^group$', axis=1)
+            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子评估": model_dict["因子评估"],
         }
