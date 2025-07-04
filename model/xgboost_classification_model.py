@@ -124,7 +124,7 @@ class XGBoostClassificationModel(ModelTemplate):
             x_cols: list[str],
             y_col: str,
             window: int = 12
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> dict:
         """
         模型训练与预测
         :param input_df: 输入数据
@@ -138,6 +138,7 @@ class XGBoostClassificationModel(ModelTemplate):
 
         # 评估指标
         metrics = []
+        factors_metrics = []
 
         # 滚动窗口遍历
         result_dfs = []
@@ -157,7 +158,6 @@ class XGBoostClassificationModel(ModelTemplate):
                 self.le.fit_transform(y_train),
                 index=y_train.index
             )
-
             # -5 训练模型
             model = XGBClassifier(objective='multi:softmax')
             model.fit(
@@ -236,18 +236,6 @@ class XGBoostClassificationModel(ModelTemplate):
                 )
 
             # ====================
-            # 归因分析（多分类）
-            # ====================
-            shap_df = self.shap_for_multiclass(
-                model,
-                factors_name=x_cols,
-                x_true=x_true,
-                y_true=self.le.transform(y_true),
-                y_predict=y_predict,
-            )
-            true_df = pd.concat([true_df, shap_df], axis=1)
-
-            # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
             # ====================
             result_dfs.append(true_df)
@@ -262,8 +250,24 @@ class XGBoostClassificationModel(ModelTemplate):
             except ValueError:
                 continue
 
-        return (pd.concat(result_dfs, ignore_index=True),
-                pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T)
+            # ====================
+            # 归因分析（多分类）
+            # ====================
+            factors_metric = self.shap_for_multiclass(
+                model,
+                factors_name=x_cols,
+                x_true=x_true,
+                y_true=self.le.transform(y_true),
+                y_predict=y_predict,
+            )
+            factors_metric["date"] = predict_date
+            factors_metrics.append(factors_metric)
+
+        return {
+            "模型": pd.concat(result_dfs, ignore_index=True),
+            "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子评估": pd.concat(factors_metrics, ignore_index=True),
+        }
 
     def run(
             self
@@ -290,36 +294,29 @@ class XGBoostClassificationModel(ModelTemplate):
         )
 
         # ----------------------------------
-        # 因子降维
-        # ----------------------------------
-        level_2_df = self._factors_synthesis(
-            self.input_df,
-            mode="THREE_TO_TWO"
-        )
-
-        # ----------------------------------
         # 因子相关性
         # ----------------------------------
         corr_df = self.calculate_factors_corr(
-            factors_df=level_2_df,
-            factors_name=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist()
+            factors_df=self.input_df,
+            factors_name=self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist()
         )
 
         # ----------------------------------
         # 模型
         # ----------------------------------
-        pred_df, estimate_metric = self.model_training_and_predict(
-            input_df=level_2_df,
-            x_cols=level_2_df.columns[~level_2_df.columns.isin(self.keep_cols)].tolist(),
+        model_dict = self.model_training_and_predict(
+            input_df=self.input_df,
+            x_cols=self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist(),
             y_col="origin_group",
             window=self.model_setting.factor_weight_window
         )
 
         return {
-            "模型": pred_df,
-            "模型评估": estimate_metric,
+            "模型": model_dict["模型"],
+            "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": pred_df.filter(regex=r'shap_|^date$|^group$', axis=1)
+            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子评估": model_dict["因子评估"],
         }
 
 

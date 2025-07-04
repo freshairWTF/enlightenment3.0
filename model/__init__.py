@@ -10,8 +10,10 @@ __all__ = [
     # 线性
     "LinearRegressionLevel2Model",
     "LinearRegressionZScoreModel",
-    "LinearRegressionPCModel",
-    "LinearRegressionHigherZeroModel",
+    "LinearRegressionZScorePCModel",
+    "LinearRegressionZScoreHigherZeroModel",
+    "LinearRegressionL1Model",
+    "LinearRegressionL2Model",
     "LinearRegressionTestModel",
 
     "XGBoostRegressionModel",
