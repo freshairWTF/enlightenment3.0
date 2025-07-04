@@ -257,17 +257,17 @@ class ModelTemplate:
         # -6 数据整合
         shap_pred_df = pd.DataFrame(
             pred_shap,
-            columns=[f'shap_{col}_pred' for col in factors_name],
+            columns=[f'{col}_pred' for col in factors_name],
             index=x_true.index
         )
         shap_true_df = pd.DataFrame(
             true_shap,
-            columns=[f'shap_{col}_true' for col in factors_name],
+            columns=[f'{col}_true' for col in factors_name],
             index=x_true.index
         )
         shap_delta_df = pd.DataFrame(
             delta_shap,
-            columns=[f'shap_{col}_delta' for col in factors_name],
+            columns=[f'{col}_delta' for col in factors_name],
             index=x_true.index
         )
 
@@ -298,12 +298,18 @@ class ModelTemplate:
         shap_values = explainer.shap_values(x_true)
         # -3 预测类别的SHAP值（即模型预测值的解释）
         pred_shap = shap_values
-
-        return pd.DataFrame(
+        # -4 生成df
+        shap_df = pd.DataFrame(
             pred_shap,
-            columns=[f'shap_{col}_pred' for col in factors_name],
+            columns=[f"{col}_shap" for col in factors_name],
             index=x_true.index
         )
+        # -5 因子值与shap值合并
+        result_df = pd.concat([shap_df, x_true], axis=1)
+        # -6 移除列名前缀
+        result_df.columns = result_df.columns.str.replace("processed_", '', regex=False)
+
+        return result_df
 
     def calculate_linear_importance(
             self,

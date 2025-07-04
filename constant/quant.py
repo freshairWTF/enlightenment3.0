@@ -143,9 +143,11 @@ class Factor:
 
 #####################################################
 class ModelVisualization:
+
     def __init__(self):
         self.pages_name = [
             "模型分析", "换手率估计_模型分析", "1%TS_模型分析", "3%TS_模型分析", "5%TS_模型分析",
+            "因子shap分析"
         ]
         # 图表配置
         self.pages_config = {
@@ -482,6 +484,34 @@ class ModelVisualization:
                     column="",
                     date=False
                 )
+            },
+            "因子shap分析": {
+                "_basic_bar-1": BasicChartSpecs(
+                    title="shap均值",
+                    data_source="shap均值",
+                    column="",
+                    date=False,
+                    orientation="vertical",
+                    width="500px",
+                    height="1800px"
+                ),
+                "_basic_bar-2": BasicChartSpecs(
+                    title="shap绝对均值",
+                    data_source="shap绝对均值",
+                    column="",
+                    date=False,
+                    orientation="vertical",
+                    width="500px",
+                    height="1800px"
+                ),
+                "_shap_scatter-1": BasicChartSpecs(
+                    title="因子shap值",
+                    data_source="因子shap值",
+                    column="",
+                    date=False,
+                    width="900px",
+                    height="900px"
+                ),
             },
         }
 

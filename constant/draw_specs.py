@@ -10,6 +10,9 @@ class BasicChartSpecs:
     column: str | list[str]             # 数据列名
     percent: bool = False               # 百分比
 
+    width: str = '1800px'               # 宽度
+    height: str = '600px'               # 高度
+    orientation: str = ""               # 方向控制（bar）
     date: bool = True                   # 时间序列仅取 date
     font_family: str = 'KaiTi'          # 字体
 

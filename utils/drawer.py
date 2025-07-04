@@ -1,11 +1,12 @@
 """绘图"""
-from typing import Literal
+from typing import Literal, Iterator
 from pathlib import Path
 from pyecharts import options as opts
 from pyecharts.charts import Bar, Line, Pie, Scatter, Page, Grid, Timeline, HeatMap
 from pyecharts.components import Table
 from pyecharts.commons.utils import JsCode
 
+import inspect
 import numpy as np
 import pandas as pd
 
@@ -33,7 +34,8 @@ COLOR_MAP = [
 class Drawer(object):
 
     BASIC_METHOD = [
-        '_basic_line', '_basic_bar', '_basic_scatter', '_basic_heat_map', '_basic_table'
+        '_basic_line', '_basic_bar', '_basic_scatter', '_basic_heat_map', '_basic_table',
+        "_shap_scatter"
     ]
     QUADRANTS_METHOD = [
         '_quadrants', '_upper_lower_dichotomy'
@@ -77,17 +79,24 @@ class Drawer(object):
             for method_rank, chart_config in page_config.items():
                 # 方法名
                 method_name = method_rank.split('-')[0]
-                try:
-                    # 聚合数据
-                    data = self._get_agg_data(method_name, chart_config)
-                    if method_name and hasattr(self, method_name):
-                        self.pages[page].add(
-                            getattr(self, method_name)(chart_config, data)
-                        )
+                # try:
+                # 聚合数据
+                data = self._get_agg_data(method_name, chart_config)
+                if method_name and hasattr(self, method_name):
+
+                    charts = getattr(self, method_name)(chart_config, data)
+                    # -1 生成器：遍历生成器并逐个添加图表
+                    if inspect.isgenerator(charts):
+                        for chart in charts:
+                            self.pages[page].add(chart)
+                    # -2 非生成器方法直接添加
                     else:
-                        raise ValueError(f'未实现的方法: {method_name}')
-                except:
-                    continue
+                        self.pages[page].add(charts)
+                else:
+                    raise ValueError(f'未实现的方法: {method_name}')
+                # except Exception as e:
+                #     # print(f"{method_name}绘图出现错误: {e}")
+                #     continue
 
     def render(
             self
@@ -182,7 +191,7 @@ class Drawer(object):
         return result
 
     # --------------------------
-    # 基础图表方法
+    # 普通基础图表方法
     # --------------------------
     @classmethod
     def _basic_line(
@@ -222,8 +231,11 @@ class Drawer(object):
     ) -> Bar:
         """基础柱状图"""
         # 图表
+        bar = Bar(init_opts=opts.InitOpts(width='1800px', height='1800px')) \
+            if config.orientation == "vertical" else (
+            Bar(init_opts=opts.InitOpts(width='1800px')))
         bar = (
-            Bar(init_opts=opts.InitOpts(width='1800px'))
+            bar
             .add_xaxis(data.index.tolist())
             .set_global_opts(
                 title_opts=opts.TitleOpts(
@@ -242,6 +254,22 @@ class Drawer(object):
                 category_gap='80%',
                 label_opts=opts.LabelOpts(is_show=False)
             )
+
+        if config.orientation == "vertical":
+            # 翻转坐标轴前配置Y轴选项
+            bar.set_global_opts(
+                yaxis_opts=opts.AxisOpts(
+                    axislabel_opts=opts.LabelOpts(
+                        interval=0,             # 显示所有标签
+                        rotate=25,              # 标签旋转45度避免重叠
+                        font_size=13,           # 使用较小字号
+                        margin=10,              # 增加标签间距
+                        position="top",
+                        font_family=config.font_family
+                    ),
+                ),
+            )
+            bar.reversal_axis()
 
         return bar
 
@@ -375,7 +403,7 @@ class Drawer(object):
         )
 
     # --------------------------
-    # 高级图表方法
+    # 普通高级图表方法
     # --------------------------
     @classmethod
     def _quadrants(
@@ -494,6 +522,32 @@ class Drawer(object):
                 )
 
         return grid
+
+    # --------------------------------------------
+    # 定制绘图区
+    # --------------------------------------------
+    @classmethod
+    def _shap_scatter(
+            cls,
+            config: CHART_CONFIG,
+            data: pd.DataFrame
+    ) -> Iterator[Scatter]:
+        """专用于shap使用的散点图"""
+        # 获取shap列名
+        shap_cols = data.filter(like="_shap").columns
+
+        for shap_col in shap_cols:
+            # -1 创建散点图数据（x轴为index）
+            factor_name = shap_col.replace("_shap", "")
+            scatter_df = data[[shap_col, factor_name]]
+            scatter_df = scatter_df.set_index(factor_name)
+
+            # -2 更新配置信息
+            config.title = factor_name
+
+            # -3 生成散点图
+            scatter = cls._basic_scatter(config, scatter_df)
+            yield scatter
 
 
 ###############################################################

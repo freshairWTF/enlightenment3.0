@@ -122,6 +122,7 @@ class LinearRegressionLevel2Model(ModelTemplate):
 
         # 评估指标
         metrics = []
+        shap_metrics = []
         factors_metrics = []
 
         # 滚动窗口遍历
@@ -222,17 +223,6 @@ class LinearRegressionLevel2Model(ModelTemplate):
                 )
 
             # ====================
-            # 归因分析
-            # ====================
-            shap_df = self.shape_for_linear(
-                model,
-                factors_name=x_cols,
-                x_train=x_train,
-                x_true=x_true
-            )
-            true_df = pd.concat([true_df, shap_df], axis=1)
-
-            # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
             # ====================
             result_dfs.append(true_df)
@@ -246,6 +236,18 @@ class LinearRegressionLevel2Model(ModelTemplate):
                 metrics.append(metrics_series)
             except ValueError:
                 metrics_series = pd.Series()
+
+            # ====================
+            # 归因分析
+            # ====================
+            shap_df = self.shape_for_linear(
+                model,
+                factors_name=x_cols,
+                x_train=x_train,
+                x_true=x_true
+            )
+            shap_df["date"] = predict_date
+            shap_metrics.append(shap_df)
 
             # ====================
             # 因子评估
@@ -280,6 +282,7 @@ class LinearRegressionLevel2Model(ModelTemplate):
         return {
             "模型": pd.concat(result_dfs, ignore_index=True),
             "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子shap值": pd.concat(shap_metrics, ignore_index=True),
             "因子评估": pd.concat(factors_metrics, ignore_index=True),
         }
 
@@ -334,7 +337,7 @@ class LinearRegressionLevel2Model(ModelTemplate):
             "模型": model_dict["模型"],
             "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子shap值": model_dict["因子shap值"],
             "因子评估": model_dict["因子评估"],
         }
 
@@ -453,6 +456,7 @@ class LinearRegressionZScoreModel(ModelTemplate):
 
         # 评估指标
         metrics = []
+        shap_metrics = []
         factors_metrics = []
 
         # 滚动窗口遍历
@@ -553,17 +557,6 @@ class LinearRegressionZScoreModel(ModelTemplate):
                 )
 
             # ====================
-            # 归因分析
-            # ====================
-            shap_df = self.shape_for_linear(
-                model,
-                factors_name=x_cols,
-                x_train=x_train,
-                x_true=x_true
-            )
-            true_df = pd.concat([true_df, shap_df], axis=1)
-
-            # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
             # ====================
             result_dfs.append(true_df)
@@ -577,6 +570,18 @@ class LinearRegressionZScoreModel(ModelTemplate):
                 metrics.append(metrics_series)
             except ValueError:
                 continue
+                
+            # ====================
+            # 归因分析
+            # ====================
+            shap_df = self.shape_for_linear(
+                model,
+                factors_name=x_cols,
+                x_train=x_train,
+                x_true=x_true
+            )
+            shap_df["date"] = predict_date
+            shap_metrics.append(shap_df)
 
             # ====================
             # 因子评估
@@ -611,6 +616,7 @@ class LinearRegressionZScoreModel(ModelTemplate):
         return {
             "模型": pd.concat(result_dfs, ignore_index=True),
             "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子shap值": pd.concat(shap_metrics, ignore_index=True),
             "因子评估": pd.concat(factors_metrics, ignore_index=True),
         }
 
@@ -682,7 +688,7 @@ class LinearRegressionZScoreModel(ModelTemplate):
             "模型": model_dict["模型"],
             "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子shap值": model_dict["因子shap值"],
             "因子评估": model_dict["因子评估"],
         }
 
@@ -801,6 +807,7 @@ class LinearRegressionZScorePCModel(ModelTemplate):
 
         # 评估指标
         metrics = []
+        shap_metrics = []
         factors_metrics = []
 
         # 滚动窗口遍历
@@ -909,17 +916,6 @@ class LinearRegressionZScorePCModel(ModelTemplate):
             true_df["position_weight"] *= positive_ratio
 
             # ====================
-            # 归因分析
-            # ====================
-            shap_df = self.shape_for_linear(
-                model,
-                factors_name=x_cols,
-                x_train=x_train,
-                x_true=x_true
-            )
-            true_df = pd.concat([true_df, shap_df], axis=1)
-
-            # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
             # ====================
             result_dfs.append(true_df)
@@ -933,6 +929,18 @@ class LinearRegressionZScorePCModel(ModelTemplate):
                 metrics.append(metrics_series)
             except ValueError:
                 continue
+
+            # ====================
+            # 归因分析
+            # ====================
+            shap_df = self.shape_for_linear(
+                model,
+                factors_name=x_cols,
+                x_train=x_train,
+                x_true=x_true
+            )
+            shap_df["date"] = predict_date
+            shap_metrics.append(shap_df)
 
             # ====================
             # 因子评估
@@ -967,6 +975,7 @@ class LinearRegressionZScorePCModel(ModelTemplate):
         return {
             "模型": pd.concat(result_dfs, ignore_index=True),
             "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子shap值": pd.concat(shap_metrics, ignore_index=True),
             "因子评估": pd.concat(factors_metrics, ignore_index=True),
         }
 
@@ -1038,7 +1047,7 @@ class LinearRegressionZScorePCModel(ModelTemplate):
             "模型": model_dict["模型"],
             "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子shap值": model_dict["因子shap值"],
             "因子评估": model_dict["因子评估"],
         }
 
@@ -1157,6 +1166,7 @@ class LinearRegressionZScoreHigherZeroModel(ModelTemplate):
 
         # 评估指标
         metrics = []
+        shap_metrics = []
         factors_metrics = []
 
         # 滚动窗口遍历
@@ -1257,17 +1267,6 @@ class LinearRegressionZScoreHigherZeroModel(ModelTemplate):
                 )
 
             # ====================
-            # 归因分析
-            # ====================
-            shap_df = self.shape_for_linear(
-                model,
-                factors_name=x_cols,
-                x_train=x_train,
-                x_true=x_true
-            )
-            true_df = pd.concat([true_df, shap_df], axis=1)
-
-            # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
             # ====================
             result_dfs.append(true_df)
@@ -1281,6 +1280,18 @@ class LinearRegressionZScoreHigherZeroModel(ModelTemplate):
                 metrics.append(metrics_series)
             except ValueError:
                 continue
+                
+            # ====================
+            # 归因分析
+            # ====================
+            shap_df = self.shape_for_linear(
+                model,
+                factors_name=x_cols,
+                x_train=x_train,
+                x_true=x_true
+            )
+            shap_df["date"] = predict_date
+            shap_metrics.append(shap_df)
 
             # ====================
             # 因子评估
@@ -1315,6 +1326,7 @@ class LinearRegressionZScoreHigherZeroModel(ModelTemplate):
         return {
             "模型": pd.concat(result_dfs, ignore_index=True),
             "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子shap值": pd.concat(shap_metrics, ignore_index=True),
             "因子评估": pd.concat(factors_metrics, ignore_index=True),
         }
 
@@ -1386,7 +1398,7 @@ class LinearRegressionZScoreHigherZeroModel(ModelTemplate):
             "模型": model_dict["模型"],
             "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子shap值": model_dict["因子shap值"],
             "因子评估": model_dict["因子评估"],
         }
 
@@ -1505,6 +1517,7 @@ class LinearRegressionL1Model(ModelTemplate):
 
         # 评估指标
         metrics = []
+        shap_metrics = []
         factors_metrics = []
 
         # 滚动窗口遍历
@@ -1605,17 +1618,6 @@ class LinearRegressionL1Model(ModelTemplate):
                 )
 
             # ====================
-            # 归因分析
-            # ====================
-            shap_df = self.shape_for_linear(
-                model,
-                factors_name=x_cols,
-                x_train=x_train,
-                x_true=x_true
-            )
-            true_df = pd.concat([true_df, shap_df], axis=1)
-
-            # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
             # ====================
             result_dfs.append(true_df)
@@ -1630,6 +1632,18 @@ class LinearRegressionL1Model(ModelTemplate):
             except ValueError:
                 metrics_series = pd.Series()
 
+            # ====================
+            # 归因分析
+            # ====================
+            shap_df = self.shape_for_linear(
+                model,
+                factors_name=x_cols,
+                x_train=x_train,
+                x_true=x_true
+            )
+            shap_df["date"] = predict_date
+            shap_metrics.append(shap_df)
+        
             # ====================
             # 因子评估
             # ====================
@@ -1663,6 +1677,7 @@ class LinearRegressionL1Model(ModelTemplate):
         return {
             "模型": pd.concat(result_dfs, ignore_index=True),
             "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子shap值": pd.concat(shap_metrics, ignore_index=True),
             "因子评估": pd.concat(factors_metrics, ignore_index=True),
         }
 
@@ -1700,9 +1715,14 @@ class LinearRegressionL1Model(ModelTemplate):
         # ----------------------------------
         # 模型
         # ----------------------------------
+        factors_name = self.utils.extract.get_factors_synthesis_table(
+            self.factors_setting,
+            "THREE_TO_Z"
+        )["综合Z值"]
+
         model_dict = self.model_training_and_predict(
             input_df=self.input_df,
-            x_cols=self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist(),
+            x_cols=factors_name,
             y_col="pctChg",
             window=self.model_setting.factor_weight_window
         )
@@ -1711,7 +1731,7 @@ class LinearRegressionL1Model(ModelTemplate):
             "模型": model_dict["模型"],
             "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子shap值": model_dict["因子shap值"],
             "因子评估": model_dict["因子评估"],
         }
 
@@ -1830,6 +1850,7 @@ class LinearRegressionL2Model(ModelTemplate):
 
         # 评估指标
         metrics = []
+        shap_metrics = []
         factors_metrics = []
 
         # 滚动窗口遍历
@@ -1930,6 +1951,11 @@ class LinearRegressionL2Model(ModelTemplate):
                 )
 
             # ====================
+            # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
+            # ====================
+            result_dfs.append(true_df)
+            
+            # ====================
             # 归因分析
             # ====================
             shap_df = self.shape_for_linear(
@@ -1938,12 +1964,8 @@ class LinearRegressionL2Model(ModelTemplate):
                 x_train=x_train,
                 x_true=x_true
             )
-            true_df = pd.concat([true_df, shap_df], axis=1)
-
-            # ====================
-            # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
-            # ====================
-            result_dfs.append(true_df)
+            shap_df["date"] = predict_date
+            shap_metrics.append(shap_df)
 
             # ====================
             # 模型评估
@@ -1988,6 +2010,7 @@ class LinearRegressionL2Model(ModelTemplate):
         return {
             "模型": pd.concat(result_dfs, ignore_index=True),
             "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子shap值": pd.concat(shap_metrics, ignore_index=True),
             "因子评估": pd.concat(factors_metrics, ignore_index=True),
         }
 
@@ -2025,9 +2048,13 @@ class LinearRegressionL2Model(ModelTemplate):
         # ----------------------------------
         # 模型
         # ----------------------------------
+        factors_name = self.utils.extract.get_factors_synthesis_table(
+            self.factors_setting,
+            "THREE_TO_Z"
+        )["综合Z值"]
         model_dict = self.model_training_and_predict(
             input_df=self.input_df,
-            x_cols=self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist(),
+            x_cols=factors_name,
             y_col="pctChg",
             window=self.model_setting.factor_weight_window
         )
@@ -2036,7 +2063,7 @@ class LinearRegressionL2Model(ModelTemplate):
             "模型": model_dict["模型"],
             "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子shap值": model_dict["因子shap值"],
             "因子评估": model_dict["因子评估"],
         }
 
@@ -2155,6 +2182,7 @@ class LinearRegressionTestModel(ModelTemplate):
 
         # 评估指标
         metrics = []
+        shap_metrics = []
         factors_metrics = []
 
         # 滚动窗口遍历
@@ -2255,17 +2283,6 @@ class LinearRegressionTestModel(ModelTemplate):
                 )
 
             # ====================
-            # 归因分析
-            # ====================
-            shap_df = self.shape_for_linear(
-                model,
-                factors_name=x_cols,
-                x_train=x_train,
-                x_true=x_true
-            )
-            true_df = pd.concat([true_df, shap_df], axis=1)
-
-            # ====================
             # 数据整合（原值、预测收益率/分组、仓位权重、实际股数）
             # ====================
             result_dfs.append(true_df)
@@ -2279,6 +2296,18 @@ class LinearRegressionTestModel(ModelTemplate):
                 metrics.append(metrics_series)
             except ValueError:
                 metrics_series = pd.Series()
+            
+            # ====================
+            # 归因分析
+            # ====================
+            shap_df = self.shape_for_linear(
+                model,
+                factors_name=x_cols,
+                x_train=x_train,
+                x_true=x_true
+            )
+            shap_df["date"] = predict_date
+            shap_metrics.append(shap_df)
 
             # ====================
             # 因子评估
@@ -2313,6 +2342,7 @@ class LinearRegressionTestModel(ModelTemplate):
         return {
             "模型": pd.concat(result_dfs, ignore_index=True),
             "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
+            "因子shap值": pd.concat(shap_metrics, ignore_index=True),
             "因子评估": pd.concat(factors_metrics, ignore_index=True),
         }
 
@@ -2405,9 +2435,13 @@ class LinearRegressionTestModel(ModelTemplate):
         # ----------------------------------
         # 模型
         # ----------------------------------
+        factors_name = self.utils.extract.get_factors_synthesis_table(
+            self.factors_setting,
+            "THREE_TO_Z"
+        )["综合Z值"]
         model_dict = self.model_training_and_predict(
             input_df=self.input_df,
-            x_cols=self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist(),
+            x_cols=factors_name,
             y_col="pctChg",
             window=self.model_setting.factor_weight_window
         )
@@ -2416,6 +2450,6 @@ class LinearRegressionTestModel(ModelTemplate):
             "模型": model_dict["模型"],
             "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
+            "因子shap值": model_dict["因子shap值"],
             "因子评估": model_dict["因子评估"],
         }

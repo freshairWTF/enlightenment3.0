@@ -39,6 +39,7 @@
         -1 多策略器 集成/堆叠
         -2 单一策略器的设计
    
+   因子：调入指数
 """
 
 """
@@ -58,9 +59,11 @@ from constant.type_ import FILTER_MODE
 # -----------------------------
 MODEL = {
     "ZScoreLinearReg": LinearRegressionZScoreModel,
-    "ZScorePCLinearReg": LinearRegressionPCModel,
-    "ZScoreHigherZeroLinearReg": LinearRegressionHigherZeroModel,
+    "ZScorePCLinearReg": LinearRegressionZScorePCModel,
+    "ZScoreHigherZeroLinearReg": LinearRegressionZScoreHigherZeroModel,
     "level2linearReg": LinearRegressionLevel2Model,
+    "l1LinearReg": LinearRegressionL1Model,
+    "l2LinearReg": LinearRegressionL2Model,
     "testLineaReg": LinearRegressionTestModel,
 
     "xgboostReg": XGBoostRegressionModel,
@@ -93,15 +96,15 @@ def model_backtest():
 if __name__ == "__main__":
     # 路径参数
     source_dir = "模型因子测试集"
-    storage_dir = "测试/ZScoreLinearReg"
+    storage_dir = "因子归因测试/testLineaReg"
 
-    filter_mode: FILTER_MODE = "_white_filter"
+    filter_mode: FILTER_MODE = "_small_cap_filter"
     # 模型参数设置
     model_setting = ModelSetting(
         # 模型/周期/因子
-        model="ZScoreLinearReg",
+        model="testLineaReg",
         cycle="week",
-        factors_setting=list(FACTOR_LIBRARY.values()),
+        factors_setting=list(FACTOR_TEST.values()),
         industry_info={"全部": "三级行业"},
 
         # 目标因子
@@ -114,7 +117,7 @@ if __name__ == "__main__":
         factor_weight_window=12,
 
         # 分组
-        group_nums=20,
+        group_nums=10,
         group_mode="frequency",
     )
 

@@ -392,43 +392,6 @@ class ModelAnalyzer(QuantService):
         return agg_stats[column_order]
 
     @classmethod
-    def calc_shap_stats(
-            cls,
-            shap_df: pd.DataFrame,
-            cycle: str = "",
-    ) -> pd.DataFrame:
-        """
-        计算多SHAP列的分组描述统计（无权重版）
-        :param shap_df: 含date, group及多个shap_*列的DataFrame
-        :param cycle: 统计周期("M"/"Y"/"ALL")
-        :return: 分组统计DataFrame
-        """
-        # -1 预处理
-        df = shap_df.copy()
-        df['date'] = pd.to_datetime(df['date'])
-
-        # -2 动态识别所有SHAP列
-        shap_cols = [col for col in df.columns if "shap" in col]
-        if not shap_cols:
-            raise ValueError(f"数据中未找到SHAP列")
-
-        # -3 按周期分组
-        if cycle == 'ALL':
-            grouped = df.groupby("group")
-        elif cycle:
-            grouped = df.groupby([
-                "group",
-                pd.Grouper(key='date', freq=cycle)
-            ])
-        else:
-            grouped = df.groupby(["group", "date"])
-
-        # -4 计算均值
-        result = grouped[shap_cols].agg('mean')
-
-        return result
-
-    @classmethod
     def calc_grouped_mean(
             cls,
             df: pd.DataFrame,
@@ -447,14 +410,14 @@ class ModelAnalyzer(QuantService):
         # -1 预处理
         df = df.copy()
         df['date'] = pd.to_datetime(df['date'])
-
-        # -3 按周期分组
+        
+        # -2 按周期分组
         grouped = df.groupby(groups) if groups else df
 
-        # -4 计算均值
+        # -3 计算均值
         result = grouped[cols].agg(agg_func)
 
-        return result.dropna(how="any")
+        return result.dropna(how="all")
 
     def _calc_ic_stats(
             self,
@@ -548,6 +511,31 @@ class ModelAnalyzer(QuantService):
         }
 
         return metrics
+
+    @classmethod
+    def _calc_shap_metrics(
+            cls,
+            shap_df: pd.DataFrame,
+    ) -> dict:
+        """
+        计算shap指标
+            -1 均值
+            -2 绝对均值
+        """
+        shap_cols = shap_df.filter(like="_shap").columns
+        shap_values = shap_df[shap_cols]
+        shap_values.columns = shap_values.columns.str.replace("_shap", '', regex=False)
+
+        # -1 均值
+        mean_values = shap_values.mean().to_frame(name="value").sort_values(by="value")
+
+        # -2 绝对均值
+        mad_values = shap_values.abs().mean().to_frame(name="value").reindex(mean_values.index)
+        return {
+            "shap均值": mean_values,
+            "shap绝对均值": mad_values,
+            "因子shap值": shap_df
+        }
 
     # --------------------------
     # 存储、可视化 方法
@@ -681,27 +669,7 @@ class ModelAnalyzer(QuantService):
         descriptive_month = self._calc_descriptive_factors(model_df, "M")
         descriptive_year = self._calc_descriptive_factors(model_df, "Y")
         descriptive_all = self._calc_descriptive_factors(model_df, "ALL")
-        # SHAP归因分析
-        shap_stats = self.calc_grouped_mean(
-            model_dict["因子shap值"],
-            groups=["group", "date"],
-            cols=[col for col in model_dict["因子shap值"].columns if "shap" in col],
-        )
-        shap_stats_month = self.calc_grouped_mean(
-            model_dict["因子shap值"],
-            groups=["group", pd.Grouper(key='date', freq="M")],
-            cols=[col for col in model_dict["因子shap值"].columns if "shap" in col],
-        )
-        shap_stats_year = self.calc_grouped_mean(
-            model_dict["因子shap值"],
-            groups=["group", pd.Grouper(key='date', freq="Y")],
-            cols=[col for col in model_dict["因子shap值"].columns if "shap" in col],
-        )
-        shap_stats_all = self.calc_grouped_mean(
-            model_dict["因子shap值"],
-            groups=["group"],
-            cols=[col for col in model_dict["因子shap值"].columns if "shap" in col],
-        )
+
         # 线性模型归因分析
         if "因子评估" in model_dict:
             factors_metrics = self.calc_grouped_mean(
@@ -724,10 +692,10 @@ class ModelAnalyzer(QuantService):
                 groups=["因子"],
                 cols=[col for col in model_dict["因子评估"].columns if col not in ["因子", "date"]],
             )
-            self._store_to_excel(factors_metrics, "因子评估", "颗粒数据", "a")
-            self._store_to_excel(factors_metrics_month, "因子评估", "月度数据", "a")
-            self._store_to_excel(factors_metrics_year, "因子评估", "年度数据", "a")
-            self._store_to_excel(factors_metrics_all, "因子评估", "总体数据", "a")
+            self._store_to_excel(factors_metrics, "因子重要性评估", "颗粒数据", "a")
+            self._store_to_excel(factors_metrics_month, "因子重要性评估", "月度数据", "a")
+            self._store_to_excel(factors_metrics_year, "因子重要性评估", "年度数据", "a")
+            self._store_to_excel(factors_metrics_all, "因子重要性评估", "总体数据", "a")
 
         # IC指标群
         ic_stats = self._calc_ic_stats(
@@ -745,13 +713,14 @@ class ModelAnalyzer(QuantService):
         return_stats_year = self.calc_return_stats(return_metrics["换手率估计_returns"], self.cycle, "Y")
         return_stats_all = self.calc_return_stats(return_metrics["换手率估计_returns"], self.cycle, "ALL")
 
-        # IC/收益率/评估/覆盖度/因子相关性
-        result = {
+        # 绘图指标（IC/收益率/评估/覆盖度/因子相关性/shap值）
+        draw_result = {
             **{"模型评估指标": metrics_df},
             "coverage": self.calc_coverage(model_data, self.listed_nums),
             "因子相关性": corr_df,
             **ic_stats,
             **return_metrics,
+            **self._calc_shap_metrics(model_dict["因子shap值"])
         }
 
         # ---------------------------------------
@@ -759,7 +728,7 @@ class ModelAnalyzer(QuantService):
         # ---------------------------------------
         self.logger.info("---------- 结果存储、可视化 ----------")
         # IC/收益率
-        self._draw_charts(self.storage_dir, result, self.visual_setting)
+        self._draw_charts(self.storage_dir, draw_result, self.visual_setting)
         # 描述性统计
         self._store_to_excel(descriptive, "描述性统计", "颗粒数据", "a")
         self._store_to_excel(descriptive_month, "描述性统计", "月度数据", "a")
@@ -775,11 +744,6 @@ class ModelAnalyzer(QuantService):
         self._store_to_excel(return_stats_month, "收益率统计", "月度数据", "a")
         self._store_to_excel(return_stats_year, "收益率统计", "年度数据", "a")
         self._store_to_excel(return_stats_all, "收益率统计", "总体数据", "a")
-        # 归因分析
-        self._store_to_excel(shap_stats, "归因分析", "颗粒数据", "a")
-        self._store_to_excel(shap_stats_month, "归因分析", "月度数据", "a")
-        self._store_to_excel(shap_stats_year, "归因分析", "年度数据", "a")
-        self._store_to_excel(shap_stats_all, "归因分析", "总体数据", "a")
         # 交易文件
         if self.model_setting.generate_trade_file:
             # 买卖股数

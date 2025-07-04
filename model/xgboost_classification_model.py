@@ -138,7 +138,7 @@ class XGBoostClassificationModel(ModelTemplate):
 
         # 评估指标
         metrics = []
-        factors_metrics = []
+        shap_metrics = []
 
         # 滚动窗口遍历
         result_dfs = []
@@ -253,20 +253,20 @@ class XGBoostClassificationModel(ModelTemplate):
             # ====================
             # 归因分析（多分类）
             # ====================
-            factors_metric = self.shap_for_multiclass(
+            shap_df = self.shap_for_multiclass(
                 model,
                 factors_name=x_cols,
                 x_true=x_true,
                 y_true=self.le.transform(y_true),
                 y_predict=y_predict,
             )
-            factors_metric["date"] = predict_date
-            factors_metrics.append(factors_metric)
+            shap_df["date"] = predict_date
+            shap_metrics.append(shap_df)
 
         return {
             "模型": pd.concat(result_dfs, ignore_index=True),
             "模型评估": pd.concat(metrics, axis=1).mean(axis=1).to_frame(name="value").T,
-            "因子评估": pd.concat(factors_metrics, ignore_index=True),
+            "因子shap值": pd.concat(shap_metrics, ignore_index=True),
         }
 
     def run(
@@ -304,9 +304,13 @@ class XGBoostClassificationModel(ModelTemplate):
         # ----------------------------------
         # 模型
         # ----------------------------------
+        factors_name = self.utils.extract.get_factors_synthesis_table(
+            self.factors_setting,
+            "THREE_TO_Z"
+        )["综合Z值"]
         model_dict = self.model_training_and_predict(
             input_df=self.input_df,
-            x_cols=self.input_df.columns[~self.input_df.columns.isin(self.keep_cols)].tolist(),
+            x_cols=factors_name,
             y_col="origin_group",
             window=self.model_setting.factor_weight_window
         )
@@ -315,8 +319,7 @@ class XGBoostClassificationModel(ModelTemplate):
             "模型": model_dict["模型"],
             "模型评估": model_dict["模型评估"],
             "因子相关性": corr_df,
-            "因子shap值": model_dict["模型"].filter(regex=r'shap_|^date$|^group$', axis=1),
-            "因子评估": model_dict["因子评估"],
+            "因子shap值": model_dict["因子shap值"],
         }
 
 

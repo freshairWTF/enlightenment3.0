@@ -7,7 +7,7 @@ import threading
 
 from loguru import logger
 from datetime import datetime, time as time_class, timezone
-from zoneinfo import ZoneInfo
+# from zoneinfo import ZoneInfo
 
 from xtquant import xtdata
 from xtquant.xttrader import XtQuantTrader
@@ -308,12 +308,14 @@ class MiniQMTTrader:
         else:
             stock_codes = list(set(order["stock_code"] for order in self.pending_orders))
 
-        subscribe_code = xtdata.subscribe_whole_quote(stock_codes, callback=callback)
-        if subscribe_code == -1:
-            self.market_logger.error(f"订阅全推行情数据失败: {subscribe_code}")
-            raise ConnectionError(f"订阅全推行情数据失败: {subscribe_code}")
+        self.subscribe_code = xtdata.subscribe_whole_quote(stock_codes, callback=callback)
+        if self.subscribe_code == -1:
+            self.trade_logger.error(f"订阅全推行情数据失败: {self.subscribe_code}")
+            self.market_logger.error(f"订阅全推行情数据失败: {self.subscribe_code}")
+            raise ConnectionError(f"订阅全推行情数据失败: {self.subscribe_code}")
         else:
-            self.market_logger.success(f"订阅全推行情数据成功: {subscribe_code}")
+            self.trade_logger.success(f"订阅全推行情数据成功 -> 订阅号: {self.subscribe_code}")
+            self.market_logger.success(f"订阅全推行情数据成功 -> 订阅号: {self.subscribe_code}")
 
     def subscribe_quote(
             self,
@@ -325,12 +327,12 @@ class MiniQMTTrader:
         :param stock_code: 股票代码
         :param callback: 行情数据回调函数，若不指定则使用类内部默认处理
         """
-        subscribe_code = xtdata.subscribe_quote(stock_code, callback=callback)
-        if subscribe_code == -1:
-            self.market_logger.error(f"订阅行情数据失败: {subscribe_code}")
-            raise ConnectionError(f"订阅行情数据失败: {subscribe_code}")
+        self.subscribe_code = xtdata.subscribe_quote(stock_code, callback=callback)
+        if self.subscribe_code == -1:
+            self.market_logger.error(f"订阅行情数据失败: {self.subscribe_code}")
+            raise ConnectionError(f"订阅行情数据失败: {self.subscribe_code}")
         else:
-            self.market_logger.success(f"订阅行情数据成功: {subscribe_code}")
+            self.market_logger.success(f"订阅行情数据成功 -> 订阅号: {self.subscribe_code}")
 
     def run(self) -> None:
         """
@@ -344,7 +346,7 @@ class MiniQMTTrader:
         self.timer.start()
 
         # -2 订阅行情数据
-        self.subscribe_whole_quote(callback=self.on_tick)
+        self.subscribe_whole_quote(callback=self.on_tick, whole_market=True)
 
         # -3 启动行情监听线程（非阻塞/守护线程）
         self.market_thread = threading.Thread(target=xtdata.run, daemon=True)
@@ -393,17 +395,17 @@ class MiniQMTTrader:
         事件驱动处理方法: 仅用于接收、存储最新行情数据
         """
         current_time = datetime.now().time()
-        if ((
-                self.m_start_time < current_time < self.m_end_time) or
+        if (
+                (self.m_start_time < current_time < self.m_end_time) or
                 (self.a_start_time < current_time < self.a_end_time)
         ):
             timestamp_ms = next(iter(data.values()))["time"]  # 直接获取首个值
             utc_time = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
-            beijing_time = utc_time.astimezone(ZoneInfo("Asia/Shanghai"))
+            # beijing_time = utc_time.astimezone(ZoneInfo("Asia/Shanghai"))
             self.market_logger.info(
-                f"{beijing_time}: 接收到行情推送，"
+                f"{utc_time}: 接收到行情推送，"
                 f"共有{len(data)}个数据，"
-                f"股票：{data.keys()}"
+                f"股票：{list(data.keys())[:10]}"
             )
             self.last_data.update(data)
 
@@ -415,8 +417,8 @@ class MiniQMTTrader:
         self.heartbeat_detection()
 
         current_time = datetime.now().time()
-        if ((
-                self.m_start_time < current_time < self.m_end_time) or
+        if (
+                (self.m_start_time < current_time < self.m_end_time) or
                 (self.a_start_time < current_time < self.a_end_time)
         ):
             # -2 发送策略订单
